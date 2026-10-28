@@ -1,0 +1,325 @@
+{
+  "debates": [
+    {
+      "id": "deb_1776519460406_1367",
+      "parentId": null,
+      "from": "Main personal profile",
+      "to": null,
+      "start": "statement",
+      "confidence": "0",
+      "antiReaction": false,
+      "intention": "explore",
+      "theme": "politics-society",
+      "title": "test",
+      "definitions": [],
+      "facts": [],
+      "content": [
+        "content content"
+      ],
+      "timestamp": 1776519460406
+    },
+    {
+      "id": "deb_1776519532737_1220",
+      "parentId": null,
+      "from": "Main personal profile",
+      "to": null,
+      "start": "question",
+      "confidence": "0",
+      "antiReaction": false,
+      "intention": "explore",
+      "theme": "politics-society",
+      "title": "second",
+      "definitions": [],
+      "facts": [],
+      "content": [
+        "content content",
+        "c1",
+        "c2"
+      ],
+      "timestamp": 1776519532737
+    },
+    {
+      "id": "deb_1786283309643_4587",
+      "parentId": null,
+      "from": "Main personal profile",
+      "to": "Debate partners circle",
+      "start": "question",
+      "confidence": "0",
+      "antiReaction": false,
+      "intention": "explore",
+      "theme": "politics-society",
+      "title": "A quel point faut il tolérer l'intolérance?",
+      "definitions": [],
+      "facts": [],
+      "content": [
+        "On a le droit d'être intolérant à l'intolérance. C'est un fait avéré pour tous les gens raisonnables.",
+        "Mais la question, comme on est tolérant, c'est à quel moment devenir intolérant ?"
+      ],
+      "timestamp": 1786283309645,
+      "children": [
+        {
+          "id": "p15826",
+          "author": "You",
+          "confidence": 50,
+          "title": "Reply",
+          "paragraphs": [
+            {
+              "id": "pg-1786287205547",
+              "text": "quoi?"
+            }
+          ],
+          "replyTo": "deb_1786283309643_4587-p-1",
+          "children": [
+            {
+              "id": "p69858",
+              "author": "You",
+              "confidence": 50,
+              "title": "Reply",
+              "paragraphs": [
+                {
+                  "id": "pg-1786287568171",
+                  "text": "rien..."
+                }
+              ],
+              "replyTo": "pg-1786287205547",
+              "children": [
+                {
+                  "id": "p4529",
+                  "author": "You",
+                  "confidence": 50,
+                  "title": "JE VEUX ETRE ENTENDU",
+                  "paragraphs": [
+                    {
+                      "id": "pg-1786288395937",
+                      "text": "meme si je n'ai rien a dire"
+                    }
+                  ],
+                  "replyTo": "pg-1786287568171",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "p44600",
+              "author": "You",
+              "confidence": 50,
+              "title": "Reply",
+              "paragraphs": [
+                {
+                  "id": "pg-1786288203630",
+                  "text": "mon corps"
+                }
+              ],
+              "replyTo": "pg-1786287205547",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deb_20260809120000_0001",
+      "parentId": null,
+      "from": "Alice",
+      "to": null,
+      "start": "other",
+      "confidence": "82",
+      "antiReaction": true,
+      "intention": "explore",
+      "theme": "economy-tech",
+      "title": "L’IA transforme‑t‑elle la créativité humaine ?",
+      "definitions": [
+        {
+          "id": "d1",
+          "text": "Créativité : capacité à produire des idées nouvelles et utiles."
+        },
+        {
+          "id": "d2",
+          "text": "IA générative : modèle capable de produire du contenu original à partir d’exemples."
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "text": "En 2025, 38% des studios créatifs utilisaient l’IA dans leur pipeline."
+        },
+        {
+          "id": "f2",
+          "text": "Les outils IA ont réduit de 30% le temps moyen de prototypage visuel."
+        }
+      ],
+      "content": [
+        "L’IA générative permet aujourd’hui de produire du texte, des images et du son à une vitesse inédite.",
+        "La question est de savoir si elle amplifie la créativité humaine ou si elle la remplace progressivement."
+      ],
+      "children": [
+        {
+          "id": "p2",
+          "author": "Bob",
+          "confidence": 68,
+          "title": "L’IA modifie déjà les modèles économiques créatifs",
+          "replyTo": "p1",
+          "paragraphs": [
+            {
+              "id": "p2-1",
+              "text": "Les studios utilisent l’IA pour réduire les coûts, ce qui fragilise les créateurs humains."
+            },
+            {
+              "id": "p2-2",
+              "text": "Cependant, l’IA ouvre aussi de nouveaux marchés, notamment pour les indépendants."
+            }
+          ],
+          "children": [
+            {
+              "id": "p3",
+              "author": "Clara",
+              "confidence": 61,
+              "title": "La réduction des coûts n’est pas toujours négative",
+              "replyTo": "p2-1",
+              "paragraphs": [
+                {
+                  "id": "p3-1",
+                  "text": "Réduire les coûts peut permettre de financer davantage de projets créatifs."
+                },
+                {
+                  "id": "p3-2",
+                  "text": "Mais cela dépend de la manière dont les économies sont redistribuées."
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "p4",
+              "author": "Dan",
+              "confidence": 57,
+              "title": "Les indépendants profitent surtout des outils IA",
+              "replyTo": "p2-2",
+              "paragraphs": [
+                {
+                  "id": "p4-1",
+                  "text": "Les outils IA permettent aux créateurs solos de produire à l’échelle d’un petit studio."
+                },
+                {
+                  "id": "p4-2",
+                  "text": "Cela rééquilibre partiellement le rapport de force avec les grandes structures."
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "p5",
+              "author": "Eva",
+              "confidence": 70,
+              "title": "L’impact global dépend du cadre éthique",
+              "replyTo": "p2",
+              "paragraphs": [
+                {
+                  "id": "p5-1",
+                  "text": "L’IA peut être bénéfique si elle est encadrée par des règles claires."
+                },
+                {
+                  "id": "p5-2",
+                  "text": "Sans régulation, elle risque d’accentuer les inégalités créatives."
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "p6",
+          "author": "Fred",
+          "confidence": 74,
+          "title": "L’IA accélère, mais ne remplace pas l’intuition humaine",
+          "replyTo": "p1-1",
+          "paragraphs": [
+            {
+              "id": "p6-1",
+              "text": "La vitesse de génération ne remplace pas la capacité humaine à formuler une intention."
+            },
+            {
+              "id": "p6-2",
+              "text": "L’IA reste dépendante des données existantes, ce qui limite son originalité."
+            }
+          ],
+          "children": [
+            {
+              "id": "p8",
+              "author": "Alice",
+              "confidence": 85,
+              "title": "L’intention humaine reste centrale",
+              "replyTo": "p6-1",
+              "paragraphs": [
+                {
+                  "id": "p8-1",
+                  "text": "Tu as raison : l’IA n’a pas d’intention propre, elle ne fait qu’exécuter."
+                },
+                {
+                  "id": "p8-2",
+                  "text": "Mais elle peut amplifier une intention humaine en explorant rapidement des variations."
+                }
+              ],
+              "children": [
+                {
+                  "id": "p9",
+                  "author": "Fred",
+                  "confidence": 76,
+                  "title": "L’exploration rapide change la manière de créer",
+                  "replyTo": "p8",
+                  "paragraphs": [
+                    {
+                      "id": "p9-1",
+                      "text": "L’exploration accélérée permet de tester plus d’idées en moins de temps."
+                    },
+                    {
+                      "id": "p9-2",
+                      "text": "Mais cela peut aussi pousser à privilégier la quantité sur la profondeur."
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "p7",
+          "author": "Gina",
+          "confidence": 72,
+          "title": "L’IA peut remplacer certaines tâches, mais pas la vision",
+          "replyTo": "p1-2",
+          "paragraphs": [
+            {
+              "id": "p7-1",
+              "text": "Les tâches répétitives ou techniques sont facilement automatisables."
+            },
+            {
+              "id": "p7-2",
+              "text": "Mais la vision artistique globale reste profondément humaine."
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "p10",
+          "author": "Alice",
+          "confidence": 88,
+          "title": "Clarification sur la redistribution des gains",
+          "replyTo": "p3",
+          "paragraphs": [
+            {
+              "id": "p10-1",
+              "text": "Clara, tu soulèves un point essentiel sur la redistribution."
+            },
+            {
+              "id": "p10-2",
+              "text": "Le problème est que les économies réalisées ne profitent pas toujours aux créateurs."
+            }
+          ],
+          "children": []
+        }
+      ],
+      "timestamp": 1790000000000
+    }
+  ]
+}
