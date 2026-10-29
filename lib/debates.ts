@@ -1,5 +1,6 @@
 import "server-only";
 import { neon } from "@neondatabase/serverless";
+import { getSessionAccountId } from "@/lib/auth";
 import fixture from "../debates.json";
 
 export type Debate = {
@@ -87,12 +88,6 @@ async function initializeDatabase() {
   )`;
   await sql`CREATE INDEX IF NOT EXISTS debate_reports_debate_id_idx ON debate_reports (debate_id, created_at)`;
 
-  const counts = await sql`SELECT COUNT(*)::int AS count FROM debates`;
-  if (Number(counts[0]?.count) === 0) {
-    for (const debate of fixture.debates as Debate[]) {
-      await sql`INSERT INTO debates (id, title, payload) VALUES (${debate.id}, ${debate.title}, ${JSON.stringify(debate)}::jsonb) ON CONFLICT (id) DO NOTHING`;
-    }
-  }
   store.ready = true;
   store.persistent = true;
   return true;
@@ -102,7 +97,8 @@ export async function isPersistentStore() {
   try {
     return await initializeDatabase();
   } catch (error) {
-    console.error("Postgres unavailable; using fixture and in-memory writes.", error);
+    console.error("Postgres connection failed.", error);
+    if (process.env.DATABASE_URL) throw new Error("DATABASE_URL is configured, but the database connection failed.", { cause: error });
     store.persistent = false;
     return false;
   }
@@ -120,7 +116,12 @@ export async function listDebates() {
   const persistent = await isPersistentStore();
   const sql = persistent ? database() : null;
   if (sql) {
-    const rows = await sql`SELECT payload FROM debates ORDER BY created_at DESC`;
+    const accountId = await getSessionAccountId();
+    if (!accountId) return [];
+    const rows = await sql`SELECT payload FROM debates d
+      WHERE d.author_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId})
+        OR d.circle_id IN (SELECT cm.circle_id FROM circle_members cm JOIN profiles p ON p.id = cm.profile_id WHERE p.account_id = ${accountId})
+      ORDER BY d.created_at DESC`;
     return rows.map((row) => row.payload as Debate);
   }
   return structuredClone(store.debates).sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
@@ -130,7 +131,12 @@ export async function getDebate(id: string) {
   const persistent = await isPersistentStore();
   const sql = persistent ? database() : null;
   if (sql) {
-    const rows = await sql`SELECT payload FROM debates WHERE id = ${id} LIMIT 1`;
+    const accountId = await getSessionAccountId();
+    if (!accountId) return null;
+    const rows = await sql`SELECT payload FROM debates d WHERE d.id = ${id} AND (
+      d.author_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId})
+      OR d.circle_id IN (SELECT cm.circle_id FROM circle_members cm JOIN profiles p ON p.id = cm.profile_id WHERE p.account_id = ${accountId})
+    ) LIMIT 1`;
     const debate = rows[0]?.payload as Debate | undefined;
     return debate ? addStoredComments(debate) : null;
   }

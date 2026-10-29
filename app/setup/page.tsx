@@ -1,0 +1,15 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { AuthForm } from "@/components/auth-form";
+import { getAccountCount } from "@/lib/social";
+
+export const dynamic = "force-dynamic";
+
+export default async function SetupPage() {
+  if (!process.env.DATABASE_URL) redirect("/circle");
+  if ((await getAccountCount()) > 0) redirect("/login");
+  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+    return <main className="form-shell auth-shell"><p className="eyebrow">First-time setup</p><h1 className="serif">Server configuration required</h1><p className="form-lead">Set SESSION_SECRET to a random value of at least 32 characters in Vercel Environment Variables, then redeploy to create your account.</p></main>;
+  }
+  return <main className="form-shell auth-shell"><Link href="/" className="wordmark">Circles</Link><p className="eyebrow">First-time setup</p><h1 className="serif">Create the primary account</h1><p className="form-lead">This creates the first private account and its first individual profile in the connected database.</p><AuthForm mode="setup" /></main>;
+}

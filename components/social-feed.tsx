@@ -49,9 +49,9 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
     if (result.debate?.id) router.push(`/debates/${encodeURIComponent(result.debate.id)}`);
   }
 
-  async function react(postId: string, reaction: string) {
+  async function react(postId: string, reaction: string, authorProfileId: string) {
     const response = await fetch(`/api/social/posts/${encodeURIComponent(postId)}/reactions`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reaction })
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reaction, profileId: authorProfileId })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (response?.ok) setPosts((current) => current.map((post) => post.id === postId ? { ...post, reactions: result.reactions } : post));
@@ -104,7 +104,7 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
           <header className="social-post-header"><span className="social-avatar">{post.avatar}</span><div className="social-post-author"><strong>{post.author}</strong><span>{post.circleName || "Public feed"} · {new Date(post.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span></div><span className={`post-kind-label ${post.kind}`}>{post.kind === "debate" ? "Debate" : post.kind === "event" ? "Event" : "Post"}</span></header>
           <div className="social-post-copy"><h2>{post.title}</h2><p>{post.body}</p></div>
           <div className="social-post-subtext">{post.subtext}</div>
-          <footer className="social-post-actions"><div className="social-reactions" aria-label="Reactions">{reactions.map((reaction) => <button key={reaction} title={`React ${reaction}`} onClick={() => react(post.id, reaction)}>{reaction}{post.reactions?.[reaction] ? <small>{post.reactions[reaction]}</small> : null}</button>)}</div><span>{post.commentsCount} repl{post.commentsCount === 1 ? "y" : "ies"}</span></footer>
+          <footer className="social-post-actions"><div className="social-reactions" aria-label="Reactions">{reactions.map((reaction) => <button key={reaction} title={`React ${reaction}`} onClick={() => react(post.id, reaction, profileId)}>{reaction}{post.reactions?.[reaction] ? <small>{post.reactions[reaction]}</small> : null}</button>)}</div><span>{post.commentsCount} repl{post.commentsCount === 1 ? "y" : "ies"}</span></footer>
           {post.debateId ? <Link className="linked-debate" href={`/debates/${encodeURIComponent(post.debateId)}`}>Open linked debate ↗</Link> : <button className="text-action" type="button" onClick={() => startDebate(post)}>⚖️ Turn this post into a debate</button>}
         </article>)}
         {filteredPosts.length === 0 && <div className="empty-state">No posts in this Circle yet.</div>}

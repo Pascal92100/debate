@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSocialProfile, listProfiles } from "@/lib/social";
+import { createSocialProfile, getSessionAccountId, listProfiles } from "@/lib/social";
 
 export const runtime = "nodejs";
 
@@ -12,7 +12,10 @@ export async function POST(request: Request) {
   if (!body || typeof body.name !== "string" || body.name.trim().length < 2) {
     return NextResponse.json({ error: "Le profil doit avoir un nom." }, { status: 400 });
   }
+  const accountId = process.env.DATABASE_URL ? await getSessionAccountId() : undefined;
+  if (process.env.DATABASE_URL && !accountId) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   const profile = await createSocialProfile({
+    accountId: accountId ?? undefined,
     name: body.name,
     kind: typeof body.kind === "string" ? body.kind : "individual",
     category: typeof body.category === "string" ? body.category : "Personal",

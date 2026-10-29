@@ -1,4 +1,4 @@
--- Unified PostgreSQL schema for the Circle social network and debate application.
+-- Unified PostgreSQL schema for the Circle account, Circles social network, and debates.
 -- Safe to apply more than once. Runtime currently provisions the MVP tables too;
 -- this file is the complete deployment schema for the full social feature set.
 
@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   email TEXT UNIQUE,
   display_name TEXT NOT NULL,
   auth_subject TEXT UNIQUE,
+  password_hash TEXT,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
   nationalities JSONB NOT NULL DEFAULT '[]'::jsonb,
   birthdate DATE,
   address TEXT,
@@ -16,11 +18,14 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS auth_subject TEXT UNIQUE;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS is_primary BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nationalities JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS birthdate DATE;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS address TEXT;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+CREATE UNIQUE INDEX IF NOT EXISTS accounts_single_primary_idx ON accounts(is_primary) WHERE is_primary;
 
 CREATE TABLE IF NOT EXISTS profiles (
   id TEXT PRIMARY KEY,
@@ -69,6 +74,7 @@ CREATE TABLE IF NOT EXISTS profile_descriptions (
 );
 ALTER TABLE profile_descriptions ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb;
 CREATE INDEX IF NOT EXISTS profile_descriptions_profile_idx ON profile_descriptions(profile_id, enabled, sort_order);
+COMMENT ON COLUMN profile_descriptions.payload IS 'Complete profile description document, including identity/theme field states and activation durations/expiry timestamps.';
 
 CREATE TABLE IF NOT EXISTS profile_preferences (
   profile_id TEXT PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
@@ -279,6 +285,7 @@ CREATE TABLE IF NOT EXISTS alerts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS alerts_inbox_idx ON alerts(profile_id, created_at DESC) WHERE read_at IS NULL;
+COMMENT ON TABLE alerts IS 'Unread alert count for a profile is the number of rows where read_at IS NULL; the demo UI currently shows the prototype count of 7.';
 
 CREATE TABLE IF NOT EXISTS retributions (
   id TEXT PRIMARY KEY,

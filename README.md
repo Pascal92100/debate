@@ -1,4 +1,4 @@
-# Réflexions
+# Circles
 
 Site de réseau social et de débats construit avec Next.js App Router, React, TypeScript et Neon Postgres.
 
@@ -9,23 +9,24 @@ npm install
 npm run dev
 ```
 
-Ouvrir http://localhost:3000. Sans `DATABASE_URL`, le réseau et les débats utilisent leurs fixtures JSON et conservent les créations/réactions en mémoire pour la durée du processus.
+Open http://localhost:3000. Without `DATABASE_URL`, the social network and debates use local JSON fixtures; changes remain in memory for the lifetime of the process.
 
 ## Activer la base Vercel
 
-1. Dans le projet Vercel, ouvrir **Storage** et créer ou connecter une base Postgres Neon.
-2. Ajouter la variable `DATABASE_URL` (URL pooled) aux variables d'environnement du projet. En local, la placer dans `.env.local`.
-3. Exécuter `database/schema.sql` une fois dans l'éditeur SQL Neon pour créer le schéma complet réseau + débats.
-4. Redéployer ou redémarrer le serveur. L'application crée au besoin les tables de base utilisées par le fil et importe les fixtures de démo à leur premier accès.
+1. In Vercel, connect the project to the Neon Postgres database.
+2. Set `DATABASE_URL` to the pooled connection string in Vercel Environment Variables. For local development, store it in `.env.local`.
+3. Generate a random secret with `openssl rand -base64 48` and set it as `SESSION_SECRET` in Vercel and local `.env.local`. Never commit either secret.
+4. Run (or rerun) `database/schema.sql` against the Neon database. It is idempotent and adds the account password/primary-account columns required by this release.
+5. Redeploy. Neon is now read without inserting demo fixtures. If there are no accounts, `/setup` creates the first primary account and its first individual profile. If the old runtime left its sole unclaimed `account-demo` fixture, setup removes that known demo account and its cascading profile/social rows first. Other account data is not automatically deleted. Subsequent visits require email/password sign-in at `/login`.
 
-Le schéma unifié de [database/schema.sql](database/schema.sql) couvre les comptes, profils individuels et méta-profils, préférences et descriptions thématiques, cercles et membres, publications et médias, réactions, commentaires sociaux, débats et réponses, signalements, recherches enregistrées, conversations privées, événements, alertes et rétributions. Le schéma conserve le payload JSON des débats existants tout en ajoutant les clés relationnelles vers le profil, le cercle et la publication source.
+The initial account password is stored as a scrypt hash. A signed, HTTP-only, secure-in-production cookie protects application pages and APIs. Do not enable the connected database in production without a strong `SESSION_SECRET`.
 
-Le réseau entre par `/circle`, qui affiche le compte et ses choix comme dans le prototype. Le fil reste disponible sur `/social`, avec les pages `/social/circles` et `/circle/profiles`. Le prototype Feed/Wall, les cercles, profils individuels/méta-profils, le sélecteur de profil auteur, la visibilité et les réactions sont repris dans ce parcours. Les routes incluent `GET/POST /api/social/posts`, `POST /api/social/posts/:id/debate`, `POST /api/social/posts/:id/reactions`, `GET/POST /api/social/circles` et `GET/POST /api/social/profiles`, ainsi que les routes de débats `GET/POST /api/debates`, `GET /api/debates/:id`, `POST /api/debates/:id/comments` et `POST /api/debates/:id/reports`. Un post de type débat crée un débat lié ; une publication normale peut aussi être transformée en débat depuis le fil.
+The unified schema in [database/schema.sql](database/schema.sql) covers accounts, individual and meta-profiles, profile preferences and descriptions, Circles and memberships, posts, reactions, comments, debates, reports, saved searches, private conversations, events, alerts, and retributions. Debate payloads retain their existing JSON format and include relational links to their author profile, Circle, and source post.
 
-Dans un fil, chaque paragraphe est un argument indépendant : un clic ouvre sa réponse, chaque ligne peut être signalée, et les sous-réponses se replient avec le titre du message. Les actions de ligne apparaissent au survol sur desktop et restent visibles sur écran tactile. Les dix motifs de signalement et leurs smileys correspondent à l'ancien menu : 🚫 Interdit, 💨 Hors sujet, 🤣 Humour, 🔀 Déviation, 🔄🤯 Mauvais raisonnement, ❓ Invérifiable, ☢️ Manipulation, 🔞 Sexuel, ⚠️ Choquant et ❌ Agressif. Le formulaire de réponse contient également les cinq auto-évaluations historiques.
+When `DATABASE_URL` is configured, the app reads and writes Neon data and does not import JSON fixtures. If the database is empty, `/setup` creates the first primary account and an individual profile. The first account is the only account-creation flow currently available; additional accounts, email verification, password reset, and account recovery still need implementation. `/login` authenticates the primary account, and `/circle` shows its account details. Pages and APIs require the signed HTTP-only session cookie.
 
-Les retours à la ligne dans une contribution deviennent des arguments séparés. Les métadonnées Starter, Theme, Mode, Confidence et Icon sont affichées au début du post, avant ses arguments. Les commandes historiques de filtrage sont visibles ; celles qui ne sont pas encore implémentées annoncent leur disponibilité future. La vue Classic est active et Graph est affichée comme bientôt disponible.
+Local development without `DATABASE_URL` remains in demo mode and uses `social.json` and `debates.json`; writes are in-memory only. A configured database connection failure is reported rather than silently switching to fake data.
 
-Le prototype Circle est une maquette HTML statique : les anciens liens WordPress, exemples de médias, écrans de messagerie, recherche avancée et certaines préférences n'étaient pas reliés à un backend. Le premier parcours intégré rend le fil texte, les cercles, profils de démonstration, réactions et création de débats effectivement navigables. Les tables des autres modules sont prévues dans le schéma unifié pour leur raccordement progressif.
+Social routes include `GET/POST /api/social/posts`, `POST /api/social/posts/:id/debate`, `POST /api/social/posts/:id/reactions`, `GET/POST /api/social/circles`, and `GET/POST /api/social/profiles`. Debate routes include `GET/POST /api/debates`, `GET /api/debates/:id`, `POST /api/debates/:id/comments`, and `POST /api/debates/:id/reports`. Creating a debate from a post stores the relationship in both directions. Each paragraph in a debate argument is independently replyable and reportable; Classic is available and Graph remains a placeholder.
 
-Sans base configurée, les fichiers JSON ne sont jamais modifiés et les changements en mémoire ne sont pas durables. Le compte/profil affiché est un profil de démonstration ; l'authentification réelle et les permissions multi-utilisateurs restent à connecter.
+The original Circle prototype includes additional modules such as communities, forums, private messages, advanced search, and payments. Their database tables are present where applicable, but those features are not all implemented in the application yet.

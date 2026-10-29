@@ -237,6 +237,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .source-post-link { display: inline-block; margin-top: 10px; color: var(--green); font-size: 10px; font-weight: 700; }
 .circle-account-shell { width: min(1050px, calc(100% - 40px)); margin: 38px auto 60px; animation: arrive .45s both; }
 .circle-account-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
+.account-header-actions { display: flex; align-items: center; gap: 14px; }
 .circle-wordmark { display: inline-flex; align-items: center; gap: 9px; font-size: 15px; }
 .circle-wordmark span { display: inline-grid; width: 30px; height: 30px; place-items: center; background: var(--green); color: white; font-family: "Newsreader", Georgia, serif; font-size: 19px; }
 .circle-wordmark .circle-brand-mark { border: 2px solid var(--green); border-radius: 50%; background: transparent; color: var(--green); font-family: "DM Sans", sans-serif; font-size: 14px; }
