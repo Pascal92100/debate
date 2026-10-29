@@ -28,7 +28,7 @@ export function DebateForm({ profiles, initialProfileId }: { profiles: SocialPro
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
-      setError(result?.error || "Le débat n’a pas pu être publié. Réessayez.");
+      setError(result?.error || "The debate could not be published. Please try again.");
       setSaving(false);
       return;
     }
@@ -38,14 +38,14 @@ export function DebateForm({ profiles, initialProfileId }: { profiles: SocialPro
 
   return (
     <form className="form-panel" onSubmit={submit}>
-      <div className="field"><label htmlFor="title">Titre du débat</label><input id="title" name="title" required minLength={4} maxLength={140} placeholder="Ex. La ville doit-elle ralentir la circulation ?" /></div>
+      <div className="field"><label htmlFor="title">Debate title</label><input id="title" name="title" required minLength={4} maxLength={140} placeholder="e.g. Should the city slow down traffic?" /></div>
       <div className="form-row">
-        <div className="field"><label htmlFor="profileId">Profil auteur</label><select id="profileId" name="profileId" required defaultValue={profiles.some((profile) => profile.id === initialProfileId) ? initialProfileId : profiles[0]?.id ?? ""}>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.kind === "individual" ? profile.category : `Méta-profil · ${profile.category}`}</option>)}</select></div>
-        <div className="field"><label htmlFor="theme">Thème</label><select id="theme" name="theme"><option value="lifestyle-ideas">Idées & société</option><option value="politics-society">Politique & société</option><option value="culture-entertainment">Culture</option><option value="science-health">Science & santé</option><option value="economy-tech">Économie & tech</option><option value="sports">Sport</option></select></div>
+        <div className="field"><label htmlFor="profileId">Author profile</label><select id="profileId" name="profileId" required defaultValue={profiles.some((profile) => profile.id === initialProfileId) ? initialProfileId : profiles[0]?.id ?? ""}>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.kind === "individual" ? profile.category : `Meta-profile · ${profile.category}`}</option>)}</select></div>
+        <div className="field"><label htmlFor="theme">Theme</label><select id="theme" name="theme"><option value="lifestyle-ideas">Ideas & society</option><option value="politics-society">Politics & society</option><option value="culture-entertainment">Culture</option><option value="science-health">Science & health</option><option value="economy-tech">Economy & tech</option><option value="sports">Sports</option></select></div>
       </div>
-      <div className="field"><label htmlFor="start">Point de départ</label><select id="start" name="start"><option value="question">Question</option><option value="statement">Affirmation</option><option value="topic">Sujet</option><option value="dilemma">Dilemme</option><option value="hypothesis">Hypothèse</option></select></div>
-      <div className="field"><label htmlFor="content">Votre introduction</label><textarea id="content" name="content" required minLength={8} maxLength={5000} placeholder="Exposez votre point de vue et les raisons de lancer cette discussion…" /><span className="field-hint">Un paragraphe suffit pour démarrer. Vous pourrez ajouter des réponses ensuite.</span></div>
-      <div className="form-actions"><button className="button-primary" type="submit" disabled={saving}>{saving ? "Publication…" : "Publier le débat"}</button>{error && <span className="form-error" role="alert">{error}</span>}</div>
+      <div className="field"><label htmlFor="start">Starting point</label><select id="start" name="start"><option value="question">Question</option><option value="statement">Statement</option><option value="topic">Topic</option><option value="dilemma">Dilemma</option><option value="hypothesis">Hypothesis</option></select></div>
+      <div className="field"><label htmlFor="content">Your introduction</label><textarea id="content" name="content" required minLength={8} maxLength={5000} placeholder="Share your point of view and why you want to open this discussion…" /><span className="field-hint">One paragraph is enough to start. You can add replies later.</span></div>
+      <div className="form-actions"><button className="button-primary" type="submit" disabled={saving}>{saving ? "Publishing…" : "Publish debate"}</button>{error && <span className="form-error" role="alert">{error}</span>}</div>
     </form>
   );
 }

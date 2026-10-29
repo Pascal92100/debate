@@ -8,12 +8,12 @@ export function SiteChrome() {
   if (pathname === "/circle" || pathname.startsWith("/circle/") || pathname === "/social" || pathname.startsWith("/social/")) return null;
 
   return <header className="site-header">
-    <Link className="wordmark" href="/" aria-label="Réflexions, accueil">
+    <Link className="wordmark" href="/" aria-label="Circles home">
       <span className="wordmark-mark">R</span>
-      <span>réflexions</span>
+      <span>Circles</span>
     </Link>
     <nav aria-label="Navigation principale">
-      <Link href="/debates">Débats</Link>
+      <Link href="/debates">Debates</Link>
       <Link href="/circle">Circle</Link>
     </nav>
   </header>;

@@ -48,12 +48,12 @@
       "antiReaction": false,
       "intention": "explore",
       "theme": "politics-society",
-      "title": "A quel point faut il tolérer l'intolérance?",
+      "title": "To what extent should intolerance be tolerated?",
       "definitions": [],
       "facts": [],
       "content": [
-        "On a le droit d'être intolérant à l'intolérance. C'est un fait avéré pour tous les gens raisonnables.",
-        "Mais la question, comme on est tolérant, c'est à quel moment devenir intolérant ?"
+        "We have the right to be intolerant of intolerance. This is a well-established principle for reasonable people.",
+        "But the question is: if we are tolerant, when should we become intolerant?"
       ],
       "timestamp": 1786283309645,
       "children": [
@@ -129,46 +129,46 @@
       "antiReaction": true,
       "intention": "explore",
       "theme": "economy-tech",
-      "title": "L’IA transforme‑t‑elle la créativité humaine ?",
+      "title": "Does AI transform human creativity?",
       "definitions": [
         {
           "id": "d1",
-          "text": "Créativité : capacité à produire des idées nouvelles et utiles."
+          "text": "Creativity: the ability to produce new and useful ideas."
         },
         {
           "id": "d2",
-          "text": "IA générative : modèle capable de produire du contenu original à partir d’exemples."
+          "text": "Generative AI: a model capable of producing content from examples."
         }
       ],
       "facts": [
         {
           "id": "f1",
-          "text": "En 2025, 38% des studios créatifs utilisaient l’IA dans leur pipeline."
+          "text": "In 2025, 38% of creative studios used AI in their production pipeline."
         },
         {
           "id": "f2",
-          "text": "Les outils IA ont réduit de 30% le temps moyen de prototypage visuel."
+          "text": "AI tools reduced the average time required for visual prototyping by 30%."
         }
       ],
       "content": [
-        "L’IA générative permet aujourd’hui de produire du texte, des images et du son à une vitesse inédite.",
-        "La question est de savoir si elle amplifie la créativité humaine ou si elle la remplace progressivement."
+        "Generative AI can now produce text, images, and sound at unprecedented speed.",
+        "The question is whether it amplifies human creativity or gradually replaces it."
       ],
       "children": [
         {
           "id": "p2",
           "author": "Bob",
           "confidence": 68,
-          "title": "L’IA modifie déjà les modèles économiques créatifs",
+          "title": "AI is already changing creative business models",
           "replyTo": "p1",
           "paragraphs": [
             {
               "id": "p2-1",
-              "text": "Les studios utilisent l’IA pour réduire les coûts, ce qui fragilise les créateurs humains."
+              "text": "Studios use AI to reduce costs, which can undermine human creators."
             },
             {
               "id": "p2-2",
-              "text": "Cependant, l’IA ouvre aussi de nouveaux marchés, notamment pour les indépendants."
+              "text": "However, AI also opens new markets, particularly for independent creators."
             }
           ],
           "children": [
@@ -176,16 +176,16 @@
               "id": "p3",
               "author": "Clara",
               "confidence": 61,
-              "title": "La réduction des coûts n’est pas toujours négative",
+              "title": "Reducing costs is not always a bad thing",
               "replyTo": "p2-1",
               "paragraphs": [
                 {
                   "id": "p3-1",
-                  "text": "Réduire les coûts peut permettre de financer davantage de projets créatifs."
+                  "text": "Lower costs can make it possible to fund more creative projects."
                 },
                 {
                   "id": "p3-2",
-                  "text": "Mais cela dépend de la manière dont les économies sont redistribuées."
+                  "text": "But that depends on how the savings are distributed."
                 }
               ],
               "children": []
@@ -194,16 +194,16 @@
               "id": "p4",
               "author": "Dan",
               "confidence": 57,
-              "title": "Les indépendants profitent surtout des outils IA",
+              "title": "Independent creators benefit most from AI tools",
               "replyTo": "p2-2",
               "paragraphs": [
                 {
                   "id": "p4-1",
-                  "text": "Les outils IA permettent aux créateurs solos de produire à l’échelle d’un petit studio."
+                  "text": "AI tools let solo creators produce at the scale of a small studio."
                 },
                 {
                   "id": "p4-2",
-                  "text": "Cela rééquilibre partiellement le rapport de force avec les grandes structures."
+                  "text": "This partly rebalances the playing field with larger organizations."
                 }
               ],
               "children": []
@@ -212,16 +212,16 @@
               "id": "p5",
               "author": "Eva",
               "confidence": 70,
-              "title": "L’impact global dépend du cadre éthique",
+              "title": "The overall impact depends on the ethical framework",
               "replyTo": "p2",
               "paragraphs": [
                 {
                   "id": "p5-1",
-                  "text": "L’IA peut être bénéfique si elle est encadrée par des règles claires."
+                  "text": "AI can be beneficial when governed by clear rules."
                 },
                 {
                   "id": "p5-2",
-                  "text": "Sans régulation, elle risque d’accentuer les inégalités créatives."
+                  "text": "Without regulation, it may deepen inequalities in creative work."
                 }
               ],
               "children": []
@@ -232,16 +232,16 @@
           "id": "p6",
           "author": "Fred",
           "confidence": 74,
-          "title": "L’IA accélère, mais ne remplace pas l’intuition humaine",
+          "title": "AI speeds things up but does not replace human intuition",
           "replyTo": "p1-1",
           "paragraphs": [
             {
               "id": "p6-1",
-              "text": "La vitesse de génération ne remplace pas la capacité humaine à formuler une intention."
+              "text": "Generation speed does not replace the human ability to form an intention."
             },
             {
               "id": "p6-2",
-              "text": "L’IA reste dépendante des données existantes, ce qui limite son originalité."
+              "text": "AI remains dependent on existing data, which limits its originality."
             }
           ],
           "children": [
@@ -249,16 +249,16 @@
               "id": "p8",
               "author": "Alice",
               "confidence": 85,
-              "title": "L’intention humaine reste centrale",
+                  "title": "Human intention remains central",
               "replyTo": "p6-1",
               "paragraphs": [
                 {
                   "id": "p8-1",
-                  "text": "Tu as raison : l’IA n’a pas d’intention propre, elle ne fait qu’exécuter."
+                      "text": "You are right: AI has no intention of its own; it only executes."
                 },
                 {
                   "id": "p8-2",
-                  "text": "Mais elle peut amplifier une intention humaine en explorant rapidement des variations."
+                      "text": "But it can amplify human intention by quickly exploring variations."
                 }
               ],
               "children": [
@@ -266,16 +266,16 @@
                   "id": "p9",
                   "author": "Fred",
                   "confidence": 76,
-                  "title": "L’exploration rapide change la manière de créer",
+                  "title": "Rapid exploration changes how we create",
                   "replyTo": "p8",
                   "paragraphs": [
                     {
                       "id": "p9-1",
-                      "text": "L’exploration accélérée permet de tester plus d’idées en moins de temps."
+                      "text": "Faster exploration makes it possible to test more ideas in less time."
                     },
                     {
                       "id": "p9-2",
-                      "text": "Mais cela peut aussi pousser à privilégier la quantité sur la profondeur."
+                      "text": "But it can also encourage quantity over depth."
                     }
                   ],
                   "children": []
@@ -288,16 +288,16 @@
           "id": "p7",
           "author": "Gina",
           "confidence": 72,
-          "title": "L’IA peut remplacer certaines tâches, mais pas la vision",
+          "title": "AI can replace some tasks, but not vision",
           "replyTo": "p1-2",
           "paragraphs": [
             {
               "id": "p7-1",
-              "text": "Les tâches répétitives ou techniques sont facilement automatisables."
+              "text": "Repetitive or technical tasks can be automated easily."
             },
             {
               "id": "p7-2",
-              "text": "Mais la vision artistique globale reste profondément humaine."
+              "text": "But an overall artistic vision remains deeply human."
             }
           ],
           "children": []
@@ -311,11 +311,11 @@
           "paragraphs": [
             {
               "id": "p10-1",
-              "text": "Clara, tu soulèves un point essentiel sur la redistribution."
+              "text": "Clara, you raise an essential point about redistribution."
             },
             {
               "id": "p10-2",
-              "text": "Le problème est que les économies réalisées ne profitent pas toujours aux créateurs."
+              "text": "The problem is that creators do not always benefit from the savings."
             }
           ],
           "children": []

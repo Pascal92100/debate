@@ -3,17 +3,17 @@ import { SiteChrome } from "@/components/site-chrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Réflexions | Débats",
-  description: "Des débats construits, des idées qui se répondent."
+  title: "Circles | Debates",
+  description: "Structured debates where ideas meet."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr">
+    <html lang="en">
       <body>
         <SiteChrome />
         {children}
-        <footer className="site-footer">Un espace pour penser ensemble.</footer>
+        <footer className="site-footer">A place to think together.</footer>
       </body>
     </html>
   );

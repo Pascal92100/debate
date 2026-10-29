@@ -20,15 +20,15 @@ export function DebateControls() {
   const [filterActive, setFilterActive] = useState(false);
 
   return <div className="debate-controls">
-    <nav className="debate-tool-list" aria-label="Outils du débat">
-      {tools.map(([action, label]) => <button key={action} type="button" className="debate-tool" title={`${label} : en préparation`} onClick={() => setNotice(`${label} n’est pas encore disponible.`)}>{label}</button>)}
+    <nav className="debate-tool-list" aria-label="Debate tools">
+      {tools.map(([action, label]) => <button key={action} type="button" className="debate-tool" title={`${label}: coming soon`} onClick={() => setNotice(`${label} is not available yet.`)}>{label}</button>)}
     </nav>
     <div className="debate-control-bottom">
-      <div className="debate-views" role="group" aria-label="Forme de présentation">
+      <div className="debate-views" role="group" aria-label="Presentation mode">
         <button type="button" className="debate-view selected" aria-pressed="true">Classic</button>
-        <button type="button" className="debate-view" disabled title="La vue Graph sera disponible ultérieurement">Graph <span>Bientôt</span></button>
+        <button type="button" className="debate-view" disabled title="Graph view will be available later">Graph <span>Coming soon</span></button>
       </div>
-      <button type="button" className={`debate-tool filter-tool${filterActive ? " selected" : ""}`} aria-pressed={filterActive} onClick={() => { setFilterActive(!filterActive); setNotice("Le filtre avant / après vos réponses n’est pas encore disponible."); }}>
+      <button type="button" className={`debate-tool filter-tool${filterActive ? " selected" : ""}`} aria-pressed={filterActive} onClick={() => { setFilterActive(!filterActive); setNotice("Filtering before and after your replies is not available yet."); }}>
         Filter before / after my replies
       </button>
     </div>

@@ -407,7 +407,7 @@ export async function createCircle(input: { name: string; kind: string; descript
 
 export async function toggleSocialReaction(postId: string, reaction: string) {
   const allowed = new Set(["👍", "👎", "⚠️", "🔑", "💡", "🎓", "❌", "❓", "☀️"]);
-  if (!allowed.has(reaction)) throw new Error("Réaction inconnue");
+  if (!allowed.has(reaction)) throw new Error("Unknown reaction");
   const sql = await useDatabase();
   if (sql) {
     const existing = await sql`SELECT reaction FROM social_post_reactions WHERE post_id = ${postId} AND profile_id = ${demoProfileId}`;

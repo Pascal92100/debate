@@ -257,7 +257,8 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .account-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--line); background: var(--line); }
 .account-choice { display: grid; grid-template-columns: 35px minmax(0, 1fr) 14px; align-items: center; gap: 10px; min-height: 65px; padding: 11px 13px; background: var(--surface); transition: background .15s ease; }
 .account-choice:hover { background: #edf2eb; }
-.account-choice-icon { display: inline-grid; width: 32px; height: 32px; place-items: center; background: var(--pale-green); font-size: 15px; }
+.account-choice-icon { position: relative; display: inline-grid; width: 32px; height: 32px; place-items: center; background: var(--pale-green); font-size: 15px; }
+.account-alert-badge { position: absolute; top: -5px; right: -6px; display: grid; min-width: 16px; height: 16px; padding: 0 3px; place-items: center; border: 2px solid var(--surface); border-radius: 999px; background: #d54b42; color: white; font: 700 9px/1 "DM Sans", sans-serif; }
 .account-choice strong, .account-choice small { display: block; }
 .account-choice strong { font-size: 11px; }
 .account-choice small { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.35; }

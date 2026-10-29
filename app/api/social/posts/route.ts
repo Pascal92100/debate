@@ -12,14 +12,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body.body !== "string" || body.body.trim().length < 2) {
-    return NextResponse.json({ error: "Écris un message avant de publier." }, { status: 400 });
+    return NextResponse.json({ error: "Write a message before posting." }, { status: 400 });
   }
   if (body.startDebate && (typeof body.title !== "string" || body.title.trim().length < 4)) {
-    return NextResponse.json({ error: "Un titre de débat d’au moins quatre caractères est nécessaire." }, { status: 400 });
+    return NextResponse.json({ error: "Debate titles must contain at least four characters." }, { status: 400 });
   }
 
   const post = await createSocialPost({
-    title: typeof body.title === "string" ? body.title : "Publication",
+    title: typeof body.title === "string" ? body.title : "Post",
     body: body.body,
     circleId: typeof body.circleId === "string" ? body.circleId : null,
     profileId: typeof body.profileId === "string" ? body.profileId : undefined,

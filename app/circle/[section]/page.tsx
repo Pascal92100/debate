@@ -2,23 +2,23 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 const sections: Record<string, { title: string; icon: string; description: string }> = {
-  searches: { title: "Recherches enregistrées", icon: "🔍", description: "Le prototype inclut des critères de thèmes, types de publication, distance, langues et visibilité. La recherche complète reste à implémenter." },
-  alerts: { title: "Alertes", icon: "🔔", description: "Les alertes de visites, réponses et mentions sont prévues dans le modèle de données ; leur centre n’est pas encore implémenté." },
-  children: { title: "Comptes enfants supervisés", icon: "👨‍👩‍👧", description: "Le prototype prévoit de créer ou relier des comptes supervisés. La gestion des responsables et autorisations reste à implémenter." },
-  security: { title: "Sécurité", icon: "🔐", description: "La gestion du mot de passe, des sessions et des paramètres de sécurité dépendra du système d’authentification, qui reste à connecter." },
-  payment: { title: "Moyen de paiement", icon: "💳", description: "Aucun paiement n’est activé. Les moyens de paiement devront être raccordés à un prestataire et ne seront jamais stockés en clair dans cette base." },
-  subscription: { title: "Abonnement", icon: "📦", description: "Les offres et renouvellements sont prévus dans le prototype, mais aucun système d’abonnement n’est connecté." },
-  communities: { title: "Communautés", icon: "👥", description: "Les cercles privés sont actifs. Les communautés ouvertes avec découverte et adhésion restent à construire." },
-  forums: { title: "Forums", icon: "💬", description: "Les débats constituent le premier type de discussion structuré. Les forums thématiques restent à raccorder." },
-  "private-discussions": { title: "Discussions privées", icon: "📨", description: "Le schéma prévoit les conversations privées, mais la messagerie et ses contrôles d’accès ne sont pas encore implémentés." },
-  events: { title: "Événements", icon: "📅", description: "Le schéma prévoit événements, invitations et réponses. La création et la gestion des événements restent à implémenter." },
-  following: { title: "Profils suivis", icon: "⭐", description: "Le prototype prévoit de suivre des profils. La gestion des abonnements et le fil personnalisé restent à implémenter." },
-  shop: { title: "Boutique", icon: "🛒", description: "Aucun service de boutique n’est actif pour le moment." }
+  searches: { title: "Saved searches", icon: "🔍", description: "The prototype includes theme, post type, distance, language, and visibility criteria. Full search is not implemented yet." },
+  alerts: { title: "Alerts", icon: "🔔", description: "Visit, reply, and mention alerts are part of the data model; the alert center is not implemented yet." },
+  children: { title: "Supervised child accounts", icon: "👨‍👩‍👧", description: "The prototype supports creating or linking supervised accounts. Guardian and permission management is not implemented yet." },
+  security: { title: "Security", icon: "🔐", description: "Password, session, and security settings depend on the authentication system, which is not connected yet." },
+  payment: { title: "Payment method", icon: "💳", description: "Payments are not enabled. Payment methods must be connected to a provider and will never be stored in plain text here." },
+  subscription: { title: "Subscription", icon: "📦", description: "Plans and renewals are included in the prototype, but no subscription system is connected yet." },
+  communities: { title: "Communities", icon: "👥", description: "Private Circles are active. Open communities with discovery and membership still need to be built." },
+  forums: { title: "Forums", icon: "💬", description: "Debates are the first structured discussion type. Themed forums are not connected yet." },
+  "private-discussions": { title: "Private discussions", icon: "📨", description: "The schema includes private conversations, but messaging and its access controls are not implemented yet." },
+  events: { title: "Events", icon: "📅", description: "The schema includes events, invitations, and RSVPs. Event creation and management are not implemented yet." },
+  following: { title: "Followed profiles", icon: "⭐", description: "The prototype includes profile following. Subscription management and a personalized feed are not implemented yet." },
+  shop: { title: "Shop", icon: "🛒", description: "No shop services are active yet." }
 };
 
 export default async function CircleAccountSectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
   const item = sections[section];
   if (!item) notFound();
-  return <main className="social-shell social-directory-shell"><Link className="back-link" href="/circle">← Compte</Link><section className="account-placeholder"><span>{item.icon}</span><p className="eyebrow">Compte · prochain module</p><h1>{item.title}</h1><p>{item.description}</p></section></main>;
+  return <main className="social-shell social-directory-shell"><Link className="back-link" href="/circle">← Account</Link><section className="account-placeholder"><span>{item.icon}</span><p className="eyebrow">Circle · upcoming module</p><h1>{item.title}</h1><p>{item.description}</p></section></main>;
 }

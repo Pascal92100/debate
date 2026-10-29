@@ -4,11 +4,11 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const evaluations = [
-  { icon: "👍", label: "Accord" },
-  { icon: "👎", label: "Désaccord" },
-  { icon: "ℹ️", label: "Information / faits" },
-  { icon: "🤯💡", label: "Clarifier" },
-  { icon: "⚠️", label: "Recadrer" }
+  { icon: "👍", label: "Agree" },
+  { icon: "👎", label: "Disagree" },
+  { icon: "ℹ️", label: "Information / facts" },
+  { icon: "🤯💡", label: "Clarify" },
+  { icon: "⚠️", label: "Reframe" }
 ];
 
 export function CommentForm({ debateId, replyTo, controlId }: { debateId: string; replyTo: string; controlId?: string }) {
@@ -31,7 +31,7 @@ export function CommentForm({ debateId, replyTo, controlId }: { debateId: string
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
-      setError(result?.error || "La réponse n’a pas pu être publiée.");
+      setError(result?.error || "The reply could not be published.");
       setSaving(false);
       return;
     }
@@ -44,15 +44,15 @@ export function CommentForm({ debateId, replyTo, controlId }: { debateId: string
   return (
     <div className="reply-action">
       <button id={controlId} className="reply-trigger" type="button" aria-expanded={isOpen} onClick={() => setIsOpen(!isOpen)}>
-        {isOpen ? "Annuler la réponse" : "↩ Répondre"}
+        {isOpen ? "Cancel reply" : "↩ Reply"}
       </button>
       {isOpen && <form className="comment-form" onSubmit={submit}>
-        <div className="comment-form-heading"><h3>Votre réponse</h3><button className="text-action" type="button" onClick={() => setIsOpen(false)}>Fermer</button></div>
-        <input name="author" maxLength={60} aria-label="Votre nom" placeholder="Votre nom ou pseudonyme" />
-        <input name="title" maxLength={100} aria-label="Titre de la réponse" placeholder="Titre (facultatif)" />
-        <textarea name="text" required minLength={2} maxLength={3000} aria-label="Votre réponse" placeholder="Répondez à ce qui a été avancé…" />
+        <div className="comment-form-heading"><h3>Your reply</h3><button className="text-action" type="button" onClick={() => setIsOpen(false)}>Close</button></div>
+        <input name="author" maxLength={60} aria-label="Your name" placeholder="Your name or pseudonym" />
+        <input name="title" maxLength={100} aria-label="Reply title" placeholder="Title (optional)" />
+        <textarea name="text" required minLength={2} maxLength={3000} aria-label="Your reply" placeholder="Reply to the argument…" />
         <fieldset className="evaluation-picker">
-          <legend>Évaluer votre réponse (facultatif)</legend>
+          <legend>Rate your reply (optional)</legend>
           {evaluations.map(({ icon, label }) => <label className="evaluation-choice" key={label} title={label}>
             <input type="radio" name="evaluation" value={icon} />
             <span aria-hidden="true">{icon}</span>
@@ -60,7 +60,7 @@ export function CommentForm({ debateId, replyTo, controlId }: { debateId: string
           </label>)}
         </fieldset>
         <div className="comment-actions">
-          <button className="button-primary" type="submit" disabled={saving}>{saving ? "Envoi…" : "Publier la réponse"}</button>
+          <button className="button-primary" type="submit" disabled={saving}>{saving ? "Sending…" : "Post reply"}</button>
           {error && <span className="form-error" role="alert">{error}</span>}
         </div>
       </form>}

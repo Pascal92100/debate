@@ -2,13 +2,13 @@ import Link from "next/link";
 import { isPersistentStore, listDebates } from "@/lib/debates";
 
 const themes: Record<string, string> = {
-  "politics-society": "Société",
+  "politics-society": "Society",
   "culture-entertainment": "Culture",
-  sports: "Sport",
-  "science-health": "Science & santé",
-  "economy-tech": "Économie & tech",
-  "lifestyle-ideas": "Idées & société",
-  other: "Autre"
+  sports: "Sports",
+  "science-health": "Science & health",
+  "economy-tech": "Economy & tech",
+  "lifestyle-ideas": "Ideas & society",
+  other: "Other"
 };
 
 export const dynamic = "force-dynamic";
@@ -20,35 +20,35 @@ export default async function DebatesPage() {
     <main className="page-shell">
       <section className="home-intro">
         <div>
-          <p className="eyebrow">Le lieu des idées en mouvement</p>
-          <h1>Les bonnes questions méritent mieux qu’un fil.</h1>
-          <p className="home-intro-copy">Des conversations lisibles, des arguments qui se répondent, et la place de changer d’avis.</p>
+          <p className="eyebrow">Ideas in motion</p>
+          <h1>Good questions deserve more than a feed.</h1>
+          <p className="home-intro-copy">Clear conversations, arguments that respond to each other, and room to change your mind.</p>
         </div>
         <aside className="intro-note">
-          <strong>Commencer une conversation</strong>
-          Chaque débat part d’une question, d’une idée ou d’un désaccord à explorer.
+          <strong>Start a conversation</strong>
+          Every debate begins with a question, idea, or disagreement worth exploring.
         </aside>
       </section>
 
-      {!persistent && <p className="notice">Mode de démonstration : débats chargés depuis le JSON. Les nouvelles contributions restent en mémoire jusqu’au redémarrage du serveur. Ajoutez DATABASE_URL pour activer le stockage permanent.</p>}
+      {!persistent && <p className="notice">Demo mode: debates are loaded from JSON. New contributions remain in memory until the server restarts. Set DATABASE_URL to enable persistent storage.</p>}
 
       <div className="section-heading">
-        <h2>Conversations ouvertes</h2>
-        <span>{debates.length} débat{debates.length > 1 ? "s" : ""}</span>
+        <h2>Open conversations</h2>
+        <span>{debates.length} debate{debates.length === 1 ? "" : "s"}</span>
       </div>
 
       {debates.length ? (
-        <section className="debate-list" aria-label="Liste des débats">
+          <section className="debate-list" aria-label="Debate list">
           {debates.map((debate) => (
             <Link href={`/debates/${encodeURIComponent(debate.id)}`} className="debate-card" key={debate.id}>
               <div className="card-meta"><span className="theme-label">{themes[debate.theme ?? ""] ?? "Discussion"}</span><span>{debate.from || "Participant"}</span></div>
               <h3>{debate.title}</h3>
-              <p>{debate.content?.[0] ?? "Ouvrir cette conversation."}</p>
-              <div className="card-bottom"><span className="status-line"><i className="status-dot" /> Conversation ouverte</span><span className="read-link">Lire le débat →</span></div>
+              <p>{debate.content?.[0] ?? "Open this conversation."}</p>
+              <div className="card-bottom"><span className="status-line"><i className="status-dot" /> Open conversation</span><span className="read-link">Read debate →</span></div>
             </Link>
           ))}
         </section>
-      ) : <div className="empty-state">Aucun débat pour le moment.</div>}
+      ) : <div className="empty-state">No debates yet.</div>}
     </main>
   );
 }

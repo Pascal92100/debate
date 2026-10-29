@@ -15,7 +15,7 @@
       "kind": "individual",
       "category": "Professional",
       "avatar": "JD",
-      "bio": "Curieux des idées, des équipes et de ce qui nous relie.",
+      "bio": "Curious about ideas, teams, and what connects us.",
       "visibility": "all",
       "socialDistance": 0,
       "anonymous": false,
@@ -33,9 +33,9 @@
       "accountId": "account-demo",
       "name": "Alice Johnson",
       "kind": "individual",
-      "category": "Culture & idées",
+      "category": "Culture & Ideas",
       "avatar": "AJ",
-      "bio": "J’ouvre des discussions sur la créativité, la culture et les usages des technologies.",
+      "bio": "I open discussions about creativity, culture, and how we use technology.",
       "visibility": "all",
       "socialDistance": 0,
       "anonymous": false
@@ -47,7 +47,7 @@
       "kind": "individual",
       "category": "Personal",
       "avatar": "JF",
-      "bio": "Profil personnel de John.",
+      "bio": "John's personal profile.",
       "visibility": "relatives",
       "socialDistance": 1,
       "anonymous": true
@@ -59,7 +59,7 @@
       "kind": "individual",
       "category": "Political",
       "avatar": "JO",
-      "bio": "Profil dédié aux engagements et débats de société.",
+      "bio": "A profile for civic engagement and social debates.",
       "visibility": "all",
       "socialDistance": 0,
       "anonymous": false
@@ -71,7 +71,7 @@
       "kind": "individual",
       "category": "Dating",
       "avatar": "JN",
-      "bio": "Profil personnel réservé aux rencontres.",
+      "bio": "A personal profile for dating.",
       "visibility": "ghost",
       "socialDistance": 2,
       "anonymous": true
@@ -85,7 +85,6 @@
       "avatar": "DF",
       "bio": "Shared space for all family members",
       "includesLabel": "J-Dazzle",
-      "memberRoles": { "profile-john": "Father · Professional", "profile-katia": "Mother · Personal", "profile-alice-doe": "Daughter · Teen", "profile-milo": "Son · Child" },
       "memberRoles": { "profile-john": "Father · Professional", "profile-katia": "Mother · Personal", "profile-alice-doe": "Daughter · Teen", "profile-milo": "Son · Child" },
       "visibility": "relatives",
       "socialDistance": 1,
@@ -106,7 +105,6 @@
       "relationship": "For friends",
       "includesLabel": "For friends",
       "memberRoles": { "profile-katia": "Partner · Personal", "profile-john": "Partner · Professional" },
-      "memberRoles": { "profile-katia": "Partner · Personal", "profile-john": "Partner · Professional" },
       "members": ["profile-katia", "profile-john"]
     },
     {
@@ -116,7 +114,7 @@
       "kind": "individual",
       "category": "Personal",
       "avatar": "KA",
-      "bio": "Profil personnel de Katia.",
+      "bio": "Katia's personal profile.",
       "visibility": "relatives",
       "socialDistance": 1,
       "anonymous": false
@@ -128,7 +126,7 @@
       "kind": "individual",
       "category": "Teen",
       "avatar": "AL",
-      "bio": "Profil supervisé d’Alice.",
+      "bio": "Alice's supervised profile.",
       "visibility": "relatives",
       "socialDistance": 1,
       "anonymous": false
@@ -140,7 +138,7 @@
       "kind": "individual",
       "category": "Child",
       "avatar": "MI",
-      "bio": "Profil supervisé de Milo.",
+      "bio": "Milo's supervised profile.",
       "visibility": "relatives",
       "socialDistance": 1,
       "anonymous": false
@@ -151,7 +149,7 @@
       "profileId": "profile-john",
       "visibility": "other",
       "relationship": "professional",
-      "text": "Curieux des idées, des équipes et de ce qui nous relie.",
+      "text": "Curious about ideas, teams, and what connects us.",
       "textEnabled": true,
       "identity": {
         "firstName": { "value": "John", "enabled": true },
@@ -164,22 +162,22 @@
         "location": { "value": "Paris", "enabled": true }
       },
       "themes": {
-        "physical": { "enabled": true, "description": "178 cm, 72 kg, silhouette athlétique.", "fields": { "height": "178 cm", "weight": "72 kg", "bodyShape": "Athletic", "eyes": "Brown", "hair": "Dark", "origins": "European", "smoker": "No" }, "tags": [] },
-        "culture": { "enabled": true, "description": "J’aime les formes classiques et les créations contemporaines.", "fields": { "architecture": "Modern, Gothic", "sculpture": "Classical", "painting": "Impressionism", "music": "Jazz, Electronic", "literature": "Novels, Essays", "theatre": "Contemporary", "cinema": "Drama, Sci-Fi", "series": "Thrillers, Comedy", "media": "Podcasts, News", "comics": "Graphic novels", "videoGames": "RPG, Strategy", "sciences": "Physics, Biology", "other": "Philosophy, History" }, "tags": [] },
-        "professional": { "enabled": true, "description": "Professionnel indépendant, curieux des équipes hybrides.", "fields": {}, "tags": ["manager", "individual contributor", "freelance", "remote", "hybrid", "tech", "creative", "consulting", "education", "mid-career"] },
-        "political": { "enabled": true, "description": "Intérêt pour les politiques publiques et l’économie.", "fields": {}, "tags": ["center", "liberal", "ecologist", "pro-EU", "localist"] },
-        "sport": { "enabled": true, "description": "Activité régulière pour le plaisir.", "fields": {}, "tags": ["regular", "outdoor", "cycling", "swimming", "just for fun"] },
-        "spirituality": { "enabled": true, "description": "Une approche ouverte et questionnante.", "fields": {}, "tags": ["agnostic", "mindfulness", "questioning", "non-practicing"] },
-        "psycho": { "enabled": true, "description": "Curieux, analytique et ouvert d’esprit.", "fields": {}, "tags": ["curious", "analytical", "empathetic", "open-minded", "pragmatic", "patient"] },
+        "physical": { "enabled": true, "description": "178 cm, 72 kg, athletic build.", "fields": { "height": "178 cm", "weight": "72 kg", "bodyShape": "Athletic", "eyes": "Brown", "hair": "Dark", "origins": "European", "smoker": "No" }, "tags": [] },
+        "culture": { "enabled": true, "description": "I enjoy classical forms and contemporary creations.", "fields": { "architecture": "Modern, Gothic", "sculpture": "Classical", "painting": "Impressionism", "music": "Jazz, Electronic", "literature": "Novels, Essays", "theatre": "Contemporary", "cinema": "Drama, Sci-Fi", "series": "Thrillers, Comedy", "media": "Podcasts, News", "comics": "Graphic novels", "videoGames": "RPG, Strategy", "sciences": "Physics, Biology", "other": "Philosophy, History" }, "tags": [] },
+        "professional": { "enabled": true, "description": "Independent professional, curious about hybrid teams.", "fields": {}, "tags": ["manager", "individual contributor", "freelance", "remote", "hybrid", "tech", "creative", "consulting", "education", "mid-career"] },
+        "political": { "enabled": true, "description": "Interested in public policy and economics.", "fields": {}, "tags": ["center", "liberal", "ecologist", "pro-EU", "localist"] },
+        "sport": { "enabled": true, "description": "Regular activity for enjoyment.", "fields": {}, "tags": ["regular", "outdoor", "cycling", "swimming", "just for fun"] },
+        "spirituality": { "enabled": true, "description": "An open and questioning approach.", "fields": {}, "tags": ["agnostic", "mindfulness", "questioning", "non-practicing"] },
+        "psycho": { "enabled": true, "description": "Curious, analytical, and open-minded.", "fields": {}, "tags": ["curious", "analytical", "empathetic", "open-minded", "pragmatic", "patient"] },
         "sexo": { "enabled": false, "description": "", "fields": { "orientations": "straight", "desire": 5, "modesty": 5, "communication": 7, "touch": 5, "relationalStyle": "monogamy" }, "tags": [] },
         "kinky": { "enabled": false, "description": "", "fields": { "desireLevel": 5, "modesty": 5, "communication": 5, "touch": 5 }, "tags": ["Soft"] }
       }
     }
   ],
   "circles": [
-    { "id": "circle-company", "ownerProfileId": "profile-john", "name": "Company HQ", "kind": "work", "locationMode": "On-site", "description": "Échanges de l’équipe et sujets de travail.", "visibility": "private", "memberCount": 8 },
-    { "id": "circle-remote", "ownerProfileId": "profile-john", "name": "Remote Office", "kind": "work", "locationMode": "Remote", "description": "Le quotidien des collègues à distance.", "visibility": "private", "memberCount": 5 },
-    { "id": "circle-friends", "ownerProfileId": "profile-john", "name": "Friends & Ideas", "kind": "friends", "locationMode": "Online", "description": "Recommandations, conversations et idées à explorer.", "visibility": "private", "memberCount": 12 }
+    { "id": "circle-company", "ownerProfileId": "profile-john", "name": "Company HQ", "kind": "work", "locationMode": "On-site", "description": "Team updates and work-related topics.", "visibility": "private", "memberCount": 8 },
+    { "id": "circle-remote", "ownerProfileId": "profile-john", "name": "Remote Office", "kind": "work", "locationMode": "Remote", "description": "Day-to-day life for remote colleagues.", "visibility": "private", "memberCount": 5 },
+    { "id": "circle-friends", "ownerProfileId": "profile-john", "name": "Friends & Ideas", "kind": "friends", "locationMode": "Online", "description": "Recommendations, conversations, and ideas to explore.", "visibility": "private", "memberCount": 12 }
   ],
   "posts": [
     {
@@ -189,9 +187,9 @@
       "avatar": "JD",
       "circleId": "circle-company",
       "circleName": "Company HQ",
-      "title": "Documentation du projet",
-      "body": "Les spécifications ont été mises à jour. Quel point vous semble le plus important à clarifier avant la prochaine revue ?",
-      "subtext": "Mis à jour aujourd’hui",
+      "title": "Project documentation",
+      "body": "The specifications have been updated. What should we clarify before the next review?",
+      "subtext": "Updated today",
       "kind": "publication",
       "visibility": "circle",
       "createdAt": "2026-10-28T09:00:00.000Z",
@@ -206,9 +204,9 @@
       "avatar": "AJ",
       "circleId": "circle-friends",
       "circleName": "Friends & Ideas",
-      "title": "L’IA et la créativité",
-      "body": "L’IA générative amplifie-t-elle la créativité humaine, ou finit-elle par s’y substituer ? J’aimerais entendre plusieurs points de vue.",
-      "subtext": "Discussion ouverte",
+      "title": "AI and creativity",
+      "body": "Does generative AI amplify human creativity, or does it eventually replace it? I would like to hear several points of view.",
+      "subtext": "Open discussion",
       "kind": "debate",
       "visibility": "circle",
       "createdAt": "2026-10-27T15:30:00.000Z",
@@ -223,9 +221,9 @@
       "avatar": "JD",
       "circleId": "circle-remote",
       "circleName": "Remote Office",
-      "title": "Briefing sécurité",
-      "body": "Petit rappel : briefing demain à 9 h dans la salle 3B. Les collègues à distance recevront le lien avant la réunion.",
-      "subtext": "Événement · obligatoire",
+      "title": "Security briefing",
+      "body": "Reminder: briefing tomorrow at 9 a.m. in room 3B. Remote colleagues will receive the link before the meeting.",
+      "subtext": "Event · required",
       "kind": "event",
       "visibility": "circle",
       "createdAt": "2026-10-26T16:00:00.000Z",

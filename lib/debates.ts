@@ -193,9 +193,9 @@ export async function createComment(debateId: string, input: { replyTo: string; 
   const paragraphTexts = input.text.replace(/\r\n?/g, "\n").split("\n").map((text) => text.trim()).filter(Boolean);
   const comment: Comment = {
     id: `post_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
-    author: input.author?.trim() || "Vous",
+    author: input.author?.trim() || "You",
     confidence: 50,
-    title: input.title?.trim() || paragraphTexts[0]?.slice(0, 72) || "Réponse",
+    title: input.title?.trim() || paragraphTexts[0]?.slice(0, 72) || "Reply",
     evaluation: input.evaluation,
     paragraphs: paragraphTexts.map((text) => ({ id: `paragraph_${crypto.randomUUID().slice(0, 8)}`, text })),
     replyTo: input.replyTo,
