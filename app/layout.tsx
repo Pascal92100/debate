@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { SiteChrome } from "@/components/site-chrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,16 +11,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="fr">
       <body>
-        <header className="site-header">
-          <Link className="wordmark" href="/" aria-label="Réflexions, accueil">
-            <span className="wordmark-mark">R</span>
-            <span>réflexions</span>
-          </Link>
-          <nav aria-label="Navigation principale">
-            <Link href="/">Débats</Link>
-            <Link className="nav-create" href="/debates/new">+ Lancer un débat</Link>
-          </nav>
-        </header>
+        <SiteChrome />
         {children}
         <footer className="site-footer">Un espace pour penser ensemble.</footer>
       </body>

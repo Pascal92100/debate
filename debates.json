@@ -120,6 +120,8 @@
     {
       "id": "deb_20260809120000_0001",
       "parentId": null,
+      "authorProfileId": "profile-alice",
+      "sourcePostId": "social-post-ai",
       "from": "Alice",
       "to": null,
       "start": "other",

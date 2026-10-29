@@ -14,7 +14,7 @@ export default async function DebatePage({ params }: { params: Promise<{ id: str
   const comments = debate.children ?? [];
   return (
     <main className="debate-shell">
-      <Link href="/" className="back-link">← Tous les débats</Link>
+      <Link href="/debates" className="back-link">← Tous les débats</Link>
       {!persistent && <p className="notice">Mode de démonstration : les contributions sont temporaires. Configurez DATABASE_URL pour les conserver.</p>}
       <header className="debate-heading">
         <p className="eyebrow">Débat ouvert</p>
@@ -27,6 +27,7 @@ export default async function DebatePage({ params }: { params: Promise<{ id: str
           <span>Confiance : <strong>{debate.confidence ?? 0}%</strong> 💪</span>
           <span>Icône : <strong>{debate.icon || "—"}</strong></span>
         </div>
+        {debate.sourcePostId && <Link className="source-post-link" href={`/social#${encodeURIComponent(debate.sourcePostId)}`}>Voir la publication d’origine dans le réseau →</Link>}
       </header>
       <DebateControls />
       <ThreadView debate={debate} comments={comments} />

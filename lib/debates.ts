@@ -5,6 +5,9 @@ import fixture from "../debates.json";
 export type Debate = {
   id: string;
   parentId?: string | null;
+  authorProfileId?: string;
+  circleId?: string | null;
+  sourcePostId?: string | null;
   from?: string;
   to?: string | null;
   start?: string;
@@ -43,7 +46,7 @@ const store = globalStore.__debateStore ??= {
   persistent: false
 };
 
-function database() {
+export function database() {
   const url = process.env.DATABASE_URL;
   return url ? neon(url) : null;
 }
@@ -56,9 +59,17 @@ async function initializeDatabase() {
   await sql`CREATE TABLE IF NOT EXISTS debates (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
+    author_profile_id TEXT,
+    circle_id TEXT,
+    source_post_id TEXT,
+    visibility TEXT NOT NULL DEFAULT 'public',
     payload JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE debates ADD COLUMN IF NOT EXISTS author_profile_id TEXT`;
+  await sql`ALTER TABLE debates ADD COLUMN IF NOT EXISTS circle_id TEXT`;
+  await sql`ALTER TABLE debates ADD COLUMN IF NOT EXISTS source_post_id TEXT`;
+  await sql`ALTER TABLE debates ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'public'`;
   await sql`CREATE TABLE IF NOT EXISTS debate_comments (
     id TEXT PRIMARY KEY,
     debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
@@ -129,6 +140,9 @@ export async function getDebate(id: string) {
 export async function createDebate(input: Pick<Debate, "title" | "content"> & Partial<Debate>) {
   const debate: Debate = {
     id: `deb_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
+    authorProfileId: input.authorProfileId,
+    circleId: input.circleId ?? null,
+    sourcePostId: input.sourcePostId ?? null,
     from: input.from?.trim() || "Participant",
     start: input.start || "question",
     confidence: input.confidence ?? 50,
@@ -145,7 +159,8 @@ export async function createDebate(input: Pick<Debate, "title" | "content"> & Pa
   const persistent = await isPersistentStore();
   const sql = persistent ? database() : null;
   if (sql) {
-    await sql`INSERT INTO debates (id, title, payload) VALUES (${debate.id}, ${debate.title}, ${JSON.stringify(debate)}::jsonb)`;
+    await sql`INSERT INTO debates (id, title, author_profile_id, circle_id, source_post_id, visibility, payload)
+      VALUES (${debate.id}, ${debate.title}, ${debate.authorProfileId ?? null}, ${debate.circleId ?? null}, ${debate.sourcePostId ?? null}, ${debate.to ? 'circle' : 'public'}, ${JSON.stringify(debate)}::jsonb)`;
   } else {
     store.debates.unshift(debate);
   }
