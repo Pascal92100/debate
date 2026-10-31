@@ -18,18 +18,35 @@ export const contentFilters = [
 export function ContentFilterOption({ id, emoji, text, selected, onToggle }: { id: string; emoji: string; text: string; selected: boolean; onToggle: (checked: boolean) => void }) {
   const [visible, setVisible] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
-  function startPress() { longPressTriggered.current = false; timer.current = setTimeout(() => { longPressTriggered.current = true; setVisible(true); }, 550); }
-  function endPress() { if (timer.current) clearTimeout(timer.current); timer.current = null; }
-  function showTooltip() {
-    setVisible(true);
-    if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    dismissTimer.current = setTimeout(() => setVisible(false), 3500);
+  function startPress() {
+    longPressTriggered.current = false;
+    timer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      setVisible(true);
+    }, 550);
   }
-  return <label className={`content-filter-option${selected ? " selected" : ""}${visible ? " help-visible" : ""}`} title={text} onPointerDown={startPress} onPointerUp={endPress} onPointerCancel={endPress} onPointerLeave={endPress} onContextMenu={(event) => { event.preventDefault(); longPressTriggered.current = true; showTooltip(); }} onClick={(event) => { if (longPressTriggered.current) { event.preventDefault(); event.stopPropagation(); longPressTriggered.current = false; showTooltip(); } }}>
-    <input type="checkbox" checked={selected} onChange={(event) => onToggle(event.target.checked)} /><span aria-hidden="true">{emoji}</span><span className="content-filter-tooltip" role="tooltip">{text}</span>
-  </label>;
+  function endPress() {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  }
+  return <div className={`content-filter-option${selected ? " selected" : ""}${visible ? " help-visible" : ""}`} onPointerDown={startPress} onPointerUp={endPress} onPointerCancel={endPress} onPointerLeave={endPress} onContextMenu={(event) => { event.preventDefault(); longPressTriggered.current = true; setVisible(true); }} onClick={(event) => {
+    if (longPressTriggered.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      longPressTriggered.current = false;
+    }
+  }}>
+    <label htmlFor={`content-filter-${id}`} title={text}><input id={`content-filter-${id}`} type="checkbox" checked={selected} onChange={(event) => onToggle(event.target.checked)} /><span aria-hidden="true">{emoji}</span></label>
+    <button className="content-filter-help" type="button" aria-label={`Information: ${text}`} aria-expanded={visible} onClick={() => {
+      if (longPressTriggered.current) {
+        longPressTriggered.current = false;
+        return;
+      }
+      setVisible((current) => !current);
+    }}>i</button>
+    {visible && <span className="content-filter-tooltip" role="tooltip">{text}</span>}
+  </div>;
 }
 
 export function ProfileCreateForm({ profiles, circles, kind }: { profiles: SocialProfile[]; circles: SocialCircle[]; kind: "individual" | "meta" }) {

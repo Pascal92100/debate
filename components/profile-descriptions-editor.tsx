@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { AccountDescription, DescriptionField, ProfileDescription, SocialCircle, SocialProfile } from "@/lib/social";
 import { ContentFilterOption, contentFilters } from "@/components/profile-create-form";
 
@@ -9,29 +10,47 @@ export type ThemeDefinition = {
   label: string;
   fields: Array<[string, string]>;
   tags: string[];
+  fieldTags?: Record<string, string[]>;
+  fieldHints?: Record<string, string>;
 };
+
+export const relationshipStatusOptions = ["Single", "Married", "In relationship", "Open relationship", "Complicated"];
 
 const identityFields: Array<[string, string, string]> = [
   ["firstName", "First name / pseudonym", "text"],
   ["lastName", "Last name", "text"],
   ["nationalities", "Nationalities", "text"],
   ["birthdate", "Date of birth", "date"],
-  ["sex", "Sex", "text"],
-  ["relationshipStatus", "Relationship status", "text"],
+  ["sex", "Sex", "select:Male|Female|Other"],
+  ["relationshipStatus", "Relationship status", `select:${relationshipStatusOptions.join("|")}`],
   ["languages", "Languages spoken", "text"],
   ["location", "Location", "text"]
 ];
 
 export const descriptionThemes: ThemeDefinition[] = [
   { id: "physical", label: "Physical", fields: [["height", "Height"], ["weight", "Weight"], ["bodyShape", "Body shape"], ["eyes", "Eyes"], ["hair", "Hair"], ["origins", "Origins"], ["smoker", "Smoker"]], tags: [] },
-  { id: "culture", label: "Culture", fields: [["architecture", "Architecture"], ["sculpture", "Sculpture"], ["painting", "Painting"], ["music", "Music"], ["literature", "Literature"], ["theatre", "Theatre"], ["cinema", "Cinema"], ["series", "TV series"], ["media", "Media"], ["comics", "Comics"], ["videoGames", "Video games"], ["sciences", "Science"], ["other", "Other"]], tags: [] },
+  { id: "culture", label: "Culture", fields: [["architecture", "Architecture"], ["sculpture", "Sculpture"], ["painting", "Painting"], ["music", "Music"], ["literature", "Literature"], ["theatre", "Theatre"], ["cinema", "Cinema"], ["series", "TV series"], ["media", "Media"], ["comics", "Comics"], ["videoGames", "Video games"], ["sciences", "Science"], ["other", "Other"]], tags: [], fieldTags: {
+    architecture: ["Classical", "Gothic", "Renaissance", "Modern", "Contemporary", "Art Deco", "Sustainable"],
+    sculpture: ["Classical", "Modern", "Contemporary", "Abstract", "Public art", "Installation"],
+    painting: ["Renaissance", "Impressionism", "Modern", "Contemporary", "Abstract", "Street art", "Photography"],
+    music: ["Classical", "Jazz", "Rock", "Pop", "Hip-hop", "Electronic", "Folk", "World music", "Live music"],
+    literature: ["Novels", "Poetry", "Essays", "History", "Science fiction", "Fantasy", "Mystery", "Biography"],
+    theatre: ["Classical", "Contemporary", "Comedy", "Musical", "Opera", "Dance", "Live performance"],
+    cinema: ["Drama", "Comedy", "Documentary", "Thriller", "Science fiction", "Animation", "Independent", "World cinema"],
+    series: ["Drama", "Comedy", "Documentary", "Crime", "Science fiction", "Fantasy", "Animation", "Mini-series"],
+    media: ["News", "Podcasts", "Radio", "Magazines", "Long-form", "Independent media"],
+    comics: ["Comics", "Graphic novels", "Manga", "Webcomics", "Independent"],
+    videoGames: ["Adventure", "Strategy", "Role-playing", "Puzzle", "Simulation", "Cooperative", "Indie"],
+    sciences: ["Physics", "Biology", "Astronomy", "Technology", "Psychology", "Environment", "Popular science"],
+    other: ["Museums", "Design", "Photography", "Crafts", "Heritage", "Festivals"]
+  } },
   { id: "professional", label: "Professional", fields: [], tags: ["manager", "individual contributor", "freelance", "entrepreneur", "remote", "hybrid", "onsite", "tech", "creative", "consulting", "non-profit", "public sector", "education", "healthcare", "finance", "early career", "mid-career", "senior", "executive"] },
-  { id: "political", label: "Politics / Economy", fields: [], tags: ["left", "center-left", "center", "center-right", "right", "liberal", "conservative", "libertarian", "ecologist", "social-democrat", "socialist", "anarchist", "capitalist", "anti-capitalist", "pro-EU", "eurosceptic", "globalist", "localist", "apolitical"] },
+  { id: "political", label: "Politics / Economy", fields: [], tags: ["far Left", "radical Left", "left", "center-left", "center", "center-right", "right", "radical Right", "Far right", "liberal", "conservative", "libertarian", "ecologist", "social-democrat", "socialist", "anarchist", "capitalist", "anti-capitalist", "pro-EU", "eurosceptic", "globalist", "localist", "apolitical"] },
   { id: "sport", label: "Sports", fields: [], tags: ["sedentary", "beginner", "regular", "intense", "outdoor", "indoor", "team sports", "individual sports", "running", "cycling", "swimming", "fitness", "yoga", "combat sports", "ball sports", "mountain", "water sports", "competition", "just for fun"] },
   { id: "spirituality", label: "Spirituality", fields: [], tags: ["atheist", "agnostic", "spiritual but not religious", "religious", "christian", "muslim", "jewish", "buddhist", "hindu", "other religion", "meditation", "mindfulness", "energy work", "esoteric", "rituals", "philosophy-oriented", "questioning", "practicing", "non-practicing"] },
   { id: "psycho", label: "Psycho", fields: [], tags: ["adaptable", "affectionate", "ambitious", "ambivert", "analytical", "anxious", "assertive", "attentive", "calm", "chaotic", "confident", "creative", "curious", "dreamer", "emotional", "empathetic", "extrovert", "flexible", "grounded", "humorous", "idealistic", "independent", "introvert", "intuitive", "loyal", "mindful", "open-minded", "organized", "patient", "perfectionist", "playful", "pragmatic", "protective", "rational", "realistic", "reserved", "sensitive", "serious", "shy", "spontaneous", "stubborn", "deep talks", "intimate talks", "professional talks", "small talks"] },
-  { id: "sexo", label: "Sexuality", fields: [["desire", "Desire level"], ["modesty", "Modesty"], ["communication", "Communication"], ["touch", "Physical touch"]], tags: ["straight", "bi", "demi", "alter", "asexual", "homo", "pan", "sapio", "skolio", "monogamy", "non-monogamy", "polyamory", "exclusive", "open"] },
-  { id: "kinky", label: "Kinky · preferences and limits", fields: [["desireLevel", "Desire level"], ["modesty", "Modesty"], ["communication", "Communication"], ["touch", "Physical touch"]], tags: ["Soft", "BDSM", "Roleplay", "Switch", "Dom", "Sub"] }
+  { id: "sexo", label: "Sexuality", fields: [["desire", "Desire level"], ["modesty", "Modesty"], ["communication", "Communication"], ["touch", "Physical touch"]], fieldHints: { desire: "Interest and intensity", modesty: "Comfort with exposure", communication: "How openly you talk", touch: "Comfort with physical contact" }, tags: ["straight", "bi", "demi", "alter", "asexual", "homo", "pan", "sapio", "skolio", "monogamy", "non-monogamy", "polyamory", "exclusive", "open"] },
+  { id: "kinky", label: "Kinky · preferences and limits", fields: [], tags: ["Soft", "BDSM", "Roleplay", "Switch", "Dom", "Sub"] }
 ];
 
 const relationships = [
@@ -86,7 +105,7 @@ function buildProfileDraft(profile: SocialProfile, saved: ProfileDescription | n
   }
   const themes = { ...draft.themes };
   for (const [themeId, theme] of Object.entries(account.themes)) {
-    if (themeId === "kinky") continue;
+    if (themeId === "kinky" || themeId === "sexo") continue;
     const hasSavedValues = theme.enabled || Boolean(theme.description.trim()) || Object.keys(theme.fields).length > 0 || theme.tags.length > 0;
     if (!hasSavedValues) continue;
     const existing = themes[themeId] ?? { enabled: false, description: "", fields: {}, fieldStates: {}, tags: [] };
@@ -116,14 +135,14 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
     dynamicLocationEnabled: profile.dynamicLocationEnabled ?? false,
     dynamicLocationCircleId: profile.dynamicLocationCircleId ?? ""
   });
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const relationshipThemes = new Set(themeAccess[document.relationship] ?? []);
+  const selectedGoals = document.relationship.split("|").filter(Boolean);
   const contextThemes = new Set(profile.kind === "individual" ? contextThemeAccess[profile.category] ?? [] : descriptionThemes.filter((theme) => !["sexo", "kinky"].includes(theme.id)).map((theme) => theme.id));
-  const allowedThemes = new Set([...relationshipThemes].filter((themeId) => contextThemes.has(themeId)));
+  const allowedThemes = new Set(selectedGoals.flatMap((goal) => themeAccess[goal] ?? []).filter((themeId) => contextThemes.has(themeId)));
   const isIndividual = profile.kind === "individual";
 
   function updateIdentity(key: string, patch: Partial<DescriptionField>) {
@@ -159,49 +178,18 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
       return;
     }
     setDocument(result.description);
-    setNotice("Descriptions saved.");
     setSaving(false);
-  }
-
-  async function importAccountDetails() {
-    setImporting(true);
-    setError("");
-    setNotice("");
-    const response = await fetch("/api/account/descriptions").catch(() => null);
-    const result = await response?.json().catch(() => null);
-    if (!response?.ok || !result?.description) {
-      setError(result?.error || "Account descriptions could not be loaded.");
-      setImporting(false);
-      return;
-    }
-    const accountDescription = result.description as { text: string; fields: Record<string, { value: string; enabled: boolean }>; themes: ProfileDescription["themes"] };
-    const profileIdentityKeys = new Set(identityFields.map(([key]) => key));
-    setDocument((current) => {
-      const identity = { ...current.identity };
-      for (const [key, field] of Object.entries(accountDescription.fields)) {
-        if (profileIdentityKeys.has(key) && field.enabled) identity[key] = { ...identity[key], value: field.value, enabled: false };
-      }
-      const importedThemes = { ...current.themes };
-      for (const [themeId, theme] of Object.entries(accountDescription.themes)) {
-        if (themeId !== "kinky" && theme.enabled) importedThemes[themeId] = { ...theme, enabled: false, fieldStates: Object.fromEntries(Object.keys(theme.fields).map((fieldKey) => [fieldKey, false])) };
-      }
-      return {
-        ...current,
-        identity,
-        themes: importedThemes,
-        ...(accountDescription.text.trim() ? { text: accountDescription.text, textEnabled: false } : {})
-      };
-    });
-    setNotice("Account values were copied into this profile draft but remain inactive. Enable only the details you want to use, then save.");
-    setImporting(false);
+    const referrer = window.document.referrer;
+    if (referrer && new URL(referrer).origin === window.location.origin) router.back();
+    else router.push(`/circle/profiles/${encodeURIComponent(profile.id)}`);
   }
 
   return (
     <section className="description-editor">
       {!persistent && <p className="notice social-notice">Demo data: changes remain in memory until the server restarts.</p>}
       <header className="description-editor-heading">
-        <div><p className="eyebrow">Profile · {profile.name}</p><h2>Descriptions</h2><p>Every item is optional. Account information can be overridden for this profile.</p></div>
-        <div className="description-heading-actions"><button className="button-secondary" onClick={importAccountDetails} disabled={importing}>{importing ? "Loading…" : "Import account details"}</button><button className="button-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
+        <div><p className="eyebrow">Profile · {profile.name}</p><h2>Descriptions</h2><p>Every item is optional. Account details are available here but only used when enabled.</p></div>
+        <div className="description-heading-actions"><button className="button-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
       </header>
 
       <section className="description-section">
@@ -227,9 +215,10 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
         <div className="identity-fields">
           {identityFields.map(([key, label, type]) => {
             const field = document.identity[key] ?? { value: "", enabled: false };
+            const selectOptions = type.startsWith("select:") ? type.slice(7).split("|") : null;
             return <label className={`identity-field${field.enabled ? "" : " is-disabled"}`} key={key}>
               <span>{label}</span>
-              <input type={type} value={field.value} onChange={(event) => updateIdentity(key, { value: event.target.value })} disabled={!field.enabled} />
+              {selectOptions ? <select value={field.value} onChange={(event) => updateIdentity(key, { value: event.target.value })} disabled={!field.enabled}><option value="">Choose…</option>{selectOptions.map((option) => <option value={option} key={option}>{option}</option>)}</select> : <input type={type} value={field.value} onChange={(event) => updateIdentity(key, { value: event.target.value })} disabled={!field.enabled} />}
               <input className="field-visibility-toggle" type="checkbox" aria-label={`Show ${label}`} checked={field.enabled} onChange={(event) => updateIdentity(key, { enabled: event.target.checked })} />
               <select aria-label={`${label} display duration`} value={field.duration ?? "permanent"} disabled={!field.enabled} onChange={(event) => updateIdentity(key, { duration: event.target.value })}>{activationDurations.map(([value, durationLabel]) => <option value={value} key={value}>{durationLabel}</option>)}</select>
             </label>;
@@ -237,14 +226,18 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
         </div>
       </section>}
 
-      <section className="description-section visibility-section">
-        <header className="description-section-header"><div><span className="description-section-icon">◎</span><div><h3>Presentation goal</h3><p>Choose the relationship you are looking for. This determines which description themes are available.</p></div></div></header>
-        <div className="relationship-picker"><p>Relationship type</p><div>{relationships.map(([value, label]) => <button type="button" className={document.relationship === value ? "selected" : ""} key={value} onClick={() => { setShowThemes(false); setDocument((current) => ({ ...current, visibility: "other", relationship: value })); }}>{label}</button>)}</div></div>
-      </section>
-
       <div className="description-theme-list">
         <div className="account-section-heading"><div><p className="eyebrow">Detailed introduction</p><h2>Themed descriptions</h2></div><button className="button-secondary" type="button" onClick={() => setShowThemes((current) => !current)}>{showThemes ? "Hide theme descriptions" : "Edit theme descriptions"}</button></div>
-        {showThemes && <div className="available-theme-list"><span>{allowedThemes.size} themes available for this profile and presentation goal.</span>{descriptionThemes.filter((theme) => allowedThemes.has(theme.id)).map((theme) => {
+        {showThemes && <div className="available-theme-list">
+          <section className="presentation-goal-panel">
+            <header className="description-section-header"><div><span className="description-section-icon">◎</span><div><h3>Presentation goal</h3><p>Choose the targeted people. This determines which description themes are available.</p></div></div></header>
+            <div className="relationship-picker"><p>Choose all that apply</p><div>{relationships.map(([value, label]) => <label className="goal-option" key={value}><input type="checkbox" checked={selectedGoals.includes(value)} onChange={(event) => setDocument((current) => {
+              const goals = current.relationship.split("|").filter(Boolean);
+              const nextGoals = event.target.checked ? [...new Set([...goals, value])] : goals.filter((goal) => goal !== value);
+              return { ...current, visibility: "other", relationship: nextGoals.join("|") };
+            })} /><span>{label}</span></label>)}</div></div>
+          </section>
+          <span>{allowedThemes.size} themes available for this profile and presentation goal.</span>{descriptionThemes.filter((theme) => allowedThemes.has(theme.id)).map((theme) => {
           const data = document.themes[theme.id] ?? { enabled: false, description: "", fields: {}, fieldStates: {}, tags: [] };
           return <details className="description-theme" key={theme.id}>
             <summary><span className="theme-summary-title">{theme.label}</span><span className={`theme-switch-mark${data.enabled ? " enabled" : ""}`}>{data.enabled ? "On" : "Off"}</span></summary>
@@ -255,18 +248,24 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
                 const currentValue = data.fields[fieldKey];
                 const enabled = data.fieldStates?.[fieldKey] ?? (currentValue !== undefined && currentValue !== "");
                 const isRange = typeof currentValue === "number" || ["desire", "desireLevel", "modesty", "communication", "touch"].includes(fieldKey);
-                return <label className={`theme-standard-field${enabled ? "" : " is-disabled"}`} key={fieldKey}>
-                  <span>{fieldLabel}</span>
-                  <input type={isRange ? "range" : "text"} min={isRange ? 0 : undefined} max={isRange ? 10 : undefined} value={currentValue ?? (isRange ? 5 : "")} disabled={!enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, [fieldKey]: isRange ? Number(event.target.value) : event.target.value } }))} />
-                  <input type="checkbox" aria-label={`Use ${fieldLabel}`} checked={enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fieldStates: { ...current.fieldStates, [fieldKey]: event.target.checked } }))} />
-                </label>;
+                return <div className="theme-field-group" key={fieldKey}>
+                  <label className={`theme-standard-field${enabled ? "" : " is-disabled"}`}>
+                    <span>{fieldLabel}{theme.fieldHints?.[fieldKey] && <small className="theme-field-hint">{theme.fieldHints[fieldKey]}</small>}</span>
+                    <input type={isRange ? "range" : "text"} min={isRange ? 0 : undefined} max={isRange ? 10 : undefined} value={currentValue ?? (isRange ? 5 : "")} disabled={!enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, [fieldKey]: isRange ? Number(event.target.value) : event.target.value } }))} />
+                    <input type="checkbox" aria-label={`Use ${fieldLabel}`} checked={enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fieldStates: { ...current.fieldStates, [fieldKey]: event.target.checked } }))} />
+                  </label>
+                  {enabled && theme.fieldTags?.[fieldKey] && <fieldset className="description-tags culture-subtags"><legend>{fieldLabel} tags</legend><div>{theme.fieldTags[fieldKey].map((tag) => {
+                    const storedTag = `culture:${fieldKey}:${tag}`;
+                    return <label className={`description-tag${data.tags.includes(storedTag) ? " selected" : ""}`} key={tag}><input type="checkbox" checked={data.tags.includes(storedTag)} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, tags: event.target.checked ? [...new Set([...current.tags, storedTag])] : current.tags.filter((item) => item !== storedTag) }))} /><span>{tag}</span></label>;
+                  })}</div></fieldset>}
+                </div>;
               })}</div>}
               {theme.tags.length > 0 && <fieldset className="description-tags"><legend>Tags</legend><div>{theme.tags.map((tag) => <label className={`description-tag${data.tags.includes(tag) ? " selected" : ""}`} key={tag}><input type="checkbox" checked={data.tags.includes(tag)} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, tags: event.target.checked ? [...new Set([...current.tags, tag])] : current.tags.filter((item) => item !== tag) }))} /><span>{tag}</span></label>)}</div><label className="custom-tags-field">Other tags<textarea value={(data.fields.customTags as string) ?? ""} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, customTags: event.target.value } }))} placeholder="Add tags separated by commas" /></label></fieldset>}
             </div>
           </details>;
         })}</div>}
       </div>
-      {(error || notice) && <p className={error ? "form-error" : "save-notice"} role="status">{error || notice}</p>}
+      {error && <p className="form-error" role="status">{error}</p>}
       <div className="description-save-bottom"><button className="button-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save descriptions"}</button></div>
     </section>
   );

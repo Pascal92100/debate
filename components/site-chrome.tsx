@@ -9,12 +9,8 @@ export function SiteChrome() {
 
   return <header className="site-header">
     <Link className="wordmark" href="/" aria-label="Circles home">
-      <span className="wordmark-mark">R</span>
+      <span className="wordmark-mark">C</span>
       <span>Circles</span>
     </Link>
-    <nav aria-label="Navigation principale">
-      <Link href="/debates">Debates</Link>
-      <Link href="/circle">Circle</Link>
-    </nav>
   </header>;
 }

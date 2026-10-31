@@ -27,7 +27,7 @@ export default async function CircleAccountPage() {
 
   return <main className="circle-account-shell">
     <header className="circle-account-header">
-      <Link href="/circle" className="circle-wordmark"><span className="circle-brand-mark">◯</span><strong>Circle</strong></Link>
+      <Link href="/circle" className="circle-wordmark"><span className="circle-brand-mark">C</span><strong>Circles</strong></Link>
       <div className="account-header-actions"><span className="account-private">Private · Only you</span>{persistent && <SignOutButton />}</div>
     </header>
     {!persistent && <p className="notice social-notice">Demo account and network. Set DATABASE_URL to keep changes after a restart.</p>}

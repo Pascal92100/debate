@@ -3,8 +3,8 @@ import { SiteChrome } from "@/components/site-chrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Circles | Debates",
-  description: "Structured debates where ideas meet."
+  title: "Circles",
+  description: "A place to socialize."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -13,7 +13,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <SiteChrome />
         {children}
-        <footer className="site-footer">A place to think together.</footer>
+        <footer className="site-footer">A place to socialize.</footer>
       </body>
     </html>
   );
