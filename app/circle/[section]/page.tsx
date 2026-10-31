@@ -20,5 +20,5 @@ export default async function CircleAccountSectionPage({ params }: { params: Pro
   const { section } = await params;
   const item = sections[section];
   if (!item) notFound();
-  return <main className="social-shell social-directory-shell"><Link className="back-link" href="/circle">← Account</Link><section className="account-placeholder"><span>{item.icon}</span><p className="eyebrow">Circle · upcoming module</p><h1>{item.title}</h1><p>{item.description}</p></section></main>;
+  return <main className="social-shell social-directory-shell"><Link className="back-link" href="/circle">← Account</Link><section className="account-placeholder"><span>{item.icon}</span><p className="eyebrow">Circles · upcoming module</p><h1>{item.title}</h1><p>{item.description}</p></section></main>;
 }

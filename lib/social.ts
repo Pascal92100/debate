@@ -355,7 +355,10 @@ export async function getAccountCount() {
 
 export async function getUnreadAlertCount(accountId?: string) {
   const sql = await useDatabase();
-  if (!sql) return 7;
+  if (!sql) {
+    const demoModules = globalThis as typeof globalThis & { __profileModules?: { alerts?: Array<{ readAt: string | null }> } };
+    return demoModules.__profileModules?.alerts?.filter((alert) => !alert.readAt).length ?? 7;
+  }
   if (!accountId) return 0;
   const rows = await sql`SELECT COUNT(*)::int AS count FROM alerts a JOIN profiles p ON p.id = a.profile_id WHERE p.account_id = ${accountId} AND a.read_at IS NULL`;
   return Number(rows[0]?.count ?? 0);

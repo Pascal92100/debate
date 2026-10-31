@@ -27,7 +27,7 @@ export default async function CircleProfilePage({ params }: { params: Promise<{ 
   ];
 
   return <main className="social-shell social-directory-shell">
-    <div className="social-page-heading"><div><p className="eyebrow">Circle · profile</p><h1>{profile.name}</h1></div><Link className="back-link" href="/circle">← Account</Link></div>
+    <div className="social-page-heading"><div><p className="eyebrow">Circles · profile</p><h1>{profile.name}</h1></div><Link className="back-link" href="/circle">← Account</Link></div>
     {!persistent && <p className="notice social-notice">This profile's contributions are temporary without DATABASE_URL.</p>}
     <section className="profile-detail-header"><span className="social-avatar social-avatar-large">{profile.avatar}</span><div><h2>{profile.name}</h2><p>{profile.kind === "individual" ? "Individual profile" : `${profile.category} (Meta-profile)`}</p><p>{profile.bio}</p></div></section>
     {profile.members?.length ? <section className="profile-members"><div className="account-section-heading"><div><p className="eyebrow">Meta-profile</p><h2>{profile.category === "Family" ? "Family Members" : "Members"}</h2></div><span>{profile.members.length}</span></div><div className="account-profile-list">{profile.members.map((memberId) => { const member = profiles.find((item) => item.id === memberId); return member ? <Link className="account-profile-row" href={`/circle/profiles/${encodeURIComponent(member.id)}`} key={member.id}><span className="social-avatar">{member.avatar}</span><span><strong>{member.name}</strong><small>{member.category}</small></span><span className="profile-member-role">{profile.memberRoles?.[member.id] ?? member.category}</span></Link> : null; })}</div></section> : null}

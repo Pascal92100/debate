@@ -12,7 +12,7 @@ export default async function ProfileDescriptionsPage({ params }: { params: Prom
   const profile = profiles.find((item) => item.id === id);
   if (!profile) notFound();
   return <main className="social-shell social-directory-shell">
-    <div className="social-page-heading"><div><p className="eyebrow">Circle · profile</p><h1>{profile.name}</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← Profile</Link></div>
+    <div className="social-page-heading"><div><p className="eyebrow">Circles · profile</p><h1>{profile.name}</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← Profile</Link></div>
     <ProfileDescriptionsEditor profile={profile} initialDescription={description} accountDescription={accountDescription} circles={circles} persistent={persistent} />
   </main>;
 }

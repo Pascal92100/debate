@@ -129,6 +129,16 @@ CREATE TABLE IF NOT EXISTS profile_follows (
   CHECK (follower_profile_id <> followed_profile_id)
 );
 
+CREATE TABLE IF NOT EXISTS profile_spaces (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('communities', 'groups', 'forums')),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS profile_spaces_owner_idx ON profile_spaces(profile_id, kind, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS social_posts (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
@@ -229,6 +239,27 @@ CREATE TABLE IF NOT EXISTS debate_reports (
 );
 ALTER TABLE debate_reports ADD COLUMN IF NOT EXISTS reporter_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS debate_reports_debate_id_idx ON debate_reports(debate_id, created_at);
+
+CREATE TABLE IF NOT EXISTS simple_discussions (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  circle_id TEXT REFERENCES circles(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE simple_discussions ADD COLUMN IF NOT EXISTS circle_id TEXT REFERENCES circles(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS simple_discussions_profile_idx ON simple_discussions(profile_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS simple_discussion_messages (
+  id TEXT PRIMARY KEY,
+  discussion_id TEXT NOT NULL REFERENCES simple_discussions(id) ON DELETE CASCADE,
+  author_profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  reply_to_id TEXT,
+  payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS simple_discussion_messages_thread_idx ON simple_discussion_messages(discussion_id, created_at, id);
 
 CREATE TABLE IF NOT EXISTS saved_searches (
   id TEXT PRIMARY KEY,

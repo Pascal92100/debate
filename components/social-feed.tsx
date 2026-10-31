@@ -84,7 +84,7 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
 
     <main className="social-main">
       <section className="social-composer">
-        <div className="social-composer-heading"><div><p className="eyebrow">Your network</p><h1>Circle feed</h1></div><div className="feed-view-switch" role="group" aria-label="Feed layout"><button className={!wall ? "active" : ""} onClick={() => setWall(false)}>Feed</button><button className={wall ? "active" : ""} onClick={() => setWall(true)}>Wall</button></div></div>
+        <div className="social-composer-heading"><div><p className="eyebrow">Your network</p><h1>Circles feed</h1></div><div className="feed-view-switch" role="group" aria-label="Feed layout"><button className={!wall ? "active" : ""} onClick={() => setWall(false)}>Feed</button><button className={wall ? "active" : ""} onClick={() => setWall(true)}>Wall</button></div></div>
         <div className="social-post-mode" role="group" aria-label="Post type">
           <button type="button" className={postKind === "publication" ? "active" : ""} onClick={() => setPostKind("publication")}>Post</button>
           <button type="button" className={postKind === "debate" ? "active" : ""} onClick={() => setPostKind("debate")}>⚖️ Start a debate</button>
