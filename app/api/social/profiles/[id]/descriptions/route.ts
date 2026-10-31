@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProfileDescription, listProfiles, saveProfileDescription, type ProfileDescription } from "@/lib/social";
+import { getProfileDescription, listProfiles, saveProfileDescription, saveProfilePreferences, type ProfileDescription } from "@/lib/social";
 
 export const runtime = "nodejs";
 
@@ -56,6 +56,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!body || typeof body.text !== "string" || !["ghost", "relatives", "other"].includes(body.visibility) || typeof body.identity !== "object" || typeof body.themes !== "object") {
     return NextResponse.json({ error: "Description invalide." }, { status: 400 });
   }
+  const settings = body.profileSettings;
+  const allowedFilters = ["forbidden", "commercial", "sexual", "shocking", "aggressive"];
+  if (!settings || !["ghost", "relatives", "all"].includes(settings.visibility) || ![0, 1, 2].includes(settings.socialDistance) || typeof settings.anonymous !== "boolean" || !Array.isArray(settings.contentFilters) || settings.contentFilters.some((filter: unknown) => typeof filter !== "string" || !allowedFilters.includes(filter)) || typeof settings.locationLabel !== "string" || typeof settings.dynamicLocationEnabled !== "boolean" || typeof settings.dynamicLocationCircleId !== "string") {
+    return NextResponse.json({ error: "Invalid profile research settings." }, { status: 400 });
+  }
   const description: ProfileDescription = {
     profileId: id,
     visibility: body.visibility,
@@ -73,5 +78,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return [key, { ...value, duration: value.duration ?? "permanent", expiresAt: value.enabled ? expirationFor(value.duration) : undefined }];
     }))
   };
+  const preferencesSaved = await saveProfilePreferences(id, {
+    visibility: settings.visibility,
+    socialDistance: settings.socialDistance,
+    anonymous: settings.anonymous,
+    contentFilters: settings.contentFilters,
+    locationLabel: settings.locationLabel,
+    dynamicLocationEnabled: settings.dynamicLocationEnabled,
+    dynamicLocationCircleId: settings.dynamicLocationEnabled ? settings.dynamicLocationCircleId : ""
+  });
+  if (!preferencesSaved) return NextResponse.json({ error: "Profile not found or Circle not accessible." }, { status: 404 });
   return NextResponse.json({ description: await saveProfileDescription(description) });
 }

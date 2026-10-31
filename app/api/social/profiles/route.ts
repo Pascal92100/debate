@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSocialProfile, getSessionAccountId, listProfiles } from "@/lib/social";
+import { createSocialProfile, getSessionAccountId, listCircles, listProfiles } from "@/lib/social";
 
 export const runtime = "nodejs";
 
@@ -19,6 +19,11 @@ export async function POST(request: Request) {
   }
   const allowedFilters = ["forbidden", "commercial", "sexual", "shocking", "aggressive"];
   const contentFilters = Array.isArray(body.contentFilters) ? body.contentFilters.filter((filter: unknown): filter is string => typeof filter === "string" && allowedFilters.includes(filter)) : [];
+  const dynamicLocationEnabled = body.dynamicLocationEnabled === true;
+  const dynamicLocationCircleId = typeof body.dynamicLocationCircleId === "string" ? body.dynamicLocationCircleId : "";
+  if (dynamicLocationEnabled && (!dynamicLocationCircleId || !(await listCircles()).some((circle) => circle.id === dynamicLocationCircleId))) {
+    return NextResponse.json({ error: "Choose one of your Circles for dynamic location." }, { status: 400 });
+  }
   const accountId = process.env.DATABASE_URL ? await getSessionAccountId() : undefined;
   if (process.env.DATABASE_URL && !accountId) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   const profile = await createSocialProfile({
@@ -33,7 +38,8 @@ export async function POST(request: Request) {
     anonymous: Boolean(body.anonymous),
     contentFilters,
     locationLabel: typeof body.locationLabel === "string" ? body.locationLabel : "",
-    dynamicLocationCircleId: typeof body.dynamicLocationCircleId === "string" ? body.dynamicLocationCircleId : "",
+    dynamicLocationEnabled,
+    dynamicLocationCircleId,
     members: Array.isArray(body.members) ? body.members.filter((member: unknown): member is string => typeof member === "string") : []
   });
   return NextResponse.json({ profile }, { status: 201 });

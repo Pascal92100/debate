@@ -271,34 +271,39 @@ export async function deleteOwnComment(debateId: string, commentId: string) {
     const debate = store.debates.find((item) => item.id === debateId);
     if (!debate) return false;
     let deleted = false;
-    const removeFrom = (comments: Comment[]): Comment[] => comments.filter((comment) => {
-      if (comment.id === commentId && comment.authorProfileId === "profile-john") { deleted = true; return false; }
-      comment.children = removeFrom(comment.children ?? []);
-      return true;
-    });
+    const removeFrom = (comments: Comment[]): Comment[] => {
+      const result: Comment[] = [];
+      for (const comment of comments) {
+        if (comment.id === commentId && comment.authorProfileId === "profile-john") {
+          deleted = true;
+          const paragraphIds = new Set((comment.paragraphs ?? []).map((paragraph) => paragraph.id));
+          for (const child of comment.children ?? []) {
+            if (child.replyTo === comment.id || paragraphIds.has(child.replyTo)) child.replyTo = comment.replyTo;
+            result.push(child);
+          }
+          continue;
+        }
+        comment.children = removeFrom(comment.children ?? []);
+        result.push(comment);
+      }
+      return result;
+    };
     debate.children = removeFrom(debate.children ?? []);
     return deleted;
   }
   const accountId = await getSessionAccountId();
   if (!accountId) return false;
-  const rootRows = await sql`SELECT c.id FROM debate_comments c JOIN profiles p ON p.id = c.author_profile_id WHERE c.id = ${commentId} AND c.debate_id = ${debateId} AND p.account_id = ${accountId} LIMIT 1`;
+  const rootRows = await sql`SELECT c.id, c.reply_to, c.payload FROM debate_comments c JOIN profiles p ON p.id = c.author_profile_id WHERE c.id = ${commentId} AND c.debate_id = ${debateId} AND p.account_id = ${accountId} LIMIT 1`;
   if (!rootRows.length) return false;
+  const rootPayload = rootRows[0].payload as Comment;
+  const rootReplyTo = rootRows[0].reply_to as string;
+  const rootParagraphIds = (rootPayload.paragraphs ?? []).map((paragraph) => paragraph.id);
   const rows = await sql`SELECT id, reply_to, payload FROM debate_comments WHERE debate_id = ${debateId}`;
-  const pending = new Set([commentId]);
-  const removed = new Set<string>();
-  while (pending.size) {
-    const currentId = pending.values().next().value as string;
-    pending.delete(currentId);
-    if (removed.has(currentId)) continue;
-    removed.add(currentId);
-    const current = rows.find((row) => row.id === currentId);
-    const payload = current?.payload as Comment | undefined;
-    const paragraphIds = new Set((payload?.paragraphs ?? []).map((paragraph) => paragraph.id));
-    for (const row of rows) {
-      if (!removed.has(row.id as string) && (row.reply_to === currentId || paragraphIds.has(row.reply_to as string))) pending.add(row.id as string);
-    }
-  }
-  await sql`DELETE FROM debate_comments WHERE id = ANY(${[...removed]}) AND debate_id = ${debateId}`;
+  const childIds = rows.filter((row) => row.reply_to === commentId || rootParagraphIds.includes(row.reply_to as string)).map((row) => row.id as string);
+  await sql.transaction([
+    ...(childIds.length ? [sql`UPDATE debate_comments SET reply_to = ${rootReplyTo}, payload = jsonb_set(payload, '{replyTo}', to_jsonb(${rootReplyTo}::text)) WHERE id = ANY(${childIds})`] : []),
+    sql`DELETE FROM debate_comments WHERE id = ${commentId} AND debate_id = ${debateId}`
+  ]);
   return true;
 }
 

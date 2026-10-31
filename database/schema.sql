@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS profile_preferences (
   content_filters JSONB NOT NULL DEFAULT '[]'::jsonb,
   language_preferences JSONB NOT NULL DEFAULT '[]'::jsonb,
   location_label TEXT,
+  dynamic_location_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   dynamic_location_circle_id TEXT,
   settings JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

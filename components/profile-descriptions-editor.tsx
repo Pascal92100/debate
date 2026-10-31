@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { DescriptionField, ProfileDescription, SocialProfile } from "@/lib/social";
+import type { AccountDescription, DescriptionField, ProfileDescription, SocialCircle, SocialProfile } from "@/lib/social";
+import { ContentFilterOption, contentFilters } from "@/components/profile-create-form";
 
 export type ThemeDefinition = {
   id: string;
@@ -51,8 +52,8 @@ const themeAccess: Record<string, string[]> = {
 };
 
 const contextThemeAccess: Record<string, string[]> = {
-  Professional: ["professional", "culture", "political", "sport", "spirituality", "psycho", "physical", "sexo", "kinky"],
-  Personal: ["physical", "culture", "sport", "spirituality", "psycho", "sexo", "kinky"],
+  Professional: ["professional", "culture", "political", "sport", "spirituality", "psycho", "physical"],
+  Personal: ["physical", "culture", "sport", "spirituality", "psycho"],
   Political: ["political", "culture", "professional", "psycho"],
   Dating: ["physical", "culture", "spirituality", "psycho", "sexo", "kinky"]
 };
@@ -72,14 +73,56 @@ function defaultDescription(profile: SocialProfile): ProfileDescription {
   return { profileId: profile.id, visibility: "ghost", relationship: profile.relationship ?? "friends", text: profile.bio ?? "", textEnabled: Boolean(profile.bio), identity, themes: {} };
 }
 
-export function ProfileDescriptionsEditor({ profile, initialDescription, persistent }: { profile: SocialProfile; initialDescription: ProfileDescription | null; persistent: boolean }) {
-  const [document, setDocument] = useState<ProfileDescription>(initialDescription ?? defaultDescription(profile));
+type ReusableAccountDescription = { text: string; fields: Record<string, { value: string; enabled: boolean }>; themes: ProfileDescription["themes"] };
+
+function buildProfileDraft(profile: SocialProfile, saved: ProfileDescription | null, account: ReusableAccountDescription | null) {
+  const draft = saved ?? defaultDescription(profile);
+  if (!account) return draft;
+  const identity = { ...draft.identity };
+  for (const [key, field] of Object.entries(account.fields)) {
+    if (identityFields.some(([identityKey]) => identityKey === key) && field.enabled && !identity[key]?.value) {
+      identity[key] = { value: field.value, enabled: false };
+    }
+  }
+  const themes = { ...draft.themes };
+  for (const [themeId, theme] of Object.entries(account.themes)) {
+    if (themeId === "kinky") continue;
+    const hasSavedValues = theme.enabled || Boolean(theme.description.trim()) || Object.keys(theme.fields).length > 0 || theme.tags.length > 0;
+    if (!hasSavedValues) continue;
+    const existing = themes[themeId] ?? { enabled: false, description: "", fields: {}, fieldStates: {}, tags: [] };
+    const fields = { ...theme.fields, ...existing.fields };
+    const fieldStates = { ...Object.fromEntries(Object.keys(theme.fields).map((fieldKey) => [fieldKey, false])), ...existing.fieldStates };
+    themes[themeId] = {
+      ...theme,
+      ...existing,
+      enabled: existing.enabled,
+      description: existing.description || theme.description,
+      fields,
+      fieldStates,
+      tags: [...new Set([...theme.tags, ...existing.tags])]
+    };
+  }
+  return { ...draft, identity, themes, text: draft.text || account.text, textEnabled: Boolean(draft.textEnabled) };
+}
+
+export function ProfileDescriptionsEditor({ profile, initialDescription, accountDescription, circles, persistent }: { profile: SocialProfile; initialDescription: ProfileDescription | null; accountDescription: ReusableAccountDescription | null; circles: SocialCircle[]; persistent: boolean }) {
+  const [document, setDocument] = useState<ProfileDescription>(() => buildProfileDraft(profile, initialDescription, accountDescription));
+  const [profileSettings, setProfileSettings] = useState({
+    visibility: profile.visibility || "ghost",
+    socialDistance: profile.socialDistance ?? 0,
+    anonymous: profile.anonymous ?? false,
+    contentFilters: profile.contentFilters ?? [],
+    locationLabel: profile.locationLabel ?? "",
+    dynamicLocationEnabled: profile.dynamicLocationEnabled ?? false,
+    dynamicLocationCircleId: profile.dynamicLocationCircleId ?? ""
+  });
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [showThemes, setShowThemes] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const relationshipThemes = new Set(themeAccess[document.relationship] ?? []);
-  const contextThemes = new Set(profile.kind === "individual" ? contextThemeAccess[profile.category] ?? [] : descriptionThemes.map((theme) => theme.id));
+  const contextThemes = new Set(profile.kind === "individual" ? contextThemeAccess[profile.category] ?? [] : descriptionThemes.filter((theme) => !["sexo", "kinky"].includes(theme.id)).map((theme) => theme.id));
   const allowedThemes = new Set([...relationshipThemes].filter((themeId) => contextThemes.has(themeId)));
   const isIndividual = profile.kind === "individual";
 
@@ -107,7 +150,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, persist
     const response = await fetch(`/api/social/profiles/${encodeURIComponent(profile.id)}/descriptions`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(document)
+      body: JSON.stringify({ ...document, visibility: "other", profileSettings })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
@@ -136,20 +179,20 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, persist
     setDocument((current) => {
       const identity = { ...current.identity };
       for (const [key, field] of Object.entries(accountDescription.fields)) {
-        if (profileIdentityKeys.has(key) && field.enabled) identity[key] = { ...identity[key], ...field };
+        if (profileIdentityKeys.has(key) && field.enabled) identity[key] = { ...identity[key], value: field.value, enabled: false };
       }
       const importedThemes = { ...current.themes };
       for (const [themeId, theme] of Object.entries(accountDescription.themes)) {
-        if (themeId !== "kinky" && theme.enabled) importedThemes[themeId] = { ...theme, enabled: true };
+        if (themeId !== "kinky" && theme.enabled) importedThemes[themeId] = { ...theme, enabled: false, fieldStates: Object.fromEntries(Object.keys(theme.fields).map((fieldKey) => [fieldKey, false])) };
       }
       return {
         ...current,
         identity,
         themes: importedThemes,
-        ...(accountDescription.text.trim() ? { text: accountDescription.text, textEnabled: true } : {})
+        ...(accountDescription.text.trim() ? { text: accountDescription.text, textEnabled: false } : {})
       };
     });
-    setNotice("Selected account details were copied into this profile draft. Save the profile descriptions to keep them.");
+    setNotice("Account values were copied into this profile draft but remain inactive. Enable only the details you want to use, then save.");
     setImporting(false);
   }
 
@@ -164,6 +207,19 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, persist
       <section className="description-section">
         <header className="description-section-header"><div><span className="description-section-icon">✎</span><div><h3>Text description</h3><p>General introduction for this profile</p></div></div><div className="description-activation"><label className="switch-control"><input type="checkbox" checked={document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, textEnabled: event.target.checked }))} /><span>{document.textEnabled ? "Enabled" : "Disabled"}</span></label><select aria-label="Text description activation duration" value={document.textDuration ?? "permanent"} disabled={!document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, textDuration: event.target.value }))}>{activationDurations.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div></header>
         <textarea className="description-textarea" value={document.text} disabled={!document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, text: event.target.value }))} placeholder="Write a description…" />
+      </section>
+
+      <section className="description-section visibility-section">
+        <header className="description-section-header"><div><span className="description-section-icon">◉</span><div><h3>For other&apos;s research</h3><p>Profile privacy, social distance, content filters and location.</p></div></div></header>
+        <div className="profile-setting-block"><div className="profile-setting-title">Visibility</div><div className="profile-choice-row">
+          {[["ghost", "Ghost"], ["relatives", "Connections only"], ["all", "For all"]].map(([value, label]) => <label key={value} title={value === "ghost" ? "For no one." : value === "relatives" ? "Exact pseudonym or link match for relatives." : "Default visibility."}><input type="radio" name="profile-visibility" checked={profileSettings.visibility === value} onChange={() => setProfileSettings((current) => ({ ...current, visibility: value }))} /><span>{label}</span></label>)}
+        </div></div>
+        <div className="profile-setting-block"><div className="profile-setting-title">Social distance visibility</div><div className="profile-choice-row distance-choice-row">
+          {[[0, "0", "Everyone can see your profile."], [1, "1", "Your direct contacts will never see this profile."], [2, "2+", "Contacts of your contacts will not see this profile either."]].map(([value, label, help]) => <label key={String(value)} title={String(help)}><input type="radio" name="profile-social-distance" checked={profileSettings.socialDistance === value} onChange={() => setProfileSettings((current) => ({ ...current, socialDistance: Number(value) }))} /><span>{label}</span></label>)}
+        </div></div>
+        <div className="profile-setting-block"><div className="profile-setting-title">Content filtering</div><div className="content-filter-options">{contentFilters.map(([id, emoji, text]) => <ContentFilterOption key={id} id={id} emoji={emoji} text={text} selected={profileSettings.contentFilters.includes(id)} onToggle={(checked) => setProfileSettings((current) => ({ ...current, contentFilters: checked ? [...current.contentFilters, id] : current.contentFilters.filter((item) => item !== id) }))} />)}</div></div>
+        <label className="social-check-field"><input type="checkbox" checked={profileSettings.anonymous} onChange={(event) => setProfileSettings((current) => ({ ...current, anonymous: event.target.checked }))} /> Anonymous navigation</label>
+        <div className="profile-location-fields"><label className="field">Location<input value={profileSettings.locationLabel} onChange={(event) => setProfileSettings((current) => ({ ...current, locationLabel: event.target.value }))} placeholder="Your location" /></label><div className="field"><span className="field-label">Dynamic location</span><div className="dynamic-location-choice"><label><input type="radio" checked={!profileSettings.dynamicLocationEnabled} onChange={() => setProfileSettings((current) => ({ ...current, dynamicLocationEnabled: false, dynamicLocationCircleId: "" }))} /> No</label><label><input type="radio" checked={profileSettings.dynamicLocationEnabled} onChange={() => setProfileSettings((current) => ({ ...current, dynamicLocationEnabled: true }))} /> Yes</label></div>{profileSettings.dynamicLocationEnabled && <select required aria-label="Share location with Circle" value={profileSettings.dynamicLocationCircleId} onChange={(event) => setProfileSettings((current) => ({ ...current, dynamicLocationCircleId: event.target.value }))}><option value="">Select a Circle</option>{circles.map((circle) => <option value={circle.id} key={circle.id}>{circle.name}</option>)}</select>}</div></div>
       </section>
 
       {isIndividual && <section className="description-section">
@@ -182,42 +238,33 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, persist
       </section>}
 
       <section className="description-section visibility-section">
-        <header className="description-section-header"><div><span className="description-section-icon">◉</span><div><h3>Search visibility</h3><p>Themes are included in search results according to this setting</p></div></div></header>
-        <div className="visibility-options">
-            {[["ghost", "Ghost", "For no one"], ["relatives", "Relatives", "Exact pseudonym or connection match only"], ["other", "Other", "Visible according to the selected relationship type"]].map(([value, label, detail]) => <label className={`visibility-option${document.visibility === value ? " selected" : ""}`} key={value}>
-            <input type="radio" name="profile-visibility" checked={document.visibility === value} onChange={() => setDocument((current) => ({ ...current, visibility: value as ProfileDescription["visibility"] }))} />
-            <span><strong>{label}</strong><small>{detail}</small></span>
-          </label>)}
-        </div>
-        {document.visibility === "other" && <div className="relationship-picker"><p>Relationship type</p><div>{relationships.map(([value, label]) => <button type="button" className={document.relationship === value ? "selected" : ""} key={value} onClick={() => setDocument((current) => ({ ...current, relationship: value }))}>{label}</button>)}</div><small>Available themes depend on this choice. Sexuality appears from Socializing; Kinky appears from For casual fun.</small></div>}
-        {document.visibility !== "other" && <p className="visibility-note">Your themed descriptions remain editable, but are not included in search results with this setting.</p>}
+        <header className="description-section-header"><div><span className="description-section-icon">◎</span><div><h3>Presentation goal</h3><p>Choose the relationship you are looking for. This determines which description themes are available.</p></div></div></header>
+        <div className="relationship-picker"><p>Relationship type</p><div>{relationships.map(([value, label]) => <button type="button" className={document.relationship === value ? "selected" : ""} key={value} onClick={() => { setShowThemes(false); setDocument((current) => ({ ...current, visibility: "other", relationship: value })); }}>{label}</button>)}</div></div>
       </section>
 
       <div className="description-theme-list">
-        <div className="account-section-heading"><div><p className="eyebrow">Detailed introduction</p><h2>Themed descriptions</h2></div><span>{allowedThemes.size} theme{allowedThemes.size === 1 ? "" : "s"} available for this context and relationship</span></div>
-        {descriptionThemes.map((theme) => {
+        <div className="account-section-heading"><div><p className="eyebrow">Detailed introduction</p><h2>Themed descriptions</h2></div><button className="button-secondary" type="button" onClick={() => setShowThemes((current) => !current)}>{showThemes ? "Hide theme descriptions" : "Edit theme descriptions"}</button></div>
+        {showThemes && <div className="available-theme-list"><span>{allowedThemes.size} themes available for this profile and presentation goal.</span>{descriptionThemes.filter((theme) => allowedThemes.has(theme.id)).map((theme) => {
           const data = document.themes[theme.id] ?? { enabled: false, description: "", fields: {}, fieldStates: {}, tags: [] };
-          const available = allowedThemes.has(theme.id);
-          return <details className={`description-theme${available ? "" : " theme-unavailable"}`} key={theme.id}>
-            <summary><span className="theme-summary-title">{theme.label}</span><span className={`theme-availability${available ? " available" : ""}`}>{available ? "In search" : "Not exposed"}</span><span className={`theme-switch-mark${data.enabled ? " enabled" : ""}`}>{data.enabled ? "On" : "Off"}</span></summary>
+          return <details className="description-theme" key={theme.id}>
+            <summary><span className="theme-summary-title">{theme.label}</span><span className={`theme-switch-mark${data.enabled ? " enabled" : ""}`}>{data.enabled ? "On" : "Off"}</span></summary>
             <div className="description-theme-body">
-              {!available && <p className="theme-locked-note">This theme is saved but unavailable for the selected relationship. Change the relationship to edit it.</p>}
-              <div className="description-activation"><label className="theme-enable-control"><input type="checkbox" checked={data.enabled} disabled={!available} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, enabled: event.target.checked }))} /> Enable this theme</label><select aria-label={`${theme.label} activation duration`} value={data.duration ?? "permanent"} disabled={!available || !data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, duration: event.target.value }))}>{activationDurations.map(([value, durationLabel]) => <option value={value} key={value}>{durationLabel}</option>)}</select></div>
-              <label className="description-field-label">Description<textarea value={data.description} disabled={!available} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, description: event.target.value }))} placeholder={`${theme.label} description…`} /></label>
+              <div className="description-activation"><label className="theme-enable-control"><input type="checkbox" checked={data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, enabled: event.target.checked }))} /> Use this theme in my profile description</label><select aria-label={`${theme.label} activation duration`} value={data.duration ?? "permanent"} disabled={!data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, duration: event.target.value }))}>{activationDurations.map(([value, durationLabel]) => <option value={value} key={value}>{durationLabel}</option>)}</select></div>
+              <label className="description-field-label">Description<textarea value={data.description} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, description: event.target.value }))} placeholder={`${theme.label} description…`} /></label>
               {theme.fields.length > 0 && <div className="theme-standard-fields">{theme.fields.map(([fieldKey, fieldLabel]) => {
                 const currentValue = data.fields[fieldKey];
                 const enabled = data.fieldStates?.[fieldKey] ?? (currentValue !== undefined && currentValue !== "");
                 const isRange = typeof currentValue === "number" || ["desire", "desireLevel", "modesty", "communication", "touch"].includes(fieldKey);
                 return <label className={`theme-standard-field${enabled ? "" : " is-disabled"}`} key={fieldKey}>
                   <span>{fieldLabel}</span>
-                  <input type={isRange ? "range" : "text"} min={isRange ? 0 : undefined} max={isRange ? 10 : undefined} value={currentValue ?? (isRange ? 5 : "")} disabled={!available || !enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, [fieldKey]: isRange ? Number(event.target.value) : event.target.value } }))} />
-                  <input type="checkbox" aria-label={`Activer ${fieldLabel}`} checked={enabled} disabled={!available} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fieldStates: { ...current.fieldStates, [fieldKey]: event.target.checked } }))} />
+                  <input type={isRange ? "range" : "text"} min={isRange ? 0 : undefined} max={isRange ? 10 : undefined} value={currentValue ?? (isRange ? 5 : "")} disabled={!enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, [fieldKey]: isRange ? Number(event.target.value) : event.target.value } }))} />
+                  <input type="checkbox" aria-label={`Use ${fieldLabel}`} checked={enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fieldStates: { ...current.fieldStates, [fieldKey]: event.target.checked } }))} />
                 </label>;
               })}</div>}
-              {theme.tags.length > 0 && <fieldset className="description-tags"><legend>Tags</legend><div>{theme.tags.map((tag) => <label className={`description-tag${data.tags.includes(tag) ? " selected" : ""}`} key={tag}><input type="checkbox" disabled={!available} checked={data.tags.includes(tag)} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, tags: event.target.checked ? [...new Set([...current.tags, tag])] : current.tags.filter((item) => item !== tag) }))} /><span>{tag}</span></label>)}</div><label className="custom-tags-field">Other tags<textarea disabled={!available} value={(data.fields.customTags as string) ?? ""} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, customTags: event.target.value } }))} placeholder="Add tags separated by commas" /></label></fieldset>}
+              {theme.tags.length > 0 && <fieldset className="description-tags"><legend>Tags</legend><div>{theme.tags.map((tag) => <label className={`description-tag${data.tags.includes(tag) ? " selected" : ""}`} key={tag}><input type="checkbox" checked={data.tags.includes(tag)} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, tags: event.target.checked ? [...new Set([...current.tags, tag])] : current.tags.filter((item) => item !== tag) }))} /><span>{tag}</span></label>)}</div><label className="custom-tags-field">Other tags<textarea value={(data.fields.customTags as string) ?? ""} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, customTags: event.target.value } }))} placeholder="Add tags separated by commas" /></label></fieldset>}
             </div>
           </details>;
-        })}
+        })}</div>}
       </div>
       {(error || notice) && <p className={error ? "form-error" : "save-notice"} role="status">{error || notice}</p>}
       <div className="description-save-bottom"><button className="button-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save descriptions"}</button></div>

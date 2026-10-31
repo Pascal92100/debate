@@ -19,6 +19,7 @@ export type SocialProfile = {
   anonymous: boolean;
   contentFilters?: string[];
   locationLabel?: string;
+  dynamicLocationEnabled?: boolean;
   dynamicLocationCircleId?: string;
   members?: string[];
   includesLabel?: string;
@@ -195,10 +196,12 @@ async function useDatabase() {
     content_filters JSONB NOT NULL DEFAULT '[]'::jsonb,
     language_preferences JSONB NOT NULL DEFAULT '[]'::jsonb,
     location_label TEXT,
+    dynamic_location_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     dynamic_location_circle_id TEXT,
     settings JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE profile_preferences ADD COLUMN IF NOT EXISTS dynamic_location_enabled BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`CREATE TABLE IF NOT EXISTS circles (
     id TEXT PRIMARY KEY,
     owner_profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -266,13 +269,45 @@ export async function listProfiles() {
   if (!sql) return structuredClone(state.profiles);
   const accountId = await getSessionAccountId();
   if (!accountId) return [];
-  const rows = await sql`SELECT p.payload, fp.content_filters, fp.location_label, fp.dynamic_location_circle_id FROM profiles p LEFT JOIN profile_preferences fp ON fp.profile_id = p.id WHERE p.account_id = ${accountId} ORDER BY p.created_at`;
+  const rows = await sql`SELECT p.payload, fp.content_filters, fp.location_label, fp.dynamic_location_enabled, fp.dynamic_location_circle_id FROM profiles p LEFT JOIN profile_preferences fp ON fp.profile_id = p.id WHERE p.account_id = ${accountId} ORDER BY p.created_at`;
   return rows.map((row) => ({
     ...(row.payload as SocialProfile),
     contentFilters: (row.content_filters as string[] | null) ?? [],
     locationLabel: row.location_label as string | null ?? undefined,
+    dynamicLocationEnabled: Boolean(row.dynamic_location_enabled),
     dynamicLocationCircleId: row.dynamic_location_circle_id as string | null ?? undefined
   }));
+}
+
+export async function saveProfilePreferences(profileId: string, preferences: { visibility: string; socialDistance: number; anonymous: boolean; contentFilters: string[]; locationLabel: string; dynamicLocationEnabled: boolean; dynamicLocationCircleId: string }) {
+  const sql = await useDatabase();
+  if (!sql) {
+    state.profiles = state.profiles.map((profile) => profile.id === profileId ? {
+      ...profile,
+      visibility: preferences.visibility,
+      socialDistance: preferences.socialDistance,
+      anonymous: preferences.anonymous,
+      contentFilters: preferences.contentFilters,
+      locationLabel: preferences.locationLabel,
+      dynamicLocationEnabled: preferences.dynamicLocationEnabled,
+      dynamicLocationCircleId: preferences.dynamicLocationCircleId
+    } : profile);
+    return true;
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId) return false;
+  if (preferences.dynamicLocationEnabled && !preferences.dynamicLocationCircleId) return false;
+  const rows = await sql`SELECT id FROM profiles WHERE id = ${profileId} AND account_id = ${accountId} LIMIT 1`;
+  if (!rows.length) return false;
+  if (preferences.dynamicLocationEnabled && preferences.dynamicLocationCircleId) {
+    const circle = await sql`SELECT id FROM circles WHERE id = ${preferences.dynamicLocationCircleId} AND (owner_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId}) OR EXISTS (SELECT 1 FROM circle_members cm JOIN profiles p ON p.id = cm.profile_id WHERE cm.circle_id = circles.id AND p.account_id = ${accountId})) LIMIT 1`;
+    if (!circle.length) return false;
+  }
+  await sql`INSERT INTO profile_preferences (profile_id, anonymous_navigation, content_filters, location_label, dynamic_location_enabled, dynamic_location_circle_id, settings, updated_at)
+    VALUES (${profileId}, ${preferences.anonymous}, ${JSON.stringify(preferences.contentFilters)}::jsonb, NULLIF(${preferences.locationLabel}, ''), ${preferences.dynamicLocationEnabled}, ${preferences.dynamicLocationEnabled ? preferences.dynamicLocationCircleId || null : null}, ${JSON.stringify({ visibility: preferences.visibility, socialDistance: preferences.socialDistance })}::jsonb, NOW())
+    ON CONFLICT (profile_id) DO UPDATE SET anonymous_navigation = EXCLUDED.anonymous_navigation, content_filters = EXCLUDED.content_filters, location_label = EXCLUDED.location_label, dynamic_location_enabled = EXCLUDED.dynamic_location_enabled, dynamic_location_circle_id = EXCLUDED.dynamic_location_circle_id, settings = EXCLUDED.settings, updated_at = NOW()`;
+  await sql`UPDATE profiles SET visibility = ${preferences.visibility}, social_distance = ${preferences.socialDistance}, anonymous = ${preferences.anonymous}, payload = jsonb_set(jsonb_set(jsonb_set(payload, '{visibility}', to_jsonb(${preferences.visibility}::text)), '{socialDistance}', to_jsonb(${preferences.socialDistance}::int)), '{anonymous}', to_jsonb(${preferences.anonymous}::boolean)), updated_at = NOW() WHERE id = ${profileId} AND account_id = ${accountId}`;
+  return true;
 }
 
 export async function getAccount(accountId?: string): Promise<SocialAccount | null> {
@@ -632,10 +667,11 @@ export async function createSocialPost(input: { title: string; body: string; cir
   return post;
 }
 
-export async function createSocialProfile(input: { accountId?: string; name: string; kind: string; category: string; relationship?: string; bio: string; visibility: string; socialDistance: number; anonymous: boolean; contentFilters?: string[]; locationLabel?: string; dynamicLocationCircleId?: string; members?: string[] }) {
+export async function createSocialProfile(input: { accountId?: string; name: string; kind: string; category: string; relationship?: string; bio: string; visibility: string; socialDistance: number; anonymous: boolean; contentFilters?: string[]; locationLabel?: string; dynamicLocationEnabled?: boolean; dynamicLocationCircleId?: string; members?: string[] }) {
   const sql = await useDatabase();
   const accountId = sql ? input.accountId : "account-demo";
   if (!accountId) throw new Error("An authenticated account is required to create a profile.");
+  if (input.dynamicLocationEnabled && !input.dynamicLocationCircleId) throw new Error("Choose a Circle for dynamic location.");
   const profile: SocialProfile = {
     id: `profile_${crypto.randomUUID()}`,
     accountId,
@@ -650,7 +686,8 @@ export async function createSocialProfile(input: { accountId?: string; name: str
     anonymous: input.anonymous,
     contentFilters: input.contentFilters ?? [],
     locationLabel: input.locationLabel?.trim() || "",
-    dynamicLocationCircleId: input.dynamicLocationCircleId || "",
+    dynamicLocationEnabled: Boolean(input.dynamicLocationEnabled),
+    dynamicLocationCircleId: input.dynamicLocationEnabled ? input.dynamicLocationCircleId || "" : "",
     members: input.kind === "meta" ? (input.members ?? []) : [],
     memberRoles: {}
   };
@@ -663,8 +700,8 @@ export async function createSocialProfile(input: { accountId?: string; name: str
     await sql.transaction([
       sql`INSERT INTO profiles (id, account_id, name, kind, category, avatar, bio, visibility, social_distance, anonymous, payload)
         VALUES (${profile.id}, ${profile.accountId}, ${profile.name}, ${profile.kind}, ${profile.category}, ${profile.avatar}, ${profile.bio}, ${profile.visibility}, ${profile.socialDistance}, ${profile.anonymous}, ${JSON.stringify(profile)}::jsonb)`,
-      sql`INSERT INTO profile_preferences (profile_id, anonymous_navigation, content_filters, location_label, dynamic_location_circle_id)
-        VALUES (${profile.id}, ${profile.anonymous}, ${JSON.stringify(profile.contentFilters)}::jsonb, ${profile.locationLabel || null}, ${profile.dynamicLocationCircleId || null})`,
+      sql`INSERT INTO profile_preferences (profile_id, anonymous_navigation, content_filters, location_label, dynamic_location_enabled, dynamic_location_circle_id)
+        VALUES (${profile.id}, ${profile.anonymous}, ${JSON.stringify(profile.contentFilters)}::jsonb, ${profile.locationLabel || null}, ${profile.dynamicLocationEnabled}, ${profile.dynamicLocationCircleId || null})`,
       ...memberIds.map((memberId) => sql`INSERT INTO meta_profile_members (meta_profile_id, member_profile_id, role) VALUES (${profile.id}, ${memberId}, 'member') ON CONFLICT DO NOTHING`)
     ]);
   } else {
