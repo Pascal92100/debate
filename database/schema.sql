@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   birthdate DATE,
   address TEXT,
   phone TEXT,
+  description_text TEXT NOT NULL DEFAULT '',
+  description_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -24,6 +26,8 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nationalities JSONB NOT NULL DEFAU
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS birthdate DATE;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS address TEXT;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS description_text TEXT NOT NULL DEFAULT '';
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS description_payload JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE UNIQUE INDEX IF NOT EXISTS accounts_single_primary_idx ON accounts(is_primary) WHERE is_primary;
 

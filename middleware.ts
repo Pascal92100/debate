@@ -17,7 +17,7 @@ async function validSession(token: string | undefined, secret: string) {
 export async function middleware(request: NextRequest) {
   if (!process.env.DATABASE_URL) return NextResponse.next();
   const path = request.nextUrl.pathname;
-  if (path === "/login" || path === "/setup" || path.startsWith("/api/auth/")) return NextResponse.next();
+  if (path === "/" || path === "/login" || path === "/setup" || path.startsWith("/api/auth/")) return NextResponse.next();
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) {
     return NextResponse.json({ error: "Server authentication is not configured. Set SESSION_SECRET to a random value of at least 32 characters." }, { status: 503 });

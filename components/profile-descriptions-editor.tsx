@@ -50,6 +50,13 @@ const themeAccess: Record<string, string[]> = {
   casualfun: ["physical", "sexo", "kinky"]
 };
 
+const contextThemeAccess: Record<string, string[]> = {
+  Professional: ["professional", "culture", "political", "sport", "spirituality", "psycho", "physical", "sexo", "kinky"],
+  Personal: ["physical", "culture", "sport", "spirituality", "psycho", "sexo", "kinky"],
+  Political: ["political", "culture", "professional", "psycho"],
+  Dating: ["physical", "culture", "spirituality", "psycho", "sexo", "kinky"]
+};
+
 function defaultDescription(profile: SocialProfile): ProfileDescription {
   const values: Record<string, string> = {
     firstName: profile.firstName ?? profile.name,
@@ -70,7 +77,9 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, persist
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const allowedThemes = new Set(themeAccess[document.relationship] ?? []);
+  const relationshipThemes = new Set(themeAccess[document.relationship] ?? []);
+  const contextThemes = new Set(profile.kind === "individual" ? contextThemeAccess[profile.category] ?? [] : themes.map((theme) => theme.id));
+  const allowedThemes = new Set([...relationshipThemes].filter((themeId) => contextThemes.has(themeId)));
   const isIndividual = profile.kind === "individual";
 
   function updateIdentity(key: string, patch: Partial<DescriptionField>) {
@@ -151,7 +160,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, persist
       </section>
 
       <div className="description-theme-list">
-        <div className="account-section-heading"><div><p className="eyebrow">Detailed introduction</p><h2>Themed descriptions</h2></div><span>{allowedThemes.size} theme{allowedThemes.size === 1 ? "" : "s"} available for this relationship</span></div>
+        <div className="account-section-heading"><div><p className="eyebrow">Detailed introduction</p><h2>Themed descriptions</h2></div><span>{allowedThemes.size} theme{allowedThemes.size === 1 ? "" : "s"} available for this context and relationship</span></div>
         {themes.map((theme) => {
           const data = document.themes[theme.id] ?? { enabled: false, description: "", fields: {}, fieldStates: {}, tags: [] };
           const available = allowedThemes.has(theme.id);

@@ -66,6 +66,33 @@ export type SocialAccount = {
   email?: string;
 };
 
+export type AccountDescriptionField = { value: string; enabled: boolean };
+export type AccountDescription = {
+  accountId: string;
+  text: string;
+  fields: Record<string, AccountDescriptionField>;
+};
+
+function demoAccountDescription(): AccountDescription {
+  const account = fixture.account as SocialAccount;
+  return {
+    accountId: account.id,
+    text: "",
+    fields: {
+      firstName: { value: "John", enabled: true },
+      lastName: { value: "Doe", enabled: true },
+      nationalities: { value: account.nationalities.join(", "), enabled: true },
+      birthdate: { value: account.birthdate ?? "", enabled: true },
+      sex: { value: "Male", enabled: true },
+      relationshipStatus: { value: "In relationship", enabled: true },
+      languages: { value: "English, French", enabled: true },
+      location: { value: "Paris", enabled: true },
+      address: { value: account.address ?? "", enabled: true },
+      phone: { value: account.phone ?? "", enabled: true }
+    }
+  };
+}
+
 export type SocialPost = {
   id: string;
   profileId: string;
@@ -89,6 +116,7 @@ type SocialState = {
   circles: SocialCircle[];
   posts: SocialPost[];
   descriptions: ProfileDescription[];
+  accountDescription: AccountDescription;
   reactions: Array<{ postId: string; profileId: string; reaction: string }>;
   persistentReady: boolean;
 };
@@ -99,9 +127,11 @@ const state = globalSocial.__socialState ??= {
   circles: structuredClone(fixture.circles) as SocialCircle[],
   posts: structuredClone(fixture.posts) as SocialPost[],
   descriptions: structuredClone(fixture.descriptions) as ProfileDescription[],
+  accountDescription: demoAccountDescription(),
   reactions: [],
   persistentReady: false
 };
+state.accountDescription ??= demoAccountDescription();
 const demoProfileId = "profile-john";
 
 async function useDatabase() {
@@ -125,6 +155,8 @@ async function useDatabase() {
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS birthdate DATE`;
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS address TEXT`;
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS phone TEXT`;
+  await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS description_text TEXT NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS description_payload JSONB NOT NULL DEFAULT '{}'::jsonb`;
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS password_hash TEXT`;
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS is_primary BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS accounts_single_primary_idx ON accounts(is_primary) WHERE is_primary`;
@@ -224,7 +256,16 @@ export async function listProfiles() {
 
 export async function getAccount(accountId?: string): Promise<SocialAccount | null> {
   const sql = await useDatabase();
-  if (!sql) return structuredClone(fixture.account as SocialAccount);
+  if (!sql) {
+    const account = structuredClone(fixture.account as SocialAccount);
+    const fields = state.accountDescription.fields;
+    account.displayName = `${fields.firstName?.value ?? ""} ${fields.lastName?.value ?? ""}`.trim();
+    account.nationalities = (fields.nationalities?.value ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+    account.birthdate = fields.birthdate?.value || null;
+    account.address = fields.address?.value || null;
+    account.phone = fields.phone?.value || null;
+    return account;
+  }
   if (!accountId || accountId !== await getSessionAccountId()) return null;
   const rows = await sql`SELECT id, display_name AS "displayName", nationalities, birthdate::text AS birthdate, address, phone, email FROM accounts WHERE id = ${accountId} LIMIT 1`;
   return (rows[0] as SocialAccount | undefined) ?? null;
@@ -280,33 +321,63 @@ export async function createInitialAccount(input: { displayName: string; email: 
   const sql = await useDatabase();
   if (!sql) throw new Error("Database connection is required to create the primary account.");
   const accountId = `account_${crypto.randomUUID()}`;
-  const profileId = `profile_${crypto.randomUUID()}`;
-  const profile = {
-    id: profileId,
-    accountId,
-    name: input.displayName.trim(),
-    kind: "individual",
-    category: "Personal",
-    avatar: input.displayName.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join(""),
-    bio: "",
-    visibility: "all",
-    socialDistance: 0,
-    anonymous: false
-  };
   const passwordHash = hashPassword(input.password);
-  const rows = await sql`WITH new_account AS (
-      INSERT INTO accounts (id, email, display_name, password_hash, is_primary)
-      VALUES (${accountId}, ${input.email.trim().toLowerCase()}, ${input.displayName.trim()}, ${passwordHash}, TRUE)
-      ON CONFLICT DO NOTHING
-      RETURNING id
-    ), new_profile AS (
-      INSERT INTO profiles (id, account_id, name, kind, category, avatar, payload)
-      SELECT ${profileId}, id, ${profile.name}, 'individual', 'Personal', ${profile.avatar}, ${JSON.stringify(profile)}::jsonb FROM new_account
-      RETURNING id
-    )
-    SELECT (SELECT id FROM new_account) AS account_id, (SELECT id FROM new_profile) AS profile_id`;
-  if (!rows[0]?.account_id) throw new Error("The primary account already exists or this email is already in use.");
-  return { accountId, profile };
+  const rows = await sql`INSERT INTO accounts (id, email, display_name, password_hash, is_primary)
+    VALUES (${accountId}, ${input.email.trim().toLowerCase()}, ${input.displayName.trim()}, ${passwordHash}, TRUE)
+    ON CONFLICT DO NOTHING
+    RETURNING id`;
+  if (!rows[0]?.id) throw new Error("The primary account already exists or this email is already in use.");
+  return { accountId };
+}
+
+export async function getAccountDescription(): Promise<AccountDescription | null> {
+  const sql = await useDatabase();
+  if (!sql) return structuredClone(state.accountDescription);
+  const accountId = await getSessionAccountId();
+  if (!accountId) return null;
+  const rows = await sql`SELECT id, display_name, nationalities, birthdate::text AS birthdate, address, phone, description_text, description_payload FROM accounts WHERE id = ${accountId} LIMIT 1`;
+  const account = rows[0] as { id: string; display_name: string; nationalities: string[]; birthdate: string | null; address: string | null; phone: string | null; description_text: string; description_payload: AccountDescription["fields"] } | undefined;
+  if (!account) return null;
+  const [firstName = "", ...lastParts] = account.display_name.split(/\s+/);
+  const savedFields = account.description_payload ?? {};
+  const baseValues: Record<string, string> = {
+    firstName,
+    lastName: lastParts.join(" "),
+    nationalities: (account.nationalities ?? []).join(", "),
+    birthdate: account.birthdate ?? "",
+    sex: "",
+    relationshipStatus: "",
+    languages: "",
+    location: "",
+    address: account.address ?? "",
+    phone: account.phone ?? ""
+  };
+  return {
+    accountId,
+    text: account.description_text ?? "",
+    fields: Object.fromEntries(Object.entries(baseValues).map(([key, value]) => [key, savedFields[key] ?? { value, enabled: Boolean(value) }]))
+  };
+}
+
+export async function saveAccountDescription(description: AccountDescription) {
+  const sql = await useDatabase();
+  if (!sql) {
+    state.accountDescription = structuredClone(description);
+    return description;
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId || accountId !== description.accountId) throw new Error("Authentication required.");
+  const firstName = description.fields.firstName?.value.trim() ?? "";
+  const lastName = description.fields.lastName?.value.trim() ?? "";
+  const displayName = `${firstName} ${lastName}`.trim();
+  const nationalities = (description.fields.nationalities?.value ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  await sql`UPDATE accounts SET display_name = ${displayName}, nationalities = ${JSON.stringify(nationalities)}::jsonb,
+    birthdate = NULLIF(${description.fields.birthdate?.value ?? ""}, '')::date,
+    address = NULLIF(${description.fields.address?.value ?? ""}, ''),
+    phone = NULLIF(${description.fields.phone?.value ?? ""}, ''),
+    description_text = ${description.text}, description_payload = ${JSON.stringify(description.fields)}::jsonb, updated_at = NOW()
+    WHERE id = ${accountId}`;
+  return description;
 }
 
 export async function authenticateAccount(email: string, password: string) {
@@ -421,7 +492,7 @@ export async function createSocialPost(input: { title: string; body: string; cir
   return post;
 }
 
-export async function createSocialProfile(input: { accountId?: string; name: string; kind: string; category: string; bio: string; visibility: string; socialDistance: number; anonymous: boolean; members?: string[] }) {
+export async function createSocialProfile(input: { accountId?: string; name: string; kind: string; category: string; relationship?: string; bio: string; visibility: string; socialDistance: number; anonymous: boolean; members?: string[] }) {
   const sql = await useDatabase();
   const accountId = sql ? input.accountId : "account-demo";
   if (!accountId) throw new Error("An authenticated account is required to create a profile.");
@@ -431,6 +502,7 @@ export async function createSocialProfile(input: { accountId?: string; name: str
     name: input.name.trim(),
     kind: input.kind === "meta" ? "meta" : "individual",
     category: input.category.trim() || (input.kind === "meta" ? "Meta-profile" : "Personal"),
+    relationship: input.relationship,
     avatar: input.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join(""),
     bio: input.bio.trim(),
     visibility: input.visibility || "all",

@@ -16,7 +16,7 @@ export function AuthForm({ mode, nextPath = "/circle" }: { mode: "setup" | "logi
     const response = await fetch(mode === "setup" ? "/api/auth/bootstrap" : "/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName: form.get("displayName"), email: form.get("email"), password: form.get("password") })
+      body: JSON.stringify({ firstName: form.get("firstName"), lastName: form.get("lastName"), email: form.get("email"), password: form.get("password") })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
@@ -29,7 +29,13 @@ export function AuthForm({ mode, nextPath = "/circle" }: { mode: "setup" | "logi
   }
 
   return <form className="form-panel auth-panel" onSubmit={submit}>
-    {mode === "setup" && <div className="field"><label htmlFor="displayName">Your name</label><input id="displayName" name="displayName" required minLength={2} maxLength={100} autoComplete="name" /></div>}
+    {mode === "setup" && <>
+      <p className="private-name-note">Your first and last name are private account details. They are never shown to other users.</p>
+      <div className="auth-name-fields">
+        <div className="field"><label htmlFor="firstName">First name</label><input id="firstName" name="firstName" required maxLength={50} placeholder="John" autoComplete="given-name" /></div>
+        <div className="field"><label htmlFor="lastName">Last name</label><input id="lastName" name="lastName" required maxLength={50} placeholder="Doe" autoComplete="family-name" /></div>
+      </div>
+    </>}
     <div className="field"><label htmlFor="email">Email</label><input id="email" name="email" type="email" required autoComplete="email" /></div>
     <div className="field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" required minLength={mode === "setup" ? 12 : 1} autoComplete={mode === "setup" ? "new-password" : "current-password"} />{mode === "setup" && <span className="field-hint">Use at least 12 characters.</span>}</div>
     {error && <p className="form-error" role="alert">{error}</p>}
