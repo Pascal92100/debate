@@ -137,6 +137,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .social-notice { margin-top: 10px; }
 .social-directory-shell { max-width: 1050px; }
 .social-section-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin: 28px 0 20px; }
+.social-section-heading.circle-create-only { justify-content: flex-end; }
 .social-section-heading p:not(.eyebrow) { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
 .circle-create-form { max-width: 720px; margin-bottom: 18px; padding: 15px; border: 1px solid var(--line); background: var(--surface); }
 .circle-create-form > label textarea { min-height: 54px; }
@@ -293,6 +294,10 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .social-post > .delete-entity-control { justify-content: flex-end; padding-top: 8px; }
 @media (max-width: 650px) {
   .auth-name-fields, .profile-location-fields { grid-template-columns: 1fr; }
+  .profile-link-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-link-choice { grid-template-columns: 30px minmax(0, 1fr) 12px; gap: 7px; padding: 9px; }
+  .profile-link-choice .account-choice-icon { width: 28px; height: 28px; }
+  .profile-section-toolbar { align-items: flex-start; }
   .description-heading-actions { justify-content: flex-start; }
   .profile-choice-row > label { flex: 1 1 135px; }
   .content-filter-option { min-height: 44px; }
@@ -350,6 +355,15 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .profile-detail-header p { margin: 0 0 3px; color: var(--muted); font-size: 10px; }
 .profile-detail-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .profile-detail-actions .button-primary, .profile-detail-actions .button-secondary { min-height: 35px; font-size: 9px; }
+.profile-links-section { margin: 22px 0; }
+.profile-link-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--line); background: var(--line); }
+.profile-link-choice { min-height: 76px; }
+.profile-link-choice .account-choice-icon { border-radius: 50%; }
+.profile-section-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 14px 0; }
+.profile-section-toolbar p { margin: 0; color: var(--muted); font-size: 11px; }
+.profile-post-list { display: grid; gap: 7px; margin: 14px 0 20px; }
+.profile-post-meta { margin-bottom: 5px; color: var(--muted); font-size: 9px; }
+.profile-post-list .profile-activity-item { margin: 0; }
 .profile-activity-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .profile-activity-item { display: block; margin-bottom: 6px; padding: 11px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 .profile-activity-item strong, .profile-activity-item small { display: block; font-size: 10px; }

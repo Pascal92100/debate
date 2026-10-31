@@ -726,10 +726,12 @@ export async function linkSocialPostToDebate(postId: string, debateId: string) {
   }
 }
 
-export async function createCircle(input: { name: string; kind: string; description: string; visibility: string }) {
+export async function createCircle(input: { name: string; kind: string; description: string; visibility: string; ownerProfileId?: string }) {
   const profiles = await listProfiles();
   const sql = await useDatabase();
-  const profile = sql ? profiles[0] : profiles.find((item) => item.id === demoProfileId) ?? profiles[0];
+  const profile = input.ownerProfileId
+    ? profiles.find((item) => item.id === input.ownerProfileId)
+    : sql ? profiles[0] : profiles.find((item) => item.id === demoProfileId) ?? profiles[0];
   if (!profile) throw new Error("Create a profile before creating a Circle.");
   const circle: SocialCircle = {
     id: `circle_${crypto.randomUUID()}`,
