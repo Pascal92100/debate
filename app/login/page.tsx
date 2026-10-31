@@ -11,5 +11,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     return <main className="form-shell auth-shell"><p className="eyebrow">Circles account</p><h1 className="serif">Server configuration required</h1><p className="form-lead">Set SESSION_SECRET to a random value of at least 32 characters in Vercel Environment Variables, then redeploy.</p></main>;
   }
   const { next } = await searchParams;
-  return <main className="form-shell auth-shell"><p className="eyebrow">Circles account</p><h1 className="serif">Sign in</h1><p className="form-lead">Use the email and password for your primary account.</p><AuthForm mode="login" nextPath={next} /></main>;
+  return <main className="form-shell auth-shell"><p className="eyebrow">Circles account</p><h1 className="serif">Sign in</h1><p className="form-lead">Use the email and password for your account.</p><AuthForm mode="login" nextPath={next} /><p className="auth-signup-link">New to Circles? <a href="/setup">Create an account</a></p></main>;
 }

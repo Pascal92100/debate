@@ -28,6 +28,7 @@ export type Debate = {
 export type Comment = {
   id: string;
   author: string;
+  authorProfileId?: string;
   confidence: number;
   title: string;
   evaluation?: string;
@@ -78,6 +79,7 @@ async function initializeDatabase() {
     payload JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE debate_comments ADD COLUMN IF NOT EXISTS author_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL`;
   await sql`CREATE INDEX IF NOT EXISTS debate_comments_debate_id_idx ON debate_comments (debate_id, created_at)`;
   await sql`CREATE TABLE IF NOT EXISTS debate_reports (
     id TEXT PRIMARY KEY,
@@ -173,6 +175,38 @@ export async function createDebate(input: Pick<Debate, "title" | "content"> & Pa
   return debate;
 }
 
+export async function deleteOwnDebate(debateId: string) {
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (!sql) {
+    const index = store.debates.findIndex((debate) => debate.id === debateId && Boolean(debate.authorProfileId));
+    if (index < 0) return false;
+    store.debates.splice(index, 1);
+    return true;
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId) return false;
+  const rows = await sql`SELECT d.source_post_id FROM debates d JOIN profiles p ON p.id = d.author_profile_id WHERE d.id = ${debateId} AND p.account_id = ${accountId} LIMIT 1`;
+  if (!rows.length) return false;
+  const sourcePostId = rows[0].source_post_id as string | null;
+  const statements = [sql`DELETE FROM debates WHERE id = ${debateId} AND author_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId})`];
+  if (sourcePostId) statements.push(sql`UPDATE social_posts SET debate_id = NULL, kind = 'publication', payload = (payload - 'debateId') || '{"kind":"publication"}'::jsonb WHERE id = ${sourcePostId}`);
+  await sql.transaction(statements);
+  return true;
+}
+
+export function deleteDemoDebatesByProfile(profileId: string) {
+  store.debates = store.debates.filter((debate) => debate.authorProfileId !== profileId);
+}
+
+export function unlinkDemoDebatesFromCircle(circleId: string) {
+  store.debates = store.debates.map((debate) => debate.circleId === circleId ? { ...debate, circleId: null } : debate);
+}
+
+export function deleteDemoDebateBySourcePost(postId: string) {
+  store.debates = store.debates.filter((debate) => debate.sourcePostId !== postId);
+}
+
 function attachComment(debate: Debate, comment: Comment) {
   const rootReplyIds = new Set([debate.id, "p1"]);
   const rootId = (debate.children ?? []).some((child) => child.replyTo === "p1" || child.replyTo?.startsWith("p1-")) ? "p1" : debate.id;
@@ -197,9 +231,22 @@ export async function createComment(debateId: string, input: { replyTo: string; 
   const debate = await getDebate(debateId);
   if (!debate) return null;
   const paragraphTexts = input.text.replace(/\r\n?/g, "\n").split("\n").map((text) => text.trim()).filter(Boolean);
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  let authorProfileId: string | undefined;
+  let author = input.author?.trim() || "You";
+  if (sql) {
+    const accountId = await getSessionAccountId();
+    if (!accountId) return null;
+    const profiles = await sql`SELECT id, name FROM profiles WHERE account_id = ${accountId} ORDER BY created_at LIMIT 1`;
+    if (!profiles.length) return null;
+    authorProfileId = profiles[0].id as string;
+    author = profiles[0].name as string;
+  } else authorProfileId = "profile-john";
   const comment: Comment = {
     id: `post_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
-    author: input.author?.trim() || "You",
+    author,
+    authorProfileId,
     confidence: 50,
     title: input.title?.trim() || paragraphTexts[0]?.slice(0, 72) || "Reply",
     evaluation: input.evaluation,
@@ -207,16 +254,52 @@ export async function createComment(debateId: string, input: { replyTo: string; 
     replyTo: input.replyTo,
     children: []
   };
-  const persistent = await isPersistentStore();
-  const sql = persistent ? database() : null;
   if (sql) {
-    await sql`INSERT INTO debate_comments (id, debate_id, reply_to, payload) VALUES (${comment.id}, ${debateId}, ${comment.replyTo}, ${JSON.stringify(comment)}::jsonb)`;
+    await sql`INSERT INTO debate_comments (id, debate_id, reply_to, author_profile_id, payload) VALUES (${comment.id}, ${debateId}, ${comment.replyTo}, ${comment.authorProfileId}, ${JSON.stringify(comment)}::jsonb)`;
   } else {
     attachComment(debate, comment);
     const index = store.debates.findIndex((entry) => entry.id === debateId);
     if (index >= 0) store.debates[index] = debate;
   }
   return comment;
+}
+
+export async function deleteOwnComment(debateId: string, commentId: string) {
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (!sql) {
+    const debate = store.debates.find((item) => item.id === debateId);
+    if (!debate) return false;
+    let deleted = false;
+    const removeFrom = (comments: Comment[]): Comment[] => comments.filter((comment) => {
+      if (comment.id === commentId && comment.authorProfileId === "profile-john") { deleted = true; return false; }
+      comment.children = removeFrom(comment.children ?? []);
+      return true;
+    });
+    debate.children = removeFrom(debate.children ?? []);
+    return deleted;
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId) return false;
+  const rootRows = await sql`SELECT c.id FROM debate_comments c JOIN profiles p ON p.id = c.author_profile_id WHERE c.id = ${commentId} AND c.debate_id = ${debateId} AND p.account_id = ${accountId} LIMIT 1`;
+  if (!rootRows.length) return false;
+  const rows = await sql`SELECT id, reply_to, payload FROM debate_comments WHERE debate_id = ${debateId}`;
+  const pending = new Set([commentId]);
+  const removed = new Set<string>();
+  while (pending.size) {
+    const currentId = pending.values().next().value as string;
+    pending.delete(currentId);
+    if (removed.has(currentId)) continue;
+    removed.add(currentId);
+    const current = rows.find((row) => row.id === currentId);
+    const payload = current?.payload as Comment | undefined;
+    const paragraphIds = new Set((payload?.paragraphs ?? []).map((paragraph) => paragraph.id));
+    for (const row of rows) {
+      if (!removed.has(row.id as string) && (row.reply_to === currentId || paragraphIds.has(row.reply_to as string))) pending.add(row.id as string);
+    }
+  }
+  await sql`DELETE FROM debate_comments WHERE id = ANY(${[...removed]}) AND debate_id = ${debateId}`;
+  return true;
 }
 
 export async function createReport(debateId: string, messageId: string, reason: string) {

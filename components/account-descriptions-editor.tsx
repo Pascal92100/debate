@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AccountDescription } from "@/lib/social";
+import { descriptionThemes } from "@/components/profile-descriptions-editor";
 
 const fields: Array<[string, string, string]> = [
   ["firstName", "First name", "text"],
@@ -27,6 +28,13 @@ export function AccountDescriptionsEditor({ initialDescription, persistent }: { 
       ...current,
       fields: { ...current.fields, [key]: { ...(current.fields[key] ?? { value: "", enabled: false }), ...patch } }
     }));
+  }
+
+  function updateTheme(themeId: string, update: (theme: NonNullable<AccountDescription["themes"][string]>) => NonNullable<AccountDescription["themes"][string]>) {
+    setDescription((current) => {
+      const previous = current.themes[themeId] ?? { enabled: false, description: "", fields: {}, fieldStates: {}, tags: [] };
+      return { ...current, themes: { ...current.themes, [themeId]: update(previous) } };
+    });
   }
 
   async function save() {
@@ -64,6 +72,28 @@ export function AccountDescriptionsEditor({ initialDescription, persistent }: { 
         </label>;
       })}</div>
     </section>
+    <div className="description-theme-list account-reusable-themes">
+      <div className="account-section-heading"><div><p className="eyebrow">Private library</p><h2>Reusable theme descriptions</h2></div><span>Nothing is copied to a profile until you choose to import it.</span></div>
+      {descriptionThemes.filter((theme) => theme.id !== "kinky").map((theme) => {
+        const data = description.themes[theme.id] ?? { enabled: false, description: "", fields: {}, fieldStates: {}, tags: [] };
+        return <details className="description-theme" key={theme.id}>
+          <summary><span className="theme-summary-title">{theme.label}</span><span className={`theme-switch-mark${data.enabled ? " enabled" : ""}`}>{data.enabled ? "Available to import" : "Private / off"}</span></summary>
+          <div className="description-theme-body">
+            <label className="theme-enable-control"><input type="checkbox" checked={data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, enabled: event.target.checked }))} /> Make this theme available for manual profile import</label>
+            <label className="description-field-label">Description<textarea value={data.description} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, description: event.target.value }))} placeholder={`${theme.label} description…`} /></label>
+            {theme.fields.length > 0 && <div className="theme-standard-fields">{theme.fields.map(([fieldKey, fieldLabel]) => {
+              const value = data.fields[fieldKey];
+              const enabled = data.fieldStates?.[fieldKey] ?? (value !== undefined && value !== "");
+              return <label className={`theme-standard-field${enabled ? "" : " is-disabled"}`} key={fieldKey}>
+                <span>{fieldLabel}</span><input type="text" value={String(value ?? "")} disabled={!enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, [fieldKey]: event.target.value } }))} />
+                <input type="checkbox" aria-label={`Include ${fieldLabel} when importing`} checked={enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fieldStates: { ...current.fieldStates, [fieldKey]: event.target.checked } }))} />
+              </label>;
+            })}</div>}
+            {theme.tags.length > 0 && <fieldset className="description-tags"><legend>Tags</legend><div>{theme.tags.map((tag) => <label className={`description-tag${data.tags.includes(tag) ? " selected" : ""}`} key={tag}><input type="checkbox" checked={data.tags.includes(tag)} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, tags: event.target.checked ? [...new Set([...current.tags, tag])] : current.tags.filter((item) => item !== tag) }))} /><span>{tag}</span></label>)}</div><label className="custom-tags-field">Other tags<textarea value={(data.fields.customTags as string) ?? ""} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, customTags: event.target.value } }))} placeholder="Add tags separated by commas" /></label></fieldset>}
+          </div>
+        </details>;
+      })}
+    </div>
     {(error || notice) && <p className={error ? "form-error" : "save-notice"} role="status">{error || notice}</p>}
     <div className="description-save-bottom"><button className="button-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save account descriptions"}</button></div>
   </section>;

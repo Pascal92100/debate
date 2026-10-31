@@ -17,6 +17,8 @@ export async function POST(request: Request) {
   if (typeof body.category !== "string" || !allowedContexts.includes(body.category)) {
     return NextResponse.json({ error: `Choose a valid ${kind === "meta" ? "meta-profile type" : "profile context"}.` }, { status: 400 });
   }
+  const allowedFilters = ["forbidden", "commercial", "sexual", "shocking", "aggressive"];
+  const contentFilters = Array.isArray(body.contentFilters) ? body.contentFilters.filter((filter: unknown): filter is string => typeof filter === "string" && allowedFilters.includes(filter)) : [];
   const accountId = process.env.DATABASE_URL ? await getSessionAccountId() : undefined;
   if (process.env.DATABASE_URL && !accountId) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   const profile = await createSocialProfile({
@@ -29,6 +31,9 @@ export async function POST(request: Request) {
     visibility: typeof body.visibility === "string" ? body.visibility : "all",
     socialDistance: Number(body.socialDistance) || 0,
     anonymous: Boolean(body.anonymous),
+    contentFilters,
+    locationLabel: typeof body.locationLabel === "string" ? body.locationLabel : "",
+    dynamicLocationCircleId: typeof body.dynamicLocationCircleId === "string" ? body.dynamicLocationCircleId : "",
     members: Array.isArray(body.members) ? body.members.filter((member: unknown): member is string => typeof member === "string") : []
   });
   return NextResponse.json({ profile }, { status: 201 });

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { DescriptionField, ProfileDescription, SocialProfile } from "@/lib/social";
 
-type ThemeDefinition = {
+export type ThemeDefinition = {
   id: string;
   label: string;
   fields: Array<[string, string]>;
@@ -21,7 +21,7 @@ const identityFields: Array<[string, string, string]> = [
   ["location", "Location", "text"]
 ];
 
-const themes: ThemeDefinition[] = [
+export const descriptionThemes: ThemeDefinition[] = [
   { id: "physical", label: "Physical", fields: [["height", "Height"], ["weight", "Weight"], ["bodyShape", "Body shape"], ["eyes", "Eyes"], ["hair", "Hair"], ["origins", "Origins"], ["smoker", "Smoker"]], tags: [] },
   { id: "culture", label: "Culture", fields: [["architecture", "Architecture"], ["sculpture", "Sculpture"], ["painting", "Painting"], ["music", "Music"], ["literature", "Literature"], ["theatre", "Theatre"], ["cinema", "Cinema"], ["series", "TV series"], ["media", "Media"], ["comics", "Comics"], ["videoGames", "Video games"], ["sciences", "Science"], ["other", "Other"]], tags: [] },
   { id: "professional", label: "Professional", fields: [], tags: ["manager", "individual contributor", "freelance", "entrepreneur", "remote", "hybrid", "onsite", "tech", "creative", "consulting", "non-profit", "public sector", "education", "healthcare", "finance", "early career", "mid-career", "senior", "executive"] },
@@ -75,10 +75,11 @@ function defaultDescription(profile: SocialProfile): ProfileDescription {
 export function ProfileDescriptionsEditor({ profile, initialDescription, persistent }: { profile: SocialProfile; initialDescription: ProfileDescription | null; persistent: boolean }) {
   const [document, setDocument] = useState<ProfileDescription>(initialDescription ?? defaultDescription(profile));
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const relationshipThemes = new Set(themeAccess[document.relationship] ?? []);
-  const contextThemes = new Set(profile.kind === "individual" ? contextThemeAccess[profile.category] ?? [] : themes.map((theme) => theme.id));
+  const contextThemes = new Set(profile.kind === "individual" ? contextThemeAccess[profile.category] ?? [] : descriptionThemes.map((theme) => theme.id));
   const allowedThemes = new Set([...relationshipThemes].filter((themeId) => contextThemes.has(themeId)));
   const isIndividual = profile.kind === "individual";
 
@@ -119,12 +120,45 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, persist
     setSaving(false);
   }
 
+  async function importAccountDetails() {
+    setImporting(true);
+    setError("");
+    setNotice("");
+    const response = await fetch("/api/account/descriptions").catch(() => null);
+    const result = await response?.json().catch(() => null);
+    if (!response?.ok || !result?.description) {
+      setError(result?.error || "Account descriptions could not be loaded.");
+      setImporting(false);
+      return;
+    }
+    const accountDescription = result.description as { text: string; fields: Record<string, { value: string; enabled: boolean }>; themes: ProfileDescription["themes"] };
+    const profileIdentityKeys = new Set(identityFields.map(([key]) => key));
+    setDocument((current) => {
+      const identity = { ...current.identity };
+      for (const [key, field] of Object.entries(accountDescription.fields)) {
+        if (profileIdentityKeys.has(key) && field.enabled) identity[key] = { ...identity[key], ...field };
+      }
+      const importedThemes = { ...current.themes };
+      for (const [themeId, theme] of Object.entries(accountDescription.themes)) {
+        if (themeId !== "kinky" && theme.enabled) importedThemes[themeId] = { ...theme, enabled: true };
+      }
+      return {
+        ...current,
+        identity,
+        themes: importedThemes,
+        ...(accountDescription.text.trim() ? { text: accountDescription.text, textEnabled: true } : {})
+      };
+    });
+    setNotice("Selected account details were copied into this profile draft. Save the profile descriptions to keep them.");
+    setImporting(false);
+  }
+
   return (
     <section className="description-editor">
       {!persistent && <p className="notice social-notice">Demo data: changes remain in memory until the server restarts.</p>}
       <header className="description-editor-heading">
         <div><p className="eyebrow">Profile · {profile.name}</p><h2>Descriptions</h2><p>Every item is optional. Account information can be overridden for this profile.</p></div>
-        <button className="button-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+        <div className="description-heading-actions"><button className="button-secondary" onClick={importAccountDetails} disabled={importing}>{importing ? "Loading…" : "Import account details"}</button><button className="button-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
       </header>
 
       <section className="description-section">
@@ -161,7 +195,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, persist
 
       <div className="description-theme-list">
         <div className="account-section-heading"><div><p className="eyebrow">Detailed introduction</p><h2>Themed descriptions</h2></div><span>{allowedThemes.size} theme{allowedThemes.size === 1 ? "" : "s"} available for this context and relationship</span></div>
-        {themes.map((theme) => {
+        {descriptionThemes.map((theme) => {
           const data = document.themes[theme.id] ?? { enabled: false, description: "", fields: {}, fieldStates: {}, tags: [] };
           const available = allowedThemes.has(theme.id);
           return <details className={`description-theme${available ? "" : " theme-unavailable"}`} key={theme.id}>

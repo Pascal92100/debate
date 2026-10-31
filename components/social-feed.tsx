@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DeleteEntityButton } from "@/components/delete-entity-button";
 import type { SocialCircle, SocialPost, SocialProfile } from "@/lib/social";
 
 const reactions = ["👍", "👎", "⚠️", "🔑", "💡", "🎓", "❌", "❓", "☀️"];
@@ -106,6 +107,7 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
           <div className="social-post-subtext">{post.subtext}</div>
           <footer className="social-post-actions"><div className="social-reactions" aria-label="Reactions">{reactions.map((reaction) => <button key={reaction} title={`React ${reaction}`} onClick={() => react(post.id, reaction, profileId)}>{reaction}{post.reactions?.[reaction] ? <small>{post.reactions[reaction]}</small> : null}</button>)}</div><span>{post.commentsCount} repl{post.commentsCount === 1 ? "y" : "ies"}</span></footer>
           {post.debateId ? <Link className="linked-debate" href={`/debates/${encodeURIComponent(post.debateId)}`}>Open linked debate ↗</Link> : <button className="text-action" type="button" onClick={() => startDebate(post)}>⚖️ Turn this post into a debate</button>}
+          {profiles.some((profile) => profile.id === post.profileId) && <DeleteEntityButton endpoint={`/api/social/posts/${encodeURIComponent(post.id)}`} label="Delete post" confirmation={`Delete “${post.title}” and its linked debate, if any? This cannot be undone.`} onDeleted={() => setPosts((current) => current.filter((item) => item.id !== post.id))} />}
         </article>)}
         {filteredPosts.length === 0 && <div className="empty-state">No posts in this Circle yet.</div>}
       </div>

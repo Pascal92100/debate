@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { getDebate, isPersistentStore } from "@/lib/debates";
 import { ThreadView } from "@/components/thread-view";
 import { DebateControls } from "@/components/debate-controls";
+import { DeleteEntityButton } from "@/components/delete-entity-button";
+import { listProfiles } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
 export default async function DebatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [debate, persistent] = await Promise.all([getDebate(id), isPersistentStore()]);
+  const [debate, persistent, profiles] = await Promise.all([getDebate(id), isPersistentStore(), listProfiles()]);
   if (!debate) notFound();
 
   const comments = debate.children ?? [];
@@ -30,7 +32,8 @@ export default async function DebatePage({ params }: { params: Promise<{ id: str
         {debate.sourcePostId && <Link className="source-post-link" href={`/social#${encodeURIComponent(debate.sourcePostId)}`}>View original post in Circles →</Link>}
       </header>
       <DebateControls />
-      <ThreadView debate={debate} comments={comments} />
+      <ThreadView debate={debate} comments={comments} ownedProfileIds={profiles.map((profile) => profile.id)} />
+      {debate.authorProfileId && profiles.some((profile) => profile.id === debate.authorProfileId) && <section className="danger-zone"><p className="eyebrow">Debate ownership</p><h2>Delete this debate</h2><p>Only the profile that started this debate can delete it.</p><DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debate.id)}`} label="Delete debate" confirmation="Permanently delete this debate and all of its replies? This cannot be undone." redirectTo="/debates" /></section>}
     </main>
   );
 }

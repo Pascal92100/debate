@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { isPersistentStore, listDebates } from "@/lib/debates";
 import { listProfiles, listSocialPosts } from "@/lib/social";
 
@@ -22,5 +23,6 @@ export default async function CircleProfilePage({ params }: { params: Promise<{ 
       <section><div className="account-section-heading"><div><p className="eyebrow">Social activity</p><h2>Posts</h2></div><span>{profilePosts.length}</span></div>{profilePosts.length ? profilePosts.map((post) => <article className="profile-activity-item" key={post.id}><strong>{post.title}</strong><p>{post.body}</p>{post.debateId && <Link href={`/debates/${encodeURIComponent(post.debateId)}`}>Open linked debate →</Link>}</article>) : <p className="account-empty">No posts for this profile.</p>}</section>
       <section><div className="account-section-heading"><div><p className="eyebrow">Discussions</p><h2>Debates</h2></div><span>{profileDebates.length}</span></div>{profileDebates.length ? profileDebates.map((debate) => <Link className="profile-activity-item profile-debate-item" key={debate.id} href={`/debates/${encodeURIComponent(debate.id)}`}><strong>{debate.title}</strong><small>{debate.content[0]}</small></Link>) : <p className="account-empty">No debates started from this profile.</p>}</section>
     </div>
+    <section className="danger-zone"><p className="eyebrow">Profile ownership</p><h2>Delete this {profile.kind === "individual" ? "profile" : "meta-profile"}</h2><p>Associated posts, debates, and settings created by this profile will also be deleted.</p><DeleteEntityButton endpoint={`/api/social/profiles/${encodeURIComponent(profile.id)}`} label={`Delete ${profile.kind === "individual" ? "profile" : "meta-profile"}`} confirmation={`Permanently delete ${profile.name} and content owned by this profile? This cannot be undone.`} redirectTo={profile.kind === "individual" ? "/circle/profiles" : "/circle/meta-profiles"} /></section>
   </main>;
 }

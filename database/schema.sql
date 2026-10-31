@@ -30,6 +30,7 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS description_text TEXT NOT NULL DEF
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS description_payload JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE UNIQUE INDEX IF NOT EXISTS accounts_single_primary_idx ON accounts(is_primary) WHERE is_primary;
+COMMENT ON COLUMN accounts.description_payload IS 'Private reusable account description library. Profile information is only copied from this library by an explicit user action.';
 
 CREATE TABLE IF NOT EXISTS profiles (
   id TEXT PRIMARY KEY,

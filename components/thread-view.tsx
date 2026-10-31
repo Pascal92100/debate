@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { Comment, Debate } from "@/lib/debates";
 import { CommentForm } from "@/components/comment-form";
+import { DeleteEntityButton } from "@/components/delete-entity-button";
 
 const reportReasons = [
   { icon: "🚫", label: "Prohibited" },
@@ -67,7 +68,7 @@ function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { deba
   );
 }
 
-function ArgumentLine({ debateId, id, text, replies, depth = 0, compact = false }: { debateId: string; id: string; text: string; replies: Comment[]; depth?: number; compact?: boolean }) {
+function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0, compact = false }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
@@ -156,17 +157,17 @@ function ArgumentLine({ debateId, id, text, replies, depth = 0, compact = false 
     {infoOpen && <div className="argument-info"><span>Argument <code>{id}</code></span><button className="text-action" type="button" onClick={() => navigator.clipboard.writeText(text).then(() => setFeedback("Text copied.")).catch(() => setFeedback("Copy unavailable."))}>Copy</button></div>}
     <CommentForm key={id} debateId={debateId} replyTo={id} controlId={`reply-${id}`} />
     {feedback && <span className="action-feedback argument-feedback" role="status">{feedback}</span>}
-    {repliesOpen && <div className="argument-replies">{replies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} depth={depth + 1} />)}</div>}
+    {repliesOpen && <div className="argument-replies">{replies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} depth={depth + 1} />)}</div>}
   </div>;
 }
 
-function ArgumentLines({ debateId, parentId, paragraphs, children, depth = 0, compact = false, rootAliases = [] }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; depth?: number; compact?: boolean; rootAliases?: string[] }) {
-  return <div className="argument-list">{paragraphs.map((paragraph) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} depth={depth} compact={compact} />)}
-    {children.filter((child) => child.replyTo === parentId || rootAliases.includes(child.replyTo)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} depth={depth + 1} />)}
+function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileIds, depth = 0, compact = false, rootAliases = [] }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean; rootAliases?: string[] }) {
+  return <div className="argument-list">{paragraphs.map((paragraph) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} depth={depth} compact={compact} />)}
+    {children.filter((child) => child.replyTo === parentId || rootAliases.includes(child.replyTo)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} depth={depth + 1} />)}
   </div>;
 }
 
-function CommentCard({ debateId, node, depth = 0 }: { debateId: string; node: Comment; depth?: number }) {
+function CommentCard({ debateId, node, ownedProfileIds, depth = 0 }: { debateId: string; node: Comment; ownedProfileIds: string[]; depth?: number }) {
   const paragraphs = node.paragraphs ?? [];
   const text = paragraphs.map((paragraph) => paragraph.text).join(" ");
 
@@ -176,12 +177,13 @@ function CommentCard({ debateId, node, depth = 0 }: { debateId: string; node: Co
     {node.facts?.length ? <details className="data-accordion"><summary>Facts and references <span>{node.facts.length}</span></summary><div>{node.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
     <h3 className="thread-message-title">{node.title}</h3>
     {node.evaluation && <span className="evaluation-badge" title="Self-evaluation">{node.evaluation}</span>}
-    <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={node.children ?? []} depth={depth} compact />
-    {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={node.title} replies={node.children ?? []} depth={depth} compact />}
+    <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact />
+    {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={node.title} replies={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact />}
     <div className="message-control-row">
       <MessageInfo debateId={debateId} id={node.id} author={node.author} confidence={node.confidence} replyTo={node.replyTo} text={`${node.title}\n${text}`} />
       <CommentForm debateId={debateId} replyTo={node.id} />
     </div>
+    {node.authorProfileId && ownedProfileIds.includes(node.authorProfileId) && <DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debateId)}/comments/${encodeURIComponent(node.id)}`} label="Delete my reply" confirmation="Delete this reply and all replies below it? This cannot be undone." />}
   </article>;
 }
 
@@ -195,7 +197,7 @@ function rootPostId(debate: Debate) {
   return targets.some((target) => target === "p1" || target.startsWith("p1-")) ? "p1" : debate.id;
 }
 
-export function ThreadView({ debate, comments }: { debate: Debate; comments: Comment[] }) {
+export function ThreadView({ debate, comments, ownedProfileIds = [] }: { debate: Debate; comments: Comment[]; ownedProfileIds?: string[] }) {
   const rootId = rootPostId(debate);
   const paragraphs = debate.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean)).map((text, index) => ({
     id: rootId === "p1" ? `p1-${index + 1}` : `${rootId}-p-${index + 1}`,
@@ -208,7 +210,7 @@ export function ThreadView({ debate, comments }: { debate: Debate; comments: Com
     <article className="thread-message thread-root">
       {debate.definitions?.length ? <details className="data-accordion" open><summary>Definitions <span>{debate.definitions.length}</span></summary><div>{debate.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
       {debate.facts?.length ? <details className="data-accordion" open><summary>Facts and references <span>{debate.facts.length}</span></summary><div>{debate.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
-      <ArgumentLines debateId={debate.id} parentId={rootId} paragraphs={paragraphs} children={rootComments} rootAliases={[debate.id]} compact />
+      <ArgumentLines debateId={debate.id} parentId={rootId} paragraphs={paragraphs} children={rootComments} ownedProfileIds={ownedProfileIds} rootAliases={[debate.id]} compact />
       <div className="message-control-row"><MessageInfo debateId={debate.id} id={debate.id} author={debate.from || "Participant"} confidence={debate.confidence ?? 0} text={`${debate.title}\n${debate.content.join("\n")}`} /></div>
     </article>
   </section>;
