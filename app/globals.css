@@ -559,6 +559,9 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .message-confidence { white-space: nowrap; }
 .thread-message-title { margin: 4px 0 2px; font-family: "Newsreader", Georgia, serif; font-size: 15px; font-weight: 600; line-height: 1.2; }
 .thread-root .thread-message-title { font-size: 19px; }
+.thread-message-title-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.thread-message-title-row .thread-message-title { min-width: 0; }
+.argument-evaluation-badge { flex: none; align-self: flex-start; margin: 0; padding: 0 3px; background: transparent; font-size: 12px; line-height: 1.35; }
 .message-preview, .message-body p { margin: 0; color: #56625e; font-size: 12px; line-height: 1.5; }
 .message-preview { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .message-body { display: grid; gap: 5px; margin-top: 8px; }

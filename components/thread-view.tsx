@@ -68,7 +68,7 @@ function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { deba
   );
 }
 
-function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0, compact = false }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean }) {
+function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0, compact = false, evaluation }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean; evaluation?: string }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
@@ -137,6 +137,7 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0,
     {(reportOpen || contextOpen) && <button className="report-dismiss" type="button" aria-label="Close menu" onClick={() => { setReportOpen(false); setContextOpen(false); }} />}
     <div className="argument-line" data-argument-id={id} onContextMenu={(event) => { event.preventDefault(); setContextOpen(true); }} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerCancel={clearLongPress}>
       <button className={`argument-text${compact ? " argument-text-compact" : ""}`} type="button" aria-expanded={replies.length > 0 ? repliesOpen : undefined} onClick={() => { if (longPressTriggered.current) { longPressTriggered.current = false; return; } if (replies.length > 0) setRepliesOpen(!repliesOpen); }} title={replies.length > 0 ? "Show or hide replies to this argument" : "No replies to this argument"}>{text}</button>
+      {evaluation && <span className="evaluation-badge argument-evaluation-badge" title="Reply evaluation">{evaluation}</span>}
       {reportBadge && <span className="report-badge" title="Report sent">{reportBadge}</span>}
       <div className="argument-actions">
         <button className="argument-action reply-icon" type="button" title="Reply to this line" aria-label="Reply to this argument" onClick={() => document.getElementById(`reply-${id}`)?.click()}>↩</button>
@@ -161,8 +162,8 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0,
   </div>;
 }
 
-function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileIds, depth = 0, compact = false, rootAliases = [] }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean; rootAliases?: string[] }) {
-  return <div className="argument-list">{paragraphs.map((paragraph) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} depth={depth} compact={compact} />)}
+function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileIds, depth = 0, compact = false, rootAliases = [], titleEvaluation }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean; rootAliases?: string[]; titleEvaluation?: string }) {
+  return <div className="argument-list">{paragraphs.map((paragraph, index) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} depth={depth} compact={compact} evaluation={index === 0 ? titleEvaluation : undefined} />)}
     {children.filter((child) => child.replyTo === parentId || rootAliases.includes(child.replyTo)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} depth={depth + 1} />)}
   </div>;
 }
@@ -177,10 +178,9 @@ function CommentCard({ debateId, node, ownedProfileIds, depth = 0 }: { debateId:
     <header className="thread-message-header"><span><strong>{node.author}</strong></span><span className="thread-message-tools"><span className="message-confidence" title="Confidence">💪 {node.confidence}%</span>{node.authorProfileId && ownedProfileIds.includes(node.authorProfileId) && <DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debateId)}/comments/${encodeURIComponent(node.id)}`} label="Delete my reply" confirmation="Delete this reply and all replies below it? This cannot be undone." iconOnly />}</span></header>
     {node.definitions?.length ? <details className="data-accordion"><summary>Definitions <span>{node.definitions.length}</span></summary><div>{node.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
     {node.facts?.length ? <details className="data-accordion"><summary>Facts and references <span>{node.facts.length}</span></summary><div>{node.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
-    {!titleDuplicatesFirstParagraph && <h3 className="thread-message-title">{node.title}</h3>}
-    {node.evaluation && <span className="evaluation-badge" title="Self-evaluation">{node.evaluation}</span>}
-    <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact />
-    {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={node.title} replies={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact />}
+    {!titleDuplicatesFirstParagraph && <div className="thread-message-title-row"><h3 className="thread-message-title">{node.title}</h3>{node.evaluation && <span className="evaluation-badge" title="Reply evaluation">{node.evaluation}</span>}</div>}
+    <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact titleEvaluation={titleDuplicatesFirstParagraph ? node.evaluation : undefined} />
+    {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={node.title} replies={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact evaluation={node.evaluation} />}
     <div className="message-control-row">
       <MessageInfo debateId={debateId} id={node.id} author={node.author} confidence={node.confidence} replyTo={node.replyTo} text={`${node.title}\n${text}`} />
       <CommentForm debateId={debateId} replyTo={node.id} />
