@@ -56,8 +56,6 @@ export const descriptionThemes: ThemeDefinition[] = [
 const relationships = [
   ["friends", "Friends"], ["professional", "Professional"], ["oldfriends", "Old friends"], ["socializing", "Socializing"], ["friendship", "For friendship"], ["love", "For love"], ["casual", "For casual"], ["undecided", "Undecided"], ["casualfun", "For casual fun"]
 ];
-const activationDurations = [["permanent", "Permanent"], ["1h", "1 hour"], ["1d", "1 day"], ["1w", "1 week"]] as const;
-
 const themeAccess: Record<string, string[]> = {
   friends: [],
   professional: ["professional"],
@@ -193,7 +191,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
       </header>
 
       <section className="description-section">
-        <header className="description-section-header"><div><span className="description-section-icon">✎</span><div><h3>Text description</h3><p>General introduction for this profile</p></div></div><div className="description-activation"><label className="switch-control"><input type="checkbox" checked={document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, textEnabled: event.target.checked }))} /><span>{document.textEnabled ? "Enabled" : "Disabled"}</span></label><select aria-label="Text description activation duration" value={document.textDuration ?? "permanent"} disabled={!document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, textDuration: event.target.value }))}>{activationDurations.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div></header>
+        <header className="description-section-header"><div><span className="description-section-icon">✎</span><div><h3>Text description</h3><p>General introduction for this profile</p></div></div><div className="description-activation"><label className="switch-control"><input type="checkbox" checked={document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, textEnabled: event.target.checked }))} /><span>{document.textEnabled ? "Enabled" : "Disabled"}</span></label></div></header>
         <textarea className="description-textarea" value={document.text} disabled={!document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, text: event.target.value }))} placeholder="Write a description…" />
       </section>
 
@@ -220,7 +218,6 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
               <span>{label}</span>
               {selectOptions ? <select value={field.value} onChange={(event) => updateIdentity(key, { value: event.target.value })} disabled={!field.enabled}><option value="">Choose…</option>{selectOptions.map((option) => <option value={option} key={option}>{option}</option>)}</select> : <input type={type} value={field.value} onChange={(event) => updateIdentity(key, { value: event.target.value })} disabled={!field.enabled} />}
               <input className="field-visibility-toggle" type="checkbox" aria-label={`Show ${label}`} checked={field.enabled} onChange={(event) => updateIdentity(key, { enabled: event.target.checked })} />
-              <select aria-label={`${label} display duration`} value={field.duration ?? "permanent"} disabled={!field.enabled} onChange={(event) => updateIdentity(key, { duration: event.target.value })}>{activationDurations.map(([value, durationLabel]) => <option value={value} key={value}>{durationLabel}</option>)}</select>
             </label>;
           })}
         </div>
@@ -242,7 +239,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
           return <details className="description-theme" key={theme.id}>
             <summary><span className="theme-summary-title">{theme.label}</span><span className={`theme-switch-mark${data.enabled ? " enabled" : ""}`}>{data.enabled ? "On" : "Off"}</span></summary>
             <div className="description-theme-body">
-              <div className="description-activation"><label className="theme-enable-control"><input type="checkbox" checked={data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, enabled: event.target.checked }))} /> Use this theme in my profile description</label><select aria-label={`${theme.label} activation duration`} value={data.duration ?? "permanent"} disabled={!data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, duration: event.target.value }))}>{activationDurations.map(([value, durationLabel]) => <option value={value} key={value}>{durationLabel}</option>)}</select></div>
+              <div className="description-activation"><label className="theme-enable-control"><input type="checkbox" checked={data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, enabled: event.target.checked }))} /> Use this theme in my profile description</label></div>
               <label className="description-field-label">Description<textarea value={data.description} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, description: event.target.value }))} placeholder={`${theme.label} description…`} /></label>
               {theme.fields.length > 0 && <div className="theme-standard-fields">{theme.fields.map(([fieldKey, fieldLabel]) => {
                 const currentValue = data.fields[fieldKey];

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function DeleteEntityButton({ endpoint, label, confirmation, redirectTo, onDeleted }: { endpoint: string; label: string; confirmation: string; redirectTo?: string; onDeleted?: () => void }) {
+export function DeleteEntityButton({ endpoint, label, confirmation, redirectTo, onDeleted, iconOnly = false }: { endpoint: string; label: string; confirmation: string; redirectTo?: string; onDeleted?: () => void; iconOnly?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -24,5 +24,5 @@ export function DeleteEntityButton({ endpoint, label, confirmation, redirectTo, 
     router.refresh();
   }
 
-  return <div className="delete-entity-control"><button type="button" className="button-danger" onClick={remove} disabled={busy}>{busy ? "Deleting…" : label}</button>{error && <span className="form-error" role="alert">{error}</span>}</div>;
+  return <div className={`delete-entity-control${iconOnly ? " delete-entity-icon-only" : ""}`}><button type="button" className={iconOnly ? "button-icon-danger" : "button-danger"} aria-label={label} title={label} onClick={remove} disabled={busy}>{busy ? "…" : iconOnly ? "🗑" : label}</button>{error && <span className="form-error" role="alert">{error}</span>}</div>;
 }

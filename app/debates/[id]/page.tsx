@@ -14,9 +14,10 @@ export default async function DebatePage({ params }: { params: Promise<{ id: str
   if (!debate) notFound();
 
   const comments = debate.children ?? [];
+  const ownedAuthor = profiles.find((profile) => profile.id === debate.authorProfileId);
   return (
     <main className="debate-shell">
-      <Link href="/debates" className="back-link">← All debates</Link>
+      <nav className="debate-return-links" aria-label="Debate navigation"><Link href={ownedAuthor ? `/circle/profiles/${encodeURIComponent(ownedAuthor.id)}/discussions` : "/circle"} className="back-link">← {ownedAuthor ? `${ownedAuthor.name} discussions` : "Circles account"}</Link><Link href={debate.authorProfileId ? `/debates?profileId=${encodeURIComponent(debate.authorProfileId)}` : "/debates"} className="back-link">← All debates</Link></nav>
       {!persistent && <p className="notice">Demo mode: contributions are temporary. Set DATABASE_URL to keep them.</p>}
       <header className="debate-heading">
         <p className="eyebrow">Open debate</p>

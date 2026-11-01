@@ -38,17 +38,16 @@ export function ProfileDiscussions({ profile, initialDiscussions, debates, circl
 
   return <>
     {!persistent && <p className="notice social-notice">Debates and discussions are temporary without DATABASE_URL.</p>}
-    <div className="profile-section-toolbar"><p>Debates keep their structured arguments. Simple discussions are chronological messages with quoted replies.</p><div className="profile-section-actions"><button className="button-secondary" type="button" onClick={() => setCreating((current) => !current)}>{creating ? "Cancel" : "+ New discussion"}</button><Link className="button-primary" href={`/debates/new?profileId=${encodeURIComponent(profile.id)}`}>+ New debate</Link></div></div>
-    {creating && <form className="social-compose-form discussion-create-form" onSubmit={submit}>
+    <p className="discussion-kind-note">Debates keep their structured arguments. Simple discussions are chronological messages with quoted replies.</p>
+    <section className="discussion-list-section">
+      <div className="account-section-heading"><div><p className="eyebrow">Simple conversations</p><h2>Discussions <span className="section-count">{discussions.length}</span></h2></div><button className="section-add-button" type="button" aria-label={creating ? "Cancel new discussion" : "New discussion"} title={creating ? "Cancel" : "New discussion"} onClick={() => setCreating((current) => !current)}>{creating ? "×" : "+"}</button></div>
+      {creating && <form className="social-compose-form discussion-create-form" onSubmit={submit}>
       <label>Discussion title<input name="title" required minLength={2} maxLength={140} placeholder="What would you like to talk about?" /></label>
       <label>Share with Circle<select name="circleId"><option value="">Only this profile</option>{circles.map((circle) => <option value={circle.id} key={circle.id}>{circle.name}</option>)}</select></label>
       <label>First message<textarea name="body" required minLength={1} maxLength={5000} placeholder="Write the opening message…" /></label>
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="button-primary" type="submit" disabled={saving}>{saving ? "Creating…" : "Start discussion"}</button>
-    </form>}
-
-    <section className="discussion-list-section">
-      <div className="account-section-heading"><div><p className="eyebrow">Simple conversations</p><h2>Discussions</h2></div><span>{discussions.length}</span></div>
+      </form>}
       {discussions.length ? <div className="profile-post-list">{discussions.map((discussion) => {
         const latest = discussion.messages.at(-1);
         return <Link className="profile-activity-item profile-debate-item" key={discussion.id} href={`/circle/profiles/${encodeURIComponent(profile.id)}/discussions/${encodeURIComponent(discussion.id)}`}>
@@ -59,7 +58,7 @@ export function ProfileDiscussions({ profile, initialDiscussions, debates, circl
     </section>
 
     <section className="discussion-list-section">
-      <div className="account-section-heading"><div><p className="eyebrow">Structured conversations</p><h2>Debates</h2></div><span>{debates.length}</span></div>
+      <div className="account-section-heading"><div><p className="eyebrow">Structured conversations</p><h2>Debates <span className="section-count">{debates.length}</span></h2></div><Link className="section-add-button" aria-label="New debate" title="New debate" href={`/debates/new?profileId=${encodeURIComponent(profile.id)}`}>+</Link></div>
       {debates.length ? <div className="profile-post-list">{debates.map((debate) => <Link className="profile-activity-item profile-debate-item" key={debate.id} href={`/debates/${encodeURIComponent(debate.id)}`}><div className="profile-post-meta">Debate · {new Date(debate.timestamp ?? Date.now()).toLocaleDateString("en-US")}</div><strong>{debate.title}</strong><small>{debate.content[0]}</small></Link>)}</div> : <p className="account-empty">No debates started from this profile yet.</p>}
     </section>
   </>;

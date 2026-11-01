@@ -234,7 +234,7 @@ export async function createComment(debateId: string, input: { replyTo: string; 
   const persistent = await isPersistentStore();
   const sql = persistent ? database() : null;
   let authorProfileId: string | undefined;
-  let author = input.author?.trim() || "You";
+  let author = "John Doe";
   if (sql) {
     const accountId = await getSessionAccountId();
     if (!accountId) return null;
