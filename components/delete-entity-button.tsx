@@ -24,5 +24,5 @@ export function DeleteEntityButton({ endpoint, label, confirmation, redirectTo, 
     router.refresh();
   }
 
-  return <div className={`delete-entity-control${iconOnly ? " delete-entity-icon-only" : ""}`}><button type="button" className={iconOnly ? "button-icon-danger" : "button-danger"} aria-label={label} title={label} onClick={remove} disabled={busy}>{busy ? "…" : iconOnly ? "🗑" : label}</button>{error && <span className="form-error" role="alert">{error}</span>}</div>;
+  return <div className={`delete-entity-control${iconOnly ? " delete-entity-icon-only" : " delete-entity-standalone"}`}><button type="button" className={iconOnly ? "button-icon-danger" : "button-danger"} aria-label={label} title={label} onClick={remove} disabled={busy}>{busy ? "…" : iconOnly ? "🗑" : "Delete"}</button>{error && <span className="form-error" role="alert">{error}</span>}</div>;
 }

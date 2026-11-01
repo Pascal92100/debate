@@ -34,7 +34,7 @@ export default async function DebatePage({ params }: { params: Promise<{ id: str
       </header>
       <DebateControls />
       <ThreadView debate={debate} comments={comments} ownedProfileIds={profiles.map((profile) => profile.id)} />
-      {debate.authorProfileId && profiles.some((profile) => profile.id === debate.authorProfileId) && <section className="danger-zone"><p className="eyebrow">Debate ownership</p><h2>Delete this debate</h2><p>Only the profile that started this debate can delete it.</p><DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debate.id)}`} label="Delete debate" confirmation="Permanently delete this debate and all of its replies? This cannot be undone." redirectTo="/debates" /></section>}
+      {debate.authorProfileId && profiles.some((profile) => profile.id === debate.authorProfileId) && <DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debate.id)}`} label="Delete debate" confirmation="Permanently delete this debate and all of its replies? This cannot be undone." redirectTo="/debates" />}
     </main>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DeleteEntityButton } from "@/components/delete-entity-button";
 import type { Debate } from "@/lib/debates";
 import type { SimpleDiscussion } from "@/lib/discussions";
 import type { SocialCircle, SocialProfile } from "@/lib/social";
@@ -50,16 +51,19 @@ export function ProfileDiscussions({ profile, initialDiscussions, debates, circl
       </form>}
       {discussions.length ? <div className="profile-post-list">{discussions.map((discussion) => {
         const latest = discussion.messages.at(-1);
-        return <Link className="profile-activity-item profile-debate-item" key={discussion.id} href={`/circle/profiles/${encodeURIComponent(profile.id)}/discussions/${encodeURIComponent(discussion.id)}`}>
-          <div className="profile-post-meta">{latest ? new Date(latest.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "No messages"} · {discussion.messages.length} {discussion.messages.length === 1 ? "message" : "messages"}</div>
-          <strong>{discussion.title}</strong><small>{latest ? `${latest.author}: ${latest.body}` : "Open discussion"}</small>
-        </Link>;
+        return <article className="profile-activity-item profile-discussion-list-item" key={discussion.id}>
+          <Link className="profile-debate-item" href={`/circle/profiles/${encodeURIComponent(profile.id)}/discussions/${encodeURIComponent(discussion.id)}`}>
+            <div className="profile-post-meta">{latest ? new Date(latest.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "No messages"} · {discussion.messages.length} {discussion.messages.length === 1 ? "message" : "messages"}</div>
+            <strong>{discussion.title}</strong><small>{latest ? `${latest.author}: ${latest.body}` : "Open discussion"}</small>
+          </Link>
+          {discussion.profileId === profile.id && <DeleteEntityButton endpoint={`/api/discussions/${encodeURIComponent(discussion.id)}`} label="Delete discussion" confirmation={`Delete “${discussion.title}” and its messages? This cannot be undone.`} iconOnly />}
+        </article>;
       })}</div> : <p className="account-empty">No simple discussions started by this profile yet.</p>}
     </section>
 
     <section className="discussion-list-section">
       <div className="account-section-heading"><div><p className="eyebrow">Structured conversations</p><h2>Debates <span className="section-count">{debates.length}</span></h2></div><Link className="section-add-button" aria-label="New debate" title="New debate" href={`/debates/new?profileId=${encodeURIComponent(profile.id)}`}>+</Link></div>
-      {debates.length ? <div className="profile-post-list">{debates.map((debate) => <Link className="profile-activity-item profile-debate-item" key={debate.id} href={`/debates/${encodeURIComponent(debate.id)}`}><div className="profile-post-meta">Debate · {new Date(debate.timestamp ?? Date.now()).toLocaleDateString("en-US")}</div><strong>{debate.title}</strong><small>{debate.content[0]}</small></Link>)}</div> : <p className="account-empty">No debates started from this profile yet.</p>}
+      {debates.length ? <div className="profile-post-list">{debates.map((debate) => <article className="profile-activity-item profile-debate-list-item" key={debate.id}><Link className="profile-debate-item" href={`/debates/${encodeURIComponent(debate.id)}`}><div className="profile-post-meta">Debate · {new Date(debate.timestamp ?? Date.now()).toLocaleDateString("en-US")}</div><strong>{debate.title}</strong><small>{debate.content[0]}</small></Link><DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debate.id)}`} label="Delete debate" confirmation={`Delete “${debate.title}” and its replies? This cannot be undone.`} iconOnly /></article>)}</div> : <p className="account-empty">No debates started from this profile yet.</p>}
     </section>
   </>;
 }

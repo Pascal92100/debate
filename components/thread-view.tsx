@@ -54,7 +54,7 @@ function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { deba
 
   return (
     <div className="message-tools">
-      <button className="argument-action" type="button" aria-label="Message information" title="Message information" aria-expanded={open} onClick={() => setOpen(!open)}>ⓘ</button>
+      <button className="text-action" type="button" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Hide message info" : "Message info"}</button>
       {open && <div className="message-info-panel">
         <dl><div><dt>Author</dt><dd>{author}</dd></div><div><dt>Confidence</dt><dd>{confidence}%</dd></div><div><dt>ID</dt><dd>{id}</dd></div>{replyTo && <div><dt>Reply to</dt><dd>{replyTo}</dd></div>}</dl>
         <div className="message-actions">
@@ -66,18 +66,6 @@ function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { deba
       </div>}
     </div>
   );
-}
-
-function ShareMessageButton({ text }: { text: string }) {
-  async function share() {
-    try {
-      if (navigator.share) await navigator.share({ title: "Debate message", text });
-      else await navigator.clipboard.writeText(`${text}\n${window.location.href}`);
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") return;
-    }
-  }
-  return <button className="argument-action share-icon" type="button" title="Transfer or share this reply" aria-label="Transfer or share this reply" onClick={() => void share()}>↗</button>;
 }
 
 function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0, compact = false }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean }) {
@@ -195,8 +183,7 @@ function CommentCard({ debateId, node, ownedProfileIds, depth = 0 }: { debateId:
     {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={node.title} replies={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact />}
     <div className="message-control-row">
       <MessageInfo debateId={debateId} id={node.id} author={node.author} confidence={node.confidence} replyTo={node.replyTo} text={`${node.title}\n${text}`} />
-      <ShareMessageButton text={`${node.title}\n${text}`} />
-      <CommentForm debateId={debateId} replyTo={node.id} compactTrigger />
+      <CommentForm debateId={debateId} replyTo={node.id} />
     </div>
   </article>;
 }
@@ -225,7 +212,7 @@ export function ThreadView({ debate, comments, ownedProfileIds = [] }: { debate:
       {debate.definitions?.length ? <details className="data-accordion" open><summary>Definitions <span>{debate.definitions.length}</span></summary><div>{debate.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
       {debate.facts?.length ? <details className="data-accordion" open><summary>Facts and references <span>{debate.facts.length}</span></summary><div>{debate.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
       <ArgumentLines debateId={debate.id} parentId={rootId} paragraphs={paragraphs} children={rootComments} ownedProfileIds={ownedProfileIds} rootAliases={[debate.id]} compact />
-      <div className="message-control-row thread-root-actions"><MessageInfo debateId={debate.id} id={debate.id} author={debate.from || "Participant"} confidence={debate.confidence ?? 0} text={`${debate.title}\n${debate.content.join("\n")}`} /><ShareMessageButton text={`${debate.title}\n${debate.content.join("\n")}`} /><CommentForm debateId={debate.id} replyTo={debate.id} compactTrigger /></div>
+      <div className="message-control-row thread-root-actions"><MessageInfo debateId={debate.id} id={debate.id} author={debate.from || "Participant"} confidence={debate.confidence ?? 0} text={`${debate.title}\n${debate.content.join("\n")}`} /><CommentForm debateId={debate.id} replyTo={debate.id} /></div>
     </article>
   </section>;
 }

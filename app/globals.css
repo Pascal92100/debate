@@ -54,6 +54,9 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .section-heading h2 { margin: 0; font-size: 14px; }
 .section-heading span, .muted { color: var(--muted); font-size: 12px; }
 .debate-list { display: grid; grid-template-columns: 1fr; gap: 1px; border: 1px solid var(--line); background: var(--line); }
+.debate-list-item { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; gap: 4px; padding-right: 7px; background: var(--surface); }
+.debate-list-item .debate-card { min-width: 0; }
+.debate-list-item .delete-entity-control { margin: 0; }
 .debate-card { display: flex; min-height: 0; flex-direction: column; padding: 13px 16px; background: var(--surface); transition: background .2s ease; animation: arrive .3s both; }
 .debate-card:hover { background: #f0f3eb; }
 .debate-card:nth-child(2) { animation-delay: .06s; }
@@ -295,9 +298,14 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .danger-zone h2 { margin: 0; color: #7e2924; font-family: "Newsreader", Georgia, serif; font-size: 19px; font-weight: 500; }
 .danger-zone > p:not(.eyebrow) { margin: 0; color: #765d5b; font-size: 11px; line-height: 1.5; }
 .delete-entity-control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 9px; }
-.button-danger { min-height: 36px; padding: 8px 12px; border: 1px solid #a62f2a; background: #a62f2a; color: white; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
-.button-danger:hover { border-color: #7e221e; background: #7e221e; }
+.delete-entity-standalone { margin: 22px 0 0; }
+.button-danger { min-height: 28px; padding: 4px 0; border: 0; background: transparent; color: #a63e36; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.button-danger:hover { color: #7e221e; text-decoration: underline; }
 .button-danger:disabled { opacity: .6; cursor: wait; }
+.button-icon-danger { display: inline-grid; width: 23px; height: 23px; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: #a63e36; font: 13px/1 "DM Sans", sans-serif; cursor: pointer; }
+.button-icon-danger:hover { background: #fae9e7; }
+.button-icon-danger:disabled { opacity: .55; cursor: wait; }
+.delete-entity-icon-only { align-items: center; justify-content: center; margin: 0; }
 .circle-directory-card > .delete-entity-control { margin-top: auto; padding-top: 12px; }
 .social-post > .delete-entity-control { justify-content: flex-end; padding-top: 8px; }
 @media (max-width: 650px) {
@@ -371,6 +379,9 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .profile-section-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 14px 0; }
 .profile-section-toolbar p { margin: 0; color: var(--muted); font-size: 11px; }
 .profile-post-list { display: grid; gap: 7px; margin: 14px 0 20px; }
+.profile-discussion-list-item, .profile-debate-list-item { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; gap: 4px; }
+.profile-discussion-list-item > a, .profile-debate-list-item > a { min-width: 0; color: var(--ink); }
+.profile-discussion-list-item > .delete-entity-control, .profile-debate-list-item > .delete-entity-control { margin: 0; }
 .profile-post-meta { margin-bottom: 5px; color: var(--muted); font-size: 9px; }
 .profile-post-list .profile-activity-item { margin: 0; }
 .profile-section-actions { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -543,10 +554,6 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .thread-message-header { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 10px; }
 .thread-message-tools { display: inline-flex; align-items: center; gap: 8px; }
 .thread-message-tools .delete-entity-control { margin: 0; }
-.button-icon-danger { display: inline-grid; width: 23px; height: 23px; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: #a63e36; font: 13px/1 "DM Sans", sans-serif; cursor: pointer; }
-.button-icon-danger:hover { background: #fae9e7; }
-.button-icon-danger:disabled { opacity: .55; cursor: wait; }
-.delete-entity-icon-only { margin: 0; }
 .thread-message-header strong { color: var(--ink); font-size: 11px; }
 .message-role { margin-left: 8px; color: #7d8981; }
 .message-confidence { white-space: nowrap; }

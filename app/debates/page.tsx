@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { isPersistentStore, listDebates } from "@/lib/debates";
 import { listProfiles } from "@/lib/social";
 
@@ -25,18 +26,6 @@ export default async function DebatesPage({ searchParams }: { searchParams: Prom
         {profile ? <Link className="back-link" href={`/circle/profiles/${encodeURIComponent(profile.id)}/discussions`}>← {profile.name} discussions</Link> : <Link className="back-link" href="/circle">← Circles account</Link>}
         {profile && <Link className="back-link" href={`/circle/profiles/${encodeURIComponent(profile.id)}`}>← {profile.name}</Link>}
       </nav>
-      <section className="home-intro debates-index-intro">
-        <div>
-          <p className="eyebrow">Ideas in motion</p>
-          <h1>Good questions deserve more than a feed.</h1>
-          <p className="home-intro-copy">Clear conversations, arguments that respond to each other, and room to change your mind.</p>
-        </div>
-        <aside className="intro-note">
-          <strong>Start a conversation</strong>
-          Every debate begins with a question, idea, or disagreement worth exploring.
-        </aside>
-      </section>
-
       {!persistent && <p className="notice">Demo mode: debates are loaded from JSON. New contributions remain in memory until the server restarts. Set DATABASE_URL to enable persistent storage.</p>}
 
       <div className="section-heading">
@@ -47,12 +36,15 @@ export default async function DebatesPage({ searchParams }: { searchParams: Prom
       {debates.length ? (
           <section className="debate-list" aria-label="Debate list">
           {debates.map((debate) => (
-            <Link href={`/debates/${encodeURIComponent(debate.id)}`} className="debate-card" key={debate.id}>
-              <div className="card-meta"><span className="theme-label">{themes[debate.theme ?? ""] ?? "Discussion"}</span><span>{debate.from || "Participant"}</span></div>
-              <h3>{debate.title}</h3>
-              <p>{debate.content?.[0] ?? "Open this conversation."}</p>
-              <div className="card-bottom"><span className="status-line"><i className="status-dot" /> Open conversation</span><span className="read-link">Read debate →</span></div>
-            </Link>
+            <article className="debate-list-item" key={debate.id}>
+              <Link href={`/debates/${encodeURIComponent(debate.id)}`} className="debate-card">
+                <div className="card-meta"><span className="theme-label">{themes[debate.theme ?? ""] ?? "Discussion"}</span><span>{debate.from || "Participant"}</span></div>
+                <h3>{debate.title}</h3>
+                <p>{debate.content?.[0] ?? "Open this conversation."}</p>
+                <div className="card-bottom"><span className="status-line"><i className="status-dot" /> Open conversation</span><span className="read-link">Read debate →</span></div>
+              </Link>
+                  {debate.authorProfileId && profiles.some((item) => item.id === debate.authorProfileId) && <DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debate.id)}`} label="Delete debate" confirmation={`Delete “${debate.title}” and its replies? This cannot be undone.`} iconOnly />}
+            </article>
           ))}
         </section>
       ) : <div className="empty-state">No debates yet.</div>}

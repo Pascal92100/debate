@@ -41,6 +41,6 @@ export default async function CircleAccountPage() {
       <div className="account-section-heading"><div><p className="eyebrow">Account</p><h2>Your choices</h2></div></div>
       <div className="account-choice-grid">{accountChoices.map((choice) => <Link className="account-choice" href={choice.href} key={choice.title}><span className="account-choice-icon">{choice.icon}{choice.title === "Alerts" && unreadAlerts > 0 && <span className="account-alert-badge" aria-label={`${unreadAlerts} alerts`}>{unreadAlerts}</span>}</span><span><strong>{choice.title}</strong><small>{choice.description}</small></span><span className="account-choice-arrow">→</span></Link>)}</div>
     </section>
-    {persistent && <section className="danger-zone"><p className="eyebrow">Account ownership</p><h2>Delete account</h2><p>This permanently deletes your account, profiles, and associated content.</p><DeleteEntityButton endpoint="/api/account" label="Delete my account" confirmation="Permanently delete your account and all of its profiles and content? This cannot be undone." redirectTo="/" /></section>}
+    {persistent && <DeleteEntityButton endpoint="/api/account" label="Delete my account" confirmation="Permanently delete your account and all of its profiles and content? This cannot be undone." redirectTo="/" />}
   </main>;
 }

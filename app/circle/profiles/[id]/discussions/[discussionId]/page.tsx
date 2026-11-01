@@ -18,6 +18,6 @@ export default async function SimpleDiscussionPage({ params }: { params: Promise
     <div className="social-page-heading"><div><p className="eyebrow">{profile.name} · Simple discussion</p><h1>{discussion.title}</h1></div><Link className="back-link" href={basePath}>← Discussions</Link></div>
     <p className="discussion-mode-note">Messages appear in writing order. Replies quote the message they refer to; this is not a structured debate.</p>
     <DiscussionThread initialDiscussion={discussion} profiles={profiles} authorProfileId={profile.id} />
-    <section className="danger-zone"><p className="eyebrow">Discussion ownership</p><h2>Delete this discussion</h2><p>This permanently removes the discussion and all its messages.</p><DeleteEntityButton endpoint={`/api/discussions/${encodeURIComponent(discussion.id)}`} label="Delete discussion" confirmation="Permanently delete this discussion and all its messages? This cannot be undone." redirectTo={basePath} /></section>
+    {discussion.profileId === profile.id && <DeleteEntityButton endpoint={`/api/discussions/${encodeURIComponent(discussion.id)}`} label="Delete discussion" confirmation="Permanently delete this discussion and all its messages? This cannot be undone." redirectTo={basePath} />}
   </main>;
 }
