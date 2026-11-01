@@ -72,6 +72,7 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0,
   const [reportOpen, setReportOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
+  const [touchActionsOpen, setTouchActionsOpen] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(false);
   const [reportBadge, setReportBadge] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -135,16 +136,17 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0,
 
   return <div className="argument-wrap">
     {(reportOpen || contextOpen) && <button className="report-dismiss" type="button" aria-label="Close menu" onClick={() => { setReportOpen(false); setContextOpen(false); }} />}
-    <div className="argument-line" data-argument-id={id} onContextMenu={(event) => { event.preventDefault(); setContextOpen(true); }} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerCancel={clearLongPress}>
+    <div className={`argument-line${touchActionsOpen ? " touch-actions-open" : ""}`} data-argument-id={id} onContextMenu={(event) => { event.preventDefault(); setContextOpen(true); }} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerCancel={clearLongPress}>
       <button className={`argument-text${compact ? " argument-text-compact" : ""}`} type="button" aria-expanded={replies.length > 0 ? repliesOpen : undefined} onClick={() => { if (longPressTriggered.current) { longPressTriggered.current = false; return; } if (replies.length > 0) setRepliesOpen(!repliesOpen); }} title={replies.length > 0 ? "Show or hide replies to this argument" : "No replies to this argument"}>{text}</button>
       {evaluation && <span className="evaluation-badge argument-evaluation-badge" title="Reply evaluation">{evaluation}</span>}
       {reportBadge && <span className="report-badge" title="Report sent">{reportBadge}</span>}
+      <button className="argument-touch-toggle" type="button" aria-expanded={touchActionsOpen} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setTouchActionsOpen((open) => !open); }}>{touchActionsOpen ? "Close" : "Actions"}</button>
       <div className="argument-actions">
-        <button className="argument-action reply-icon" type="button" title="Reply to this line" aria-label="Reply to this argument" onClick={() => document.getElementById(`reply-${id}`)?.click()}>↩</button>
-        <button className="argument-action" type="button" title="Information about this line" aria-label="Argument information" aria-expanded={infoOpen} onClick={() => setInfoOpen(!infoOpen)}>ⓘ</button>
-        <button className="argument-action share-icon" type="button" title="Share this line" aria-label="Share this argument" onClick={shareArgument}>↗</button>
+        <button className="argument-action reply-icon" type="button" title="Reply to this line" aria-label="Reply to this argument" onClick={() => document.getElementById(`reply-${id}`)?.click()}><span className="action-glyph" aria-hidden="true">↩</span><span className="touch-action-label">Reply</span></button>
+        <button className="argument-action" type="button" title="Information about this line" aria-label="Argument information" aria-expanded={infoOpen} onClick={() => setInfoOpen(!infoOpen)}><span className="action-glyph" aria-hidden="true">ⓘ</span><span className="touch-action-label">Info</span></button>
+        <button className="argument-action share-icon" type="button" title="Share this line" aria-label="Share this argument" onClick={shareArgument}><span className="action-glyph" aria-hidden="true">↗</span><span className="touch-action-label">Share</span></button>
         <div className="argument-report" onMouseEnter={() => setReportOpen(true)} onMouseLeave={() => setReportOpen(false)}>
-          <button className="argument-action" type="button" title="Report this line" aria-label="Report this argument" aria-expanded={reportOpen} onClick={toggleReportMenu}>⚑</button>
+          <button className="argument-action" type="button" title="Report this line" aria-label="Report this argument" aria-expanded={reportOpen} onClick={toggleReportMenu}><span className="action-glyph" aria-hidden="true">⚑</span><span className="touch-action-label">Report</span></button>
           {reportOpen && <div className="report-palette">{reportReasons.map(({ icon, label }) => <button type="button" key={label} title={label} aria-label={`${icon} ${label}`} onClick={() => report(icon, label)}>{icon}<span>{label}</span></button>)}</div>}
         </div>
       </div>

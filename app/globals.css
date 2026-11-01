@@ -526,6 +526,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .argument-text { flex: 1; padding: 0; border: 0; background: transparent; color: #56625e; text-align: left; cursor: pointer; font-size: 11px; line-height: 1.45; }
 .argument-text-compact { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .argument-actions { display: inline-flex; flex: none; align-items: center; gap: 2px; opacity: .7; }
+.argument-touch-toggle, .touch-action-label { display: none; }
 .argument-wrap > .reply-action > .reply-trigger { display: none; }
 .argument-context-menu { position: absolute; z-index: 8; display: grid; min-width: 130px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 5px 16px #202b2a1c; }
 .argument-context-menu button { padding: 8px 11px; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; font-size: 11px; }
@@ -550,6 +551,17 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
   .report-dismiss { display: none; }
   .argument-actions { opacity: 0; transition: opacity .12s ease; }
   .argument-line:hover .argument-actions, .argument-line:focus-within .argument-actions { opacity: 1; }
+}
+@media (hover: none), (pointer: coarse) {
+  .argument-actions { display: none; }
+  .argument-line.touch-actions-open .argument-actions { display: flex; flex-basis: 100%; justify-content: flex-end; gap: 8px; padding: 3px 4px 2px; opacity: 1; }
+  .argument-line { flex-wrap: wrap; }
+  .argument-touch-toggle { display: inline-flex; flex: none; align-items: center; align-self: flex-start; padding: 2px 0 2px 5px; border: 0; background: transparent; color: var(--green); font: inherit; font-size: 9px; font-weight: 700; cursor: pointer; }
+  .argument-action { display: inline-flex; min-width: 0; min-height: 30px; align-items: center; gap: 4px; padding: 3px 5px; font-size: 10px; }
+  .argument-action .action-glyph { display: none; }
+  .argument-action .touch-action-label { display: inline; }
+  .argument-report { position: static; }
+  .argument-report .report-palette { top: auto; right: 4px; bottom: calc(100% + 4px); }
 }
 .thread-message-header { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 10px; }
 .thread-message-tools { display: inline-flex; align-items: center; gap: 8px; }
