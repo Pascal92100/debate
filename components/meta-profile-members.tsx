@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { InviteSearchResult, MetaProfileMember } from "@/lib/meta-profile-invitations";
 
-export function MetaProfileMembers({ metaProfileId, members, canInvite }: { metaProfileId: string; members: MetaProfileMember[]; canInvite: boolean }) {
+export function MetaProfileMembers({ metaProfileId, members, canInvite, viewerProfileId, returnTo }: { metaProfileId: string; members: MetaProfileMember[]; canInvite: boolean; viewerProfileId?: string; returnTo?: string }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<InviteSearchResult[]>([]);
   const [busyProfileId, setBusyProfileId] = useState("");
@@ -21,7 +21,7 @@ export function MetaProfileMembers({ metaProfileId, members, canInvite }: { meta
     }
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetch(`/api/social/profiles/search?q=${encodeURIComponent(normalized)}`, { signal: controller.signal })
+      fetch(`/api/social/profiles/search?q=${encodeURIComponent(normalized)}&viewerProfileId=${encodeURIComponent(metaProfileId)}`, { signal: controller.signal })
         .then(async (response) => response.ok ? response.json() : { profiles: [] })
         .then((result) => setResults(result.profiles as InviteSearchResult[]))
         .catch(() => { if (!controller.signal.aborted) setError("Profile search is unavailable."); });
@@ -82,9 +82,16 @@ export function MetaProfileMembers({ metaProfileId, members, canInvite }: { meta
     window.location.reload();
   }
 
+  function memberHref(memberId: string) {
+    const params = new URLSearchParams({ view: "public" });
+    if (viewerProfileId) params.set("from", viewerProfileId);
+    if (returnTo) params.set("returnTo", returnTo);
+    return `/circle/profiles/${encodeURIComponent(memberId)}?${params.toString()}`;
+  }
+
   return <section className="profile-members">
     <div className="account-section-heading"><div><p className="eyebrow">Meta-profile</p><h2>Members</h2></div><span>{members.length}</span></div>
-    {members.length ? <div className="account-profile-list">{members.map((member) => <div className="account-profile-row" key={member.id}><Link className="meta-profile-member-link" href={`/circle/profiles/${encodeURIComponent(member.id)}?view=public&from=${encodeURIComponent(metaProfileId)}`}><span className="social-avatar">{member.avatar}</span><span><strong>{member.name}</strong><small>{member.category}</small></span></Link><span className="profile-member-role">{member.category}</span>{member.isOwn && <button className="text-action meta-member-leave" type="button" disabled={Boolean(leavingProfileId)} onClick={() => void leave(member)}>{leavingProfileId === member.id ? "Leaving…" : "Leave"}</button>}</div>)}</div> : <p className="account-empty">No members have joined yet.</p>}
+    {members.length ? <div className="account-profile-list">{members.map((member) => <div className="account-profile-row" key={member.id}><Link className="meta-profile-member-link" href={memberHref(member.id)}><span className="social-avatar">{member.avatar}</span><span><strong>{member.name}</strong><small>{member.category}</small></span></Link><span className="profile-member-role">{member.category}</span>{member.isOwn && <button className="text-action meta-member-leave" type="button" disabled={Boolean(leavingProfileId)} onClick={() => void leave(member)}>{leavingProfileId === member.id ? "Leaving…" : "Leave"}</button>}</div>)}</div> : <p className="account-empty">No members have joined yet.</p>}
     {canInvite && <div className="meta-profile-invite">
       <h3>Invite a profile</h3>
       <label htmlFor="meta-profile-search">Search by pseudonym</label>

@@ -6,6 +6,7 @@ import { listProfileSpaces, type ProfileSpace } from "@/lib/profile-spaces";
 import { listProfileEvents, type ProfileEvent } from "@/lib/profile-modules";
 import { listProfiles, type ProfileDescription, type SocialCircle, type SocialPost, type SocialProfile } from "@/lib/social";
 import type { MediaAttachment } from "@/lib/media";
+import { contactDistances } from "@/lib/meta-profile-invitations";
 
 export type VisibleDescription = {
   text: string;
@@ -94,29 +95,54 @@ async function loadStoredDescription(profileId: string): Promise<ProfileDescript
   return (rows[0]?.payload as ProfileDescription | undefined) ?? null;
 }
 
-export async function getPublicProfileView(profileId: string, allowJoinedMetaProfile = false, forcePublicPreview = false, viewerProfileId?: string): Promise<PublicProfileView | null> {
+export async function getPublicProfileView(profileId: string, allowJoinedMetaProfile = false, forcePublicPreview = false, viewerProfileId?: string, allowExactRelativesLink = false): Promise<PublicProfileView | null> {
   const persistent = await isPersistentStore();
   const accountId = persistent ? await getSessionAccountId() : "account-demo";
   const profiles = await listProfiles();
   const locallyAvailable = profiles.find((profile) => profile.id === profileId);
   const isOwner = Boolean(locallyAvailable && accountId && locallyAvailable.accountId === accountId);
   if (isOwner && !forcePublicPreview) return null;
-  if (allowJoinedMetaProfile && locallyAvailable?.kind === "meta") {
-    const ownIds = new Set(profiles.filter((profile) => profile.kind === "individual").map((profile) => profile.id));
-    if (!locallyAvailable.members?.some((memberId) => ownIds.has(memberId))) allowJoinedMetaProfile = false;
+  if (allowJoinedMetaProfile && locallyAvailable?.kind === "meta" && viewerProfileId) {
+    const sql = persistent ? database() : null;
+    if (sql && accountId) {
+      const membership = await sql`SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = ${profileId} AND mm.member_profile_id = ${viewerProfileId} AND member.account_id = ${accountId} LIMIT 1`;
+      allowJoinedMetaProfile = membership.length > 0;
+    } else {
+      const socialState = globalThis as typeof globalThis & { __socialState?: { profiles: SocialProfile[] } };
+      allowJoinedMetaProfile = Boolean(socialState.__socialState?.profiles.some((meta) => meta.id === profileId && meta.kind === "meta" && meta.members?.includes(viewerProfileId)));
+    }
+  } else {
+    allowJoinedMetaProfile = false;
   }
 
   let baseProfile: SocialProfile | undefined;
-  if (forcePublicPreview && locallyAvailable?.visibility === "all") baseProfile = locallyAvailable;
-  else if (allowJoinedMetaProfile && locallyAvailable) baseProfile = locallyAvailable;
-  else if (!persistent) baseProfile = profiles.find((profile) => profile.id === profileId && profile.visibility === "all");
+  if (!persistent) baseProfile = locallyAvailable;
   else {
     const sql = database();
     if (!sql) return null;
-    const rows = await sql`SELECT payload FROM profiles WHERE id = ${profileId} AND visibility = 'all' LIMIT 1`;
-    baseProfile = rows[0]?.payload as SocialProfile | undefined;
+    const rows = await sql`SELECT p.payload,
+      CASE WHEN p.kind <> 'meta' THEN p.visibility
+        WHEN p.visibility = 'ghost' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'ghost') THEN 'ghost'
+        WHEN p.visibility = 'relatives' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'relatives') THEN 'relatives'
+        ELSE 'all' END AS "effectiveVisibility",
+      CASE WHEN p.kind <> 'meta' THEN p.social_distance ELSE GREATEST(p.social_distance, COALESCE((SELECT MAX(member.social_distance) FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id), 0)) END AS "effectiveDistance"
+      FROM profiles p WHERE p.id = ${profileId} LIMIT 1`;
+    const row = rows[0];
+    if (row) baseProfile = { ...(row.payload as SocialProfile), visibility: row.effectiveVisibility as string, socialDistance: Number(row.effectiveDistance) };
   }
-  if (!baseProfile || (baseProfile.visibility !== "all" && !allowJoinedMetaProfile)) return null;
+  if (!baseProfile) return null;
+  const isViewingOwnProfile = viewerProfileId === profileId && profiles.some((profile) => profile.id === profileId && profile.accountId === accountId);
+  const { direct, secondDegree } = await contactDistances(viewerProfileId);
+  const targetIdentities = baseProfile.kind === "meta" ? [profileId, ...(baseProfile.members ?? [])] : [profileId];
+  const isDirectContact = Boolean(viewerProfileId && targetIdentities.some((identity) => direct.has(identity)));
+  const isSecondDegreeContact = Boolean(viewerProfileId && targetIdentities.some((identity) => secondDegree.has(identity)));
+  const privacyAllowsView = baseProfile.visibility === "all" && (Boolean(viewerProfileId) || baseProfile.socialDistance === 0)
+    && !(baseProfile.socialDistance >= 1 && isDirectContact)
+    && !(baseProfile.socialDistance >= 2 && isSecondDegreeContact);
+  const relativesLinkAllowsView = baseProfile.visibility === "relatives" && allowExactRelativesLink
+    && !(baseProfile.socialDistance >= 1 && isDirectContact)
+    && !(baseProfile.socialDistance >= 2 && isSecondDegreeContact);
+  if (!allowJoinedMetaProfile && !isViewingOwnProfile && !privacyAllowsView && !relativesLinkAllowsView) return null;
 
   const [storedDescription, forums, existingEvents] = await Promise.all([
     loadStoredDescription(profileId),
@@ -142,7 +168,7 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
       if (baseProfile.kind === "meta") {
         memberProfiles = (baseProfile.members ?? []).map((id) => state.profiles.find((item) => item.id === id)).filter((item): item is SocialProfile => Boolean(item && (item.visibility === "all" || (allowJoinedMetaProfile && item.id === viewerProfileId))));
       } else {
-        relatedMetaProfiles = state.profiles.filter((item) => item.kind === "meta" && item.visibility === "all" && item.members?.includes(profileId));
+        relatedMetaProfiles = profiles.filter((item) => item.kind === "meta" && item.visibility === "all" && item.socialDistance === 0 && item.members?.includes(profileId));
       }
       circles = state.circles.filter((circle) => circle.visibility === "public" && circle.ownerProfileId === profileId);
       const publicCircleIds = new Set(circles.map((circle) => circle.id));
@@ -166,7 +192,10 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
       const rows = await sql`SELECT p.payload FROM profiles p JOIN meta_profile_members mm ON mm.member_profile_id = p.id WHERE mm.meta_profile_id = ${profileId} AND (p.visibility = 'all' OR (${allowJoinedMetaProfile} AND p.id = ${viewerProfileId} AND p.account_id = ${accountId})) ORDER BY p.created_at`;
       memberProfiles = rows.map((row) => row.payload as SocialProfile);
     } else {
-      const rows = await sql`SELECT p.payload FROM profiles p WHERE p.kind = 'meta' AND p.visibility = 'all' AND (p.payload->'members' ? ${profileId} OR EXISTS (SELECT 1 FROM meta_profile_members mm WHERE mm.meta_profile_id = p.id AND mm.member_profile_id = ${profileId})) ORDER BY p.created_at`;
+      const rows = await sql`SELECT p.payload FROM profiles p WHERE p.kind = 'meta'
+        AND p.visibility = 'all' AND p.social_distance = 0
+        AND NOT EXISTS (SELECT 1 FROM meta_profile_members restricted_members JOIN profiles member ON member.id = restricted_members.member_profile_id WHERE restricted_members.meta_profile_id = p.id AND (member.visibility <> 'all' OR member.social_distance > 0))
+        AND (p.payload->'members' ? ${profileId} OR EXISTS (SELECT 1 FROM meta_profile_members mm WHERE mm.meta_profile_id = p.id AND mm.member_profile_id = ${profileId})) ORDER BY p.created_at`;
       relatedMetaProfiles = rows.map((row) => row.payload as SocialProfile);
     }
     const forumRows = await sql`SELECT id, profile_id AS "profileId", kind, name, description, created_at AS "createdAt" FROM profile_spaces WHERE profile_id = ${profileId} AND kind = 'forums' ORDER BY created_at DESC LIMIT 50`;

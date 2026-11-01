@@ -25,7 +25,7 @@ export default async function SavedSearchResultsPage({ params }: { params: Promi
   let contentResults: Array<{ id: string; title: string; detail: string; href: string }> = [];
   let unsupported = false;
   if (what === "Profiles" || what === "Meta-profiles") {
-    profileResults = await searchDiscoverableProfiles(query, scope);
+    profileResults = await searchDiscoverableProfiles(query, scope, id);
   } else if (what === "Publications") {
     const posts = await listSocialPosts();
     contentResults = posts.filter((post) => matches(`${post.title} ${post.body} ${post.author}`)).map((post) => ({ id: post.id, title: post.title, detail: `${post.author} · ${post.body}`, href: `/social#${encodeURIComponent(post.id)}` }));
@@ -45,6 +45,6 @@ export default async function SavedSearchResultsPage({ params }: { params: Promi
     <div className="social-page-heading"><div><p className="eyebrow">{profile.name} · Saved search</p><h1>{search.name}</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}/searches`}>← Saved searches</Link></div>
     {!persistent && <p className="notice social-notice">Search results use demo profiles and are temporary.</p>}
     <p className="profile-search-summary">{what}{query && ` matching “${query}”`}{theme && ` · ${theme}`}</p>
-    {unsupported ? <p className="account-empty">Search results for private messages are not available yet.</p> : profileResults.length ? <div className="social-profile-directory">{profileResults.map((result) => <article className="social-profile-card" key={result.id}><span className="social-avatar social-avatar-large">{result.avatar}</span><div><h2>{result.name}</h2><p>{what === "Meta-profiles" ? `${result.category} · Meta-profile` : result.category}</p><Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(result.id)}?view=public&from=${encodeURIComponent(id)}`}>View public profile</Link></div></article>)}</div> : contentResults.length ? <div className="profile-post-list">{contentResults.map((result) => <Link className="profile-activity-item profile-search-result" href={result.href} key={result.id}><strong>{result.title}</strong><p>{result.detail}</p></Link>)}</div> : <p className="account-empty">No results match this search.</p>}
+    {unsupported ? <p className="account-empty">Search results for private messages are not available yet.</p> : profileResults.length ? <div className="social-profile-directory">{profileResults.map((result) => <article className="social-profile-card" key={result.id}><span className="social-avatar social-avatar-large">{result.avatar}</span><div><h2>{result.name}</h2><p>{what === "Meta-profiles" ? `${result.category} · Meta-profile` : result.category}</p><Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(result.id)}?view=public&from=${encodeURIComponent(id)}&returnTo=${encodeURIComponent(`/circle/profiles/${id}/searches/${searchId}`)}`}>View public profile</Link></div></article>)}</div> : contentResults.length ? <div className="profile-post-list">{contentResults.map((result) => <Link className="profile-activity-item profile-search-result" href={result.href} key={result.id}><strong>{result.title}</strong><p>{result.detail}</p></Link>)}</div> : <p className="account-empty">No results match this search.</p>}
   </main>;
 }

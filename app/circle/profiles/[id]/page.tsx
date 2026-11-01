@@ -12,8 +12,12 @@ import { listProfiles } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
-export default async function CircleProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ view?: string; from?: string }> }) {
-  const [{ id }, query] = await Promise.all([params, searchParams ?? Promise.resolve<{ view?: string; from?: string }>({})]);
+function safeReturnTo(value?: string) {
+  return value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : undefined;
+}
+
+export default async function CircleProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ view?: string; from?: string; returnTo?: string }> }) {
+  const [{ id }, query] = await Promise.all([params, searchParams ?? Promise.resolve<{ view?: string; from?: string; returnTo?: string }>({})]);
   const [profiles, persistent] = await Promise.all([listProfiles(), isPersistentStore()]);
   const profile = profiles.find((item) => item.id === id);
   const accountId = persistent ? await getSessionAccountId() : "account-demo";
@@ -21,10 +25,17 @@ export default async function CircleProfilePage({ params, searchParams }: { para
   const publicPreview = isOwner && query.view === "public";
   if (!isOwner || publicPreview) {
     const sourceProfile = profiles.find((item) => item.id === query.from && item.kind === "individual");
-    const joinedMetaProfile = Boolean(profile?.kind === "meta" && (sourceProfile ? profile.members?.includes(sourceProfile.id) : !publicPreview && profile.members?.some((memberId) => profiles.some((item) => item.id === memberId && item.kind === "individual"))));
-    const publicView = await getPublicProfileView(id, joinedMetaProfile, publicPreview, sourceProfile?.id);
+    const sourceMetaProfiles = sourceProfile ? await listMetaProfilesForMember(sourceProfile.id) : [];
+    const joinedMetaProfile = Boolean(profile?.kind === "meta" && sourceMetaProfiles.some((meta) => meta.id === profile.id));
+    const viewerProfileId = sourceProfile?.id ?? (publicPreview && profile?.kind === "individual" ? profile.id : undefined);
+    const publicView = await getPublicProfileView(id, joinedMetaProfile, publicPreview, viewerProfileId, query.view === "public");
     if (!publicView) notFound();
-    return <PublicProfileView view={publicView} />;
+    const returnTo = safeReturnTo(query.returnTo) ?? (sourceProfile ? `/circle/profiles/${encodeURIComponent(sourceProfile.id)}` : "/social");
+    const currentQuery = new URLSearchParams({ view: "public" });
+    if (viewerProfileId) currentQuery.set("from", viewerProfileId);
+    currentQuery.set("returnTo", returnTo);
+    const currentUrl = `/circle/profiles/${encodeURIComponent(id)}?${currentQuery.toString()}`;
+    return <PublicProfileView view={publicView} returnTo={returnTo} currentUrl={currentUrl} viewerProfileId={viewerProfileId} isMemberOfMetaProfile={joinedMetaProfile} />;
   }
   if (!profile) notFound();
   const [metaMembers, unreadAlerts] = await Promise.all([
@@ -33,6 +44,7 @@ export default async function CircleProfilePage({ params, searchParams }: { para
   ]);
   const canInvite = true;
   const relatedMetaProfiles = profile.kind === "individual" ? await listMetaProfilesForMember(profile.id) : [];
+  const previewIdentityProfileId = profile.kind === "individual" ? profile.id : metaMembers.find((member) => member.isOwn)?.id;
   const profileLinks = [
     { icon: "📝", title: "Edit Descriptions", description: "Your self-presentation", section: "descriptions" },
     { icon: "🔍", title: "Edit Searches", description: "Your preferences", section: "searches" },
@@ -49,11 +61,11 @@ export default async function CircleProfilePage({ params, searchParams }: { para
   ];
 
   return <main className="social-shell social-directory-shell">
-    <div className="social-page-heading"><div><p className="eyebrow">Circles · profile</p><h1>{profile.name}</h1></div><div className="description-heading-actions">{profile.visibility === "all" && <Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(profile.id)}?view=public`}>Preview public view</Link>}<Link className="back-link" href="/circle">← Account</Link></div></div>
+    <div className="social-page-heading"><div><p className="eyebrow">Circles · profile</p><h1>{profile.name}</h1></div><div className="description-heading-actions">{((profile.visibility === "all" && profile.socialDistance === 0) || (profile.kind === "meta" && previewIdentityProfileId)) && <Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(profile.id)}?view=public${previewIdentityProfileId ? `&from=${encodeURIComponent(previewIdentityProfileId)}` : ""}&returnTo=${encodeURIComponent(`/circle/profiles/${profile.id}`)}`}>Preview public view</Link>}<Link className="back-link" href="/circle">← Account</Link></div></div>
     {!persistent && <p className="notice social-notice">This profile's contributions are temporary without DATABASE_URL.</p>}
     <section className="profile-detail-header"><span className="social-avatar social-avatar-large">{profile.avatar}</span><div><h2>{profile.name}</h2><p>{profile.kind === "individual" ? "Individual profile" : `${profile.category} (Meta-profile)`}</p><p>{profile.bio}</p></div></section>
-    {profile.kind !== "individual" && <MetaProfileMembers metaProfileId={profile.id} members={metaMembers} canInvite={canInvite} />}
-    {relatedMetaProfiles.length > 0 && <section className="profile-members"><div className="account-section-heading"><div><p className="eyebrow">Shared identities</p><h2>Meta-profiles this profile belongs to</h2></div><span>{relatedMetaProfiles.length}</span></div><div className="account-profile-list">{relatedMetaProfiles.map((metaProfile) => <Link className="account-profile-row" href={`/circle/profiles/${encodeURIComponent(metaProfile.id)}?view=public&from=${encodeURIComponent(profile.id)}`} key={metaProfile.id}><span className="social-avatar">{metaProfile.avatar}</span><span><strong>{metaProfile.name}</strong><small>{metaProfile.category} · Meta-profile</small></span><span className="account-profile-row-arrow">→</span></Link>)}</div></section>}
+    {profile.kind !== "individual" && <MetaProfileMembers metaProfileId={profile.id} members={metaMembers} canInvite={canInvite} viewerProfileId={metaMembers.find((member) => member.isOwn)?.id} returnTo={`/circle/profiles/${encodeURIComponent(profile.id)}`} />}
+    {relatedMetaProfiles.length > 0 && <section className="profile-members"><div className="account-section-heading"><div><p className="eyebrow">Shared identities</p><h2>Meta-profiles this profile belongs to</h2></div><span>{relatedMetaProfiles.length}</span></div><div className="account-profile-list">{relatedMetaProfiles.map((metaProfile) => <Link className="account-profile-row" href={`/circle/profiles/${encodeURIComponent(metaProfile.id)}?view=public&from=${encodeURIComponent(profile.id)}&returnTo=${encodeURIComponent(`/circle/profiles/${profile.id}`)}`} key={metaProfile.id}><span className="social-avatar">{metaProfile.avatar}</span><span><strong>{metaProfile.name}</strong><small>{metaProfile.category} · Meta-profile</small></span><span className="account-profile-row-arrow">→</span></Link>)}</div></section>}
     <section className="profile-links-section"><div className="account-section-heading"><div><p className="eyebrow">Profile Links</p><h2>Choose a space</h2></div></div><nav className="profile-link-grid" aria-label={`${profile.name} sections`}>{profileLinks.map((item) => <Link className="account-choice profile-link-choice" href={item.section === "descriptions" ? `/circle/profiles/${encodeURIComponent(profile.id)}/descriptions` : `/circle/profiles/${encodeURIComponent(profile.id)}/${item.section}`} key={item.section}><span className="account-choice-icon" aria-hidden="true">{item.icon}{item.section === "alerts" && item.count ? <span className="account-alert-badge" aria-label={`${item.count} unread alerts`}>{item.count}</span> : null}</span><span><strong>{item.title}</strong><small>{item.description}</small></span><span className="account-choice-arrow" aria-hidden="true">→</span></Link>)}</nav></section>
     {canInvite && <DeleteEntityButton endpoint={`/api/social/profiles/${encodeURIComponent(profile.id)}`} label={`Delete ${profile.kind === "individual" ? "profile" : "meta-profile"}`} confirmation={`Permanently delete ${profile.name} and content owned by this profile? This cannot be undone.`} redirectTo={profile.kind === "individual" ? "/circle/profiles" : "/circle/meta-profiles"} />}
   </main>;

@@ -63,16 +63,100 @@ export async function searchInviteProfiles(query: string): Promise<InviteSearchR
   return searchDiscoverableProfiles(query, "individual");
 }
 
-export async function searchDiscoverableProfiles(query: string, scope: "individual" | "meta" | "all" = "individual"): Promise<InviteSearchResult[]> {
+export async function contactGraphFor(profileIds: string[]) {
+  const graph = new Map<string, Set<string>>();
+  if (!profileIds.length) return graph;
+  const sql = await invitationDatabase();
+  if (!sql) return graph;
+  const rows = await sql`SELECT source_profile_id AS "sourceId", contact_profile_id AS "contactId" FROM (
+      SELECT follower_profile_id AS source_profile_id, followed_profile_id AS contact_profile_id
+      FROM profile_follows WHERE status = 'active' AND follower_profile_id = ANY(${profileIds})
+      UNION
+      SELECT followed_profile_id AS source_profile_id, follower_profile_id AS contact_profile_id
+      FROM profile_follows WHERE status = 'active' AND followed_profile_id = ANY(${profileIds})
+      UNION
+      SELECT first_member.profile_id AS source_profile_id, second_member.profile_id AS contact_profile_id
+      FROM circle_members first_member JOIN circle_members second_member ON second_member.circle_id = first_member.circle_id
+      WHERE first_member.profile_id = ANY(${profileIds}) AND first_member.profile_id <> second_member.profile_id
+        AND first_member.status = 'active' AND second_member.status = 'active'
+      UNION
+      SELECT circles.owner_profile_id AS source_profile_id, members.profile_id AS contact_profile_id
+      FROM circles JOIN circle_members members ON members.circle_id = circles.id
+      WHERE circles.owner_profile_id = ANY(${profileIds}) AND members.profile_id <> circles.owner_profile_id AND members.status = 'active'
+      UNION
+      SELECT members.profile_id AS source_profile_id, circles.owner_profile_id AS contact_profile_id
+      FROM circles JOIN circle_members members ON members.circle_id = circles.id
+      WHERE members.profile_id = ANY(${profileIds}) AND members.profile_id <> circles.owner_profile_id AND members.status = 'active'
+    ) connections`;
+  for (const row of rows) {
+    const sourceId = row.sourceId as string;
+    const contactId = row.contactId as string;
+    const contacts = graph.get(sourceId) ?? new Set<string>();
+    contacts.add(contactId);
+    graph.set(sourceId, contacts);
+  }
+  return graph;
+}
+
+export async function contactDistances(viewerProfileId?: string) {
+  if (!viewerProfileId) return { direct: new Set<string>(), secondDegree: new Set<string>() };
+  const profiles = await listProfiles();
+  const viewer = profiles.find((profile) => profile.id === viewerProfileId);
+  if (!viewer) return { direct: new Set<string>(), secondDegree: new Set<string>() };
+  const viewerIdentities = [viewerProfileId, ...(viewer.kind === "meta" ? viewer.members ?? [] : [])];
+  const directGraph = await contactGraphFor(viewerIdentities);
+  const direct = new Set(viewerIdentities.flatMap((identity) => [...(directGraph.get(identity) ?? [])]));
+  const secondGraph = await contactGraphFor([...direct]);
+  const secondDegree = new Set([...direct].flatMap((profileId) => [...(secondGraph.get(profileId) ?? [])]));
+  secondDegree.delete(viewerProfileId);
+  for (const directId of direct) secondDegree.delete(directId);
+  return { direct, secondDegree };
+}
+
+export async function searchDiscoverableProfiles(query: string, scope: "individual" | "meta" | "all" = "individual", viewerProfileId?: string): Promise<InviteSearchResult[]> {
   const normalized = query.trim();
   if (normalized.length > 120) return [];
+  const profiles = await listProfiles();
+  const searcher = viewerProfileId ? profiles.find((profile) => profile.id === viewerProfileId) : undefined;
+  const authenticatedViewerProfileId = searcher?.id;
+  const { direct, secondDegree } = await contactDistances(authenticatedViewerProfileId);
+  const normalizedPseudo = normalized.toLocaleLowerCase();
+  const isAllowedForViewer = (profile: Pick<SocialProfile, "id" | "accountId" | "kind" | "visibility" | "socialDistance" | "name"> & { members?: string[] }) => {
+    if (searcher && profile.accountId === searcher.accountId) return true;
+    if (!searcher) return profile.socialDistance === 0 && (profile.visibility === "all" || (profile.visibility === "relatives" && profile.name.trim().toLocaleLowerCase() === normalizedPseudo));
+    if (profile.visibility === "ghost") return false;
+    const representedProfiles = profile.kind === "meta" ? [profile.id, ...(profile.members ?? [])] : [profile.id];
+    const isDirect = representedProfiles.some((id) => direct.has(id));
+    const isSecondDegree = representedProfiles.some((id) => secondDegree.has(id));
+    if (profile.socialDistance >= 1 && isDirect) return false;
+    if (profile.socialDistance >= 2 && isSecondDegree) return false;
+    if (profile.visibility === "relatives") return profile.name.trim().toLocaleLowerCase() === normalizedPseudo;
+    return profile.visibility === "all";
+  };
   const sql = await invitationDatabase();
-  if (!sql) return (await listProfiles()).filter((profile) => (scope === "all" || (scope === "meta" ? profile.kind === "meta" : profile.kind === "individual")) && profile.visibility !== "ghost" && (!normalized || `${profile.name} ${profile.bio}`.toLocaleLowerCase().includes(normalized.toLocaleLowerCase()))).slice(0, 50).map(({ id, name, category, avatar }) => ({ id, name, category, avatar }));
+  if (!sql) return (await listProfiles()).filter((profile) => {
+    const correctKind = scope === "all" || (scope === "meta" ? profile.kind === "meta" : profile.kind === "individual");
+    const matchesText = !normalized || `${profile.name} ${profile.bio}`.toLocaleLowerCase().includes(normalized.toLocaleLowerCase());
+    return correctKind && isAllowedForViewer(profile) && matchesText;
+  }).slice(0, 50).map(({ id, name, category, avatar }) => ({ id, name, category, avatar }));
   const accountId = await currentAccountId();
   if (!accountId) return [];
   const kind = scope === "meta" ? "meta" : "individual";
-  const rows = await sql`SELECT id, name, category, avatar FROM profiles WHERE (${scope === "all"} OR kind = ${kind}) AND (${normalized} = '' OR POSITION(LOWER(${normalized}) IN LOWER(name || ' ' || bio)) > 0) AND (visibility = 'all' OR account_id = ${accountId}) ORDER BY LOWER(name), id LIMIT 50`;
-  return rows as InviteSearchResult[];
+  const rows = await sql`WITH discoverable_profiles AS (
+      SELECT p.id, p.account_id, p.kind, p.name, p.category, p.avatar, p.bio,
+        COALESCE((SELECT array_agg(mm.member_profile_id) FROM meta_profile_members mm WHERE mm.meta_profile_id = p.id), ARRAY(SELECT jsonb_array_elements_text(COALESCE(p.payload->'members', '[]'::jsonb)))) AS members,
+        CASE WHEN p.kind <> 'meta' THEN p.visibility
+          WHEN p.visibility = 'ghost' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'ghost') THEN 'ghost'
+          WHEN p.visibility = 'relatives' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'relatives') THEN 'relatives'
+          ELSE 'all' END AS effective_visibility,
+        CASE WHEN p.kind <> 'meta' THEN p.social_distance ELSE GREATEST(p.social_distance, COALESCE((SELECT MAX(member.social_distance) FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id), 0)) END AS effective_distance
+      FROM profiles p
+    )
+    SELECT id, account_id AS "accountId", kind, name, category, avatar, members, effective_visibility AS visibility, effective_distance AS "socialDistance" FROM discoverable_profiles
+    WHERE (${scope === "all"} OR kind = ${kind})
+      AND (${normalized} = '' OR POSITION(LOWER(${normalized}) IN LOWER(name || ' ' || bio)) > 0)
+    ORDER BY LOWER(name), id LIMIT 50`;
+  return (rows as Array<InviteSearchResult & { accountId: string; kind: string; members: string[]; visibility: string; socialDistance: number }>).filter(isAllowedForViewer).map(({ id, name, category, avatar }) => ({ id, name, category, avatar }));
 }
 
 export async function createMetaProfileInvitation(metaProfileId: string, inviterProfileId: string, invitedProfileId?: string | null) {
@@ -98,6 +182,8 @@ export async function createMetaProfileInvitation(metaProfileId: string, inviter
     if (invitedProfileId) {
       const targetRows = await sql`SELECT id, name FROM profiles WHERE id = ${invitedProfileId} AND kind = 'individual' AND (visibility = 'all' OR account_id = ${accountId}) LIMIT 1`;
       if (!targetRows.length) return null;
+      const discoverable = await searchDiscoverableProfiles(targetRows[0].name as string, "individual", metaProfileId);
+      if (!discoverable.some((profile) => profile.id === invitedProfileId)) return null;
       invitation.invitedProfileName = targetRows[0].name as string;
     }
     await sql.transaction([
@@ -108,7 +194,7 @@ export async function createMetaProfileInvitation(metaProfileId: string, inviter
   }
   if (invitedProfileId) {
     const target = profiles.find((profile) => profile.id === invitedProfileId && profile.kind === "individual");
-    if (!target) return null;
+    if (!target || !(await searchDiscoverableProfiles(target.name, "individual", metaProfileId)).some((profile) => profile.id === invitedProfileId)) return null;
     invitation.invitedProfileName = target.name;
     await createProfileAlert(invitedProfileId, "meta_profile_invitation", { title: "Meta-profile invitation", message: `${metaProfile.name} invited this profile to join.`, invitationToken: invitation.token, metaProfileName: metaProfile.name });
   }

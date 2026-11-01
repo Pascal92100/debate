@@ -272,12 +272,32 @@ async function useDatabase() {
 
 export async function listProfiles() {
   const sql = await useDatabase();
-  if (!sql) return structuredClone(state.profiles);
+  if (!sql) {
+    const profiles = structuredClone(state.profiles);
+    return profiles.map((profile) => {
+      if (profile.kind !== "meta") return profile;
+      const members = profiles.filter((candidate) => profile.members?.includes(candidate.id));
+      const accessRank = (visibility: string) => visibility === "ghost" ? 0 : visibility === "relatives" ? 1 : 2;
+      const strictest = [profile, ...members].reduce((current, candidate) => accessRank(candidate.visibility) < accessRank(current.visibility) ? candidate : current, profile);
+      return { ...profile, visibility: strictest.visibility, socialDistance: Math.max(profile.socialDistance, ...members.map((member) => member.socialDistance)) };
+    });
+  }
   const accountId = await getSessionAccountId();
   if (!accountId) return [];
-  const rows = await sql`SELECT p.payload, p.account_id = ${accountId} AS "isOwner", COALESCE((SELECT jsonb_agg(m.member_profile_id) FROM meta_profile_members m JOIN profiles represented ON represented.id = m.member_profile_id WHERE m.meta_profile_id = p.id AND represented.account_id = ${accountId}), '[]'::jsonb) AS "ownMembers", fp.content_filters, fp.location_label, fp.dynamic_location_enabled, fp.dynamic_location_circle_id FROM profiles p LEFT JOIN profile_preferences fp ON fp.profile_id = p.id WHERE p.account_id = ${accountId} OR EXISTS (SELECT 1 FROM meta_profile_members m JOIN profiles represented ON represented.id = m.member_profile_id WHERE m.meta_profile_id = p.id AND represented.account_id = ${accountId}) ORDER BY p.created_at`;
+  const rows = await sql`SELECT p.payload, p.account_id = ${accountId} AS "isOwner",
+    COALESCE((SELECT jsonb_agg(m.member_profile_id) FROM meta_profile_members m JOIN profiles represented ON represented.id = m.member_profile_id WHERE m.meta_profile_id = p.id AND represented.account_id = ${accountId}), '[]'::jsonb) AS "ownMembers",
+    CASE WHEN p.kind <> 'meta' THEN p.visibility
+      WHEN p.visibility = 'ghost' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'ghost') THEN 'ghost'
+      WHEN p.visibility = 'relatives' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'relatives') THEN 'relatives'
+      ELSE 'all' END AS "effectiveVisibility",
+    CASE WHEN p.kind <> 'meta' THEN p.social_distance ELSE GREATEST(p.social_distance, COALESCE((SELECT MAX(member.social_distance) FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id), 0)) END AS "effectiveSocialDistance",
+    fp.content_filters, fp.location_label, fp.dynamic_location_enabled, fp.dynamic_location_circle_id
+    FROM profiles p LEFT JOIN profile_preferences fp ON fp.profile_id = p.id
+    WHERE p.account_id = ${accountId} OR EXISTS (SELECT 1 FROM meta_profile_members m JOIN profiles represented ON represented.id = m.member_profile_id WHERE m.meta_profile_id = p.id AND represented.account_id = ${accountId}) ORDER BY p.created_at`;
   return rows.map((row) => ({
     ...(row.payload as SocialProfile),
+    visibility: row.effectiveVisibility as string,
+    socialDistance: Number(row.effectiveSocialDistance),
     ...(!(row.isOwner as boolean) ? { members: (row.ownMembers as string[]) ?? [], memberRoles: {} } : {}),
     contentFilters: (row.content_filters as string[] | null) ?? [],
     locationLabel: row.location_label as string | null ?? undefined,
