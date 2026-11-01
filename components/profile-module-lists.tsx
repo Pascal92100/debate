@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import type { ProfileEvent, SavedProfileSearch } from "@/lib/profile-modules";
 import type { SocialProfile } from "@/lib/social";
@@ -11,6 +12,7 @@ export function ProfileModuleLists({ profile, kind, initialSearches = [], initia
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [deletingSearchId, setDeletingSearchId] = useState("");
   const isSearch = kind === "searches";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -36,14 +38,29 @@ export function ProfileModuleLists({ profile, kind, initialSearches = [], initia
     setBusy(false);
   }
 
+  async function deleteSearch(search: SavedProfileSearch) {
+    setError("");
+    setDeletingSearchId(search.id);
+    const response = await fetch(`/api/social/profiles/${encodeURIComponent(profile.id)}/searches?id=${encodeURIComponent(search.id)}`, { method: "DELETE" }).catch(() => null);
+    const result = await response?.json().catch(() => null);
+    if (!response?.ok) {
+      setError(result?.error || "The saved search could not be deleted.");
+      setDeletingSearchId("");
+      return;
+    }
+    setSearches((current) => current.filter((item) => item.id !== search.id));
+    setDeletingSearchId("");
+  }
+
   return <>
     <div className="profile-section-toolbar"><p>{isSearch ? "Save the filters you use to find profiles and content." : "Upcoming and past events created by this profile."}</p><button className="button-primary" type="button" onClick={() => setCreating((current) => !current)}>{creating ? "Cancel" : isSearch ? "+ New search" : "+ Create event"}</button></div>
     {creating && <form className="social-compose-form profile-module-form" onSubmit={submit}>
-      {isSearch ? <><label>Search name<input name="name" required minLength={2} placeholder="e.g. Culture near me" /></label><div className="social-form-row"><label>What<select name="what"><option>Profiles</option><option>Forums</option><option>Publications</option><option>Debates / discussions</option><option>Messages</option></select></label><label>Theme<select name="theme"><option>Any theme</option><option>Politics / society</option><option>Culture / entertainment</option><option>Sport</option><option>Science / health</option><option>Economy / work / tech</option><option>Lifestyle / ideas</option><option>Other</option></select></label></div><label>Keywords<input name="keywords" placeholder="Optional keywords" /></label></> : <><label>Event title<input name="title" required minLength={2} placeholder="Event name" /></label><div className="social-form-row"><label>Date and time<input name="startsAt" type="datetime-local" /></label><label>Location<input name="location" placeholder="Online or a place" /></label></div><label>Description<textarea name="description" placeholder="What is happening?" /></label></>}
+      {isSearch ? <><label>Search name<input name="name" required minLength={2} placeholder="e.g. Culture near me" /></label><div className="social-form-row"><label>What<select name="what"><option>Profiles</option><option>Meta-profiles</option><option>Forums</option><option>Publications</option><option>Debates / discussions</option><option>Messages</option></select></label><label>Theme<select name="theme"><option>Any theme</option><option>Politics / society</option><option>Culture / entertainment</option><option>Sport</option><option>Science / health</option><option>Economy / work / tech</option><option>Lifestyle / ideas</option><option>Other</option></select></label></div><label>Keywords<input name="keywords" placeholder="Optional keywords" /></label></> : <><label>Event title<input name="title" required minLength={2} placeholder="Event name" /></label><div className="social-form-row"><label>Date and time<input name="startsAt" type="datetime-local" /></label><label>Location<input name="location" placeholder="Online or a place" /></label></div><label>Description<textarea name="description" placeholder="What is happening?" /></label></>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="button-primary" disabled={busy}>{busy ? "Saving…" : isSearch ? "Save search" : "Create event"}</button>
     </form>}
-    {isSearch ? searches.length ? <div className="profile-post-list">{searches.map((search) => <article className="profile-activity-item" key={search.id}><strong>{search.name}</strong><p>{String(search.criteria.what ?? "Profiles")} · {String(search.criteria.theme ?? "Any theme")}{search.criteria.keywords ? ` · ${String(search.criteria.keywords)}` : ""}</p><small>Saved {new Date(search.updatedAt).toLocaleDateString("en-US")}</small><DeleteEntityButton endpoint={`/api/social/profiles/${encodeURIComponent(profile.id)}/searches?id=${encodeURIComponent(search.id)}`} label="Delete search" confirmation={`Delete the saved search “${search.name}”?`} iconOnly onDeleted={() => setSearches((current) => current.filter((item) => item.id !== search.id))} /></article>)}</div> : <p className="account-empty">No saved searches for this profile yet.</p>
+    {isSearch && error && !creating && <p className="form-error" role="alert">{error}</p>}
+    {isSearch ? searches.length ? <div className="profile-post-list">{searches.map((search) => <article className="profile-activity-item saved-search-item" key={search.id}><strong>{search.name}</strong><p>{String(search.criteria.what ?? "Profiles")} · {String(search.criteria.theme ?? "Any theme")}{search.criteria.keywords ? ` · ${String(search.criteria.keywords)}` : ""}</p><small>Saved {new Date(search.updatedAt).toLocaleDateString("en-US")}</small><div className="saved-search-actions"><Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(profile.id)}/searches/${encodeURIComponent(search.id)}`}>View results</Link><button className="button-icon-danger" type="button" aria-label={`Delete search ${search.name}`} title="Delete search" disabled={Boolean(deletingSearchId)} onClick={() => void deleteSearch(search)}>{deletingSearchId === search.id ? "…" : "🗑"}</button></div></article>)}</div> : <p className="account-empty">No saved searches for this profile yet.</p>
       : events.length ? <div className="profile-post-list">{events.map((item) => <article className="profile-activity-item" key={item.id}><div className="profile-post-meta">{item.startsAt ? new Date(item.startsAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "Date to be announced"}{item.location && ` · ${item.location}`}</div><strong>{item.title}</strong><p>{item.description}</p><DeleteEntityButton endpoint={`/api/social/profiles/${encodeURIComponent(profile.id)}/events?id=${encodeURIComponent(item.id)}`} label="Delete event" confirmation={`Delete the event “${item.title}”?`} iconOnly onDeleted={() => setEvents((current) => current.filter((event) => event.id !== item.id))} /></article>)}</div> : <p className="account-empty">No events created by this profile yet.</p>}
   </>;
 }

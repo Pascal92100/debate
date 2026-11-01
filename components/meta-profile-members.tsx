@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { InviteSearchResult } from "@/lib/meta-profile-invitations";
+import type { InviteSearchResult, MetaProfileMember } from "@/lib/meta-profile-invitations";
 
-export function MetaProfileMembers({ metaProfileId, members, canInvite }: { metaProfileId: string; members: InviteSearchResult[]; canInvite: boolean }) {
+export function MetaProfileMembers({ metaProfileId, members, canInvite }: { metaProfileId: string; members: MetaProfileMember[]; canInvite: boolean }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<InviteSearchResult[]>([]);
   const [busyProfileId, setBusyProfileId] = useState("");
   const [link, setLink] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [leavingProfileId, setLeavingProfileId] = useState("");
 
   useEffect(() => {
     const normalized = query.trim();
@@ -61,9 +62,28 @@ export function MetaProfileMembers({ metaProfileId, members, canInvite }: { meta
     }
   }
 
+  async function leave(member: MetaProfileMember) {
+    if (!window.confirm(`Remove ${member.name} from this meta-profile? If it has no other members, the meta-profile will be deleted.`)) return;
+    setLeavingProfileId(member.id);
+    setError("");
+    const response = await fetch(`/api/social/profiles/${encodeURIComponent(metaProfileId)}/members/${encodeURIComponent(member.id)}`, { method: "DELETE" }).catch(() => null);
+    const result = await response?.json().catch(() => null);
+    if (!response?.ok) {
+      setError(result?.error || "Could not leave this meta-profile.");
+      setLeavingProfileId("");
+      return;
+    }
+    if (result.deletedMetaProfile) {
+      window.location.assign("/circle/meta-profiles");
+      return;
+    }
+    window.dispatchEvent(new Event("circles:profile-membership-updated"));
+    window.location.reload();
+  }
+
   return <section className="profile-members">
     <div className="account-section-heading"><div><p className="eyebrow">Meta-profile</p><h2>Members</h2></div><span>{members.length}</span></div>
-    {members.length ? <div className="account-profile-list">{members.map((member) => <div className="account-profile-row" key={member.id}><span className="social-avatar">{member.avatar}</span><span><strong>{member.name}</strong><small>{member.category}</small></span><span className="profile-member-role">{member.category}</span></div>)}</div> : <p className="account-empty">No members have joined yet.</p>}
+    {members.length ? <div className="account-profile-list">{members.map((member) => <div className="account-profile-row" key={member.id}><span className="social-avatar">{member.avatar}</span><span><strong>{member.name}</strong><small>{member.category}</small></span><span className="profile-member-role">{member.category}</span>{member.isOwn && <button className="text-action meta-member-leave" type="button" disabled={Boolean(leavingProfileId)} onClick={() => void leave(member)}>{leavingProfileId === member.id ? "Leaving…" : "Leave"}</button>}</div>)}</div> : <p className="account-empty">No members have joined yet.</p>}
     {canInvite && <div className="meta-profile-invite">
       <h3>Invite a profile</h3>
       <label htmlFor="meta-profile-search">Search by pseudonym</label>

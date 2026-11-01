@@ -246,6 +246,15 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .save-notice { margin: 0; color: var(--green); font-size: 10px; }
 .description-save-bottom { display: flex; justify-content: flex-end; }
 .profile-members { margin: 18px 0; }
+.saved-search-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 5px 12px; }
+.saved-search-item > strong, .saved-search-item > p, .saved-search-item > small { grid-column: 1; }
+.saved-search-item > p { margin: 0; color: var(--muted); font-size: 10px; }
+.saved-search-item > small { color: var(--muted); font-size: 9px; }
+.saved-search-actions { grid-column: 2; grid-row: 1 / span 3; display: flex; align-items: center; gap: 7px; }
+.saved-search-actions .button-secondary { min-height: 30px; padding: 5px 8px; font-size: 9px; }
+.meta-member-leave { margin: 0; }
+.account-profile-row-arrow { color: var(--green); font-size: 16px; }
+.profile-search-summary { margin: 12px 0; color: var(--muted); font-size: 11px; }
 .meta-profile-invite { display: grid; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .meta-profile-invite h3 { margin: 0; font-family: "Newsreader", Georgia, serif; font-size: 17px; font-weight: 500; }
 .meta-profile-invite > label, .meta-profile-invitation-alert > label { color: var(--muted); font-size: 10px; font-weight: 700; }

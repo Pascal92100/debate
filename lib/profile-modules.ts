@@ -165,6 +165,16 @@ export async function listProfileAlerts(profileId: string): Promise<ProfileAlert
   return rows.map((row) => ({ ...row, readAt: row.readAt ? new Date(row.readAt as string).toISOString() : null, createdAt: new Date(row.createdAt as string).toISOString() })) as ProfileAlert[];
 }
 
+export async function getUnreadProfileAlertCount(profileId: string): Promise<number> {
+  const persistent = await isPersistentStore();
+  const sql = persistent ? await ensureModuleSchema() : null;
+  if (!sql) return demo.alerts.filter((alert) => alert.profileId === profileId && !alert.readAt).length;
+  const accountId = await getSessionAccountId();
+  if (!accountId) return 0;
+  const rows = await sql`SELECT COUNT(*)::int AS count FROM alerts a JOIN profiles p ON p.id = a.profile_id WHERE a.profile_id = ${profileId} AND p.account_id = ${accountId} AND a.read_at IS NULL`;
+  return Number(rows[0]?.count ?? 0);
+}
+
 export async function createProfileAlert(profileId: string, kind: string, payload: Record<string, unknown>) {
   const alert: ProfileAlert = { id: `alert_${crypto.randomUUID()}`, profileId, kind, payload, readAt: null, createdAt: new Date().toISOString() };
   const persistent = await isPersistentStore();
