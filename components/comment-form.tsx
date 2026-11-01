@@ -2,6 +2,8 @@
 
 import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { MediaPicker } from "@/components/media-picker";
+import type { MediaAttachment } from "@/lib/media";
 
 const evaluations = [
   { icon: "👍", label: "Agree", hint: "I support this point." },
@@ -46,11 +48,12 @@ function EvaluationOption({ icon, label, hint }: { icon: string; label: string; 
   </div>;
 }
 
-export function CommentForm({ debateId, replyTo, controlId, compactTrigger = false }: { debateId: string; replyTo: string; controlId?: string; compactTrigger?: boolean }) {
+export function CommentForm({ debateId, replyTo, controlId, compactTrigger = false, profileId = "profile-john" }: { debateId: string; replyTo: string; controlId?: string; compactTrigger?: boolean; profileId?: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [media, setMedia] = useState<MediaAttachment[]>([]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,7 +65,7 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
     const response = await fetch(`/api/debates/${encodeURIComponent(debateId)}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ replyTo, text, evaluation: form.get("evaluation") })
+      body: JSON.stringify({ replyTo, text, evaluation: form.get("evaluation"), media })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
@@ -71,6 +74,7 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
       return;
     }
     formElement.reset();
+    setMedia([]);
     setSaving(false);
     setIsOpen(false);
     router.refresh();
@@ -83,7 +87,8 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
       </button>
       {isOpen && <form className="comment-form" onSubmit={submit}>
         <div className="comment-form-heading"><h3>Your reply</h3><button className="text-action" type="button" onClick={() => setIsOpen(false)}>Close</button></div>
-        <textarea name="text" required minLength={2} maxLength={3000} aria-label="Your reply" placeholder="Write your reply…" />
+        <textarea name="text" maxLength={3000} aria-label="Your reply" placeholder="Write your reply…" />
+        <MediaPicker profileId={profileId} media={media} onChange={setMedia} compact />
         <fieldset className="evaluation-picker">
           <legend>Rate your reply (optional)</legend>
           {evaluations.map(({ icon, label, hint }) => <EvaluationOption key={label} icon={icon} label={label} hint={hint} />)}

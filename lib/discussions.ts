@@ -1,6 +1,7 @@
 import "server-only";
 import { getSessionAccountId } from "@/lib/auth";
 import { database, isPersistentStore } from "@/lib/debates";
+import type { MediaAttachment } from "@/lib/media";
 import { listCircles, listProfiles } from "@/lib/social";
 
 export type DiscussionMessage = {
@@ -9,6 +10,7 @@ export type DiscussionMessage = {
   authorProfileId: string;
   author: string;
   body: string;
+  media: MediaAttachment[];
   replyTo: { id: string; author: string; excerpt: string } | null;
   createdAt: string;
 };
@@ -123,6 +125,7 @@ export async function createDiscussion(input: { profileId: string; title: string
     authorProfileId: profile.id,
     author: profile.name,
     body: input.body.trim(),
+    media: [],
     replyTo: null,
     createdAt: now
   };
@@ -146,7 +149,7 @@ export async function createDiscussion(input: { profileId: string; title: string
   return discussion;
 }
 
-export async function addDiscussionMessage(discussionId: string, input: { profileId: string; body: string; replyToId?: string }) {
+export async function addDiscussionMessage(discussionId: string, input: { profileId: string; body: string; media?: MediaAttachment[]; replyToId?: string }) {
   const discussion = await getDiscussion(discussionId);
   const profiles = await listProfiles();
   const profile = profiles.find((item) => item.id === input.profileId);
@@ -160,6 +163,7 @@ export async function addDiscussionMessage(discussionId: string, input: { profil
     authorProfileId: profile.id,
     author: profile.name,
     body: input.body.trim(),
+    media: input.media ?? [],
     replyTo: target ? { id: target.id, author: target.author, excerpt: target.body.slice(0, 180) } : null,
     createdAt: now
   };

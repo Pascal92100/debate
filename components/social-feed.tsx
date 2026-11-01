@@ -4,6 +4,10 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
+import { MediaPicker } from "@/components/media-picker";
+import { MediaGallery } from "@/components/media-gallery";
+import { SocialPostDiscussion } from "@/components/social-post-discussion";
+import type { MediaAttachment } from "@/lib/media";
 import type { SocialCircle, SocialPost, SocialProfile } from "@/lib/social";
 
 const reactions = ["👍", "👎", "⚠️", "🔑", "💡", "🎓", "❌", "❓", "☀️"];
@@ -12,6 +16,9 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
   const [posts, setPosts] = useState(initialPosts);
   const [selectedCircle, setSelectedCircle] = useState(initialCircleId);
   const [postKind, setPostKind] = useState<"publication" | "debate">("publication");
+  const [formats, setFormats] = useState<string[]>(["text"]);
+  const [media, setMedia] = useState<MediaAttachment[]>([]);
+  const [composerTitle, setComposerTitle] = useState("");
   const [profileId, setProfileId] = useState(initialProfileId || profiles[0]?.id || "");
   const [wall, setWall] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -29,12 +36,17 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: form.get("title"),
+        title: postKind === "debate" ? form.get("title") : composerTitle,
         body: form.get("body"),
         circleId: form.get("circleId") || null,
         profileId,
         theme: form.get("theme"),
-        startDebate: postKind === "debate"
+        startDebate: postKind === "debate",
+        formats,
+        media,
+        target: form.get("target"),
+        duration: form.get("duration"),
+        event: formats.includes("event") ? { title: composerTitle, startsAt: form.get("eventStartsAt") ? new Date(String(form.get("eventStartsAt"))).toISOString() : null, location: form.get("eventLocation") } : null
       })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
@@ -47,6 +59,9 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
     formElement.reset();
     setBusy(false);
     setPostKind("publication");
+    setFormats(["text"]);
+    setMedia([]);
+    setComposerTitle("");
     if (result.debate?.id) router.push(`/debates/${encodeURIComponent(result.debate.id)}`);
   }
 
@@ -71,6 +86,10 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
     router.push(`/debates/${encodeURIComponent(result.debateId)}`);
   }
 
+  function toggleFormat(format: string) {
+    setFormats((current) => current.includes(format) ? current.filter((item) => item !== format) : [...current, format]);
+  }
+
   const filteredPosts = posts.filter((post) => (!selectedCircle || post.circleId === selectedCircle) && (!initialProfileId || post.profileId === initialProfileId));
 
   return <div className="social-layout">
@@ -86,13 +105,18 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
       <section className="social-composer">
         <div className="social-composer-heading"><div><p className="eyebrow">Your network</p><h1>Circles feed</h1></div><div className="feed-view-switch" role="group" aria-label="Feed layout"><button className={!wall ? "active" : ""} onClick={() => setWall(false)}>Feed</button><button className={wall ? "active" : ""} onClick={() => setWall(true)}>Wall</button></div></div>
         <div className="social-post-mode" role="group" aria-label="Post type">
-          <button type="button" className={postKind === "publication" ? "active" : ""} onClick={() => setPostKind("publication")}>Post</button>
-          <button type="button" className={postKind === "debate" ? "active" : ""} onClick={() => setPostKind("debate")}>⚖️ Start a debate</button>
+          <button type="button" className={postKind === "publication" ? "active" : ""} onClick={() => { setPostKind("publication"); setComposerTitle(""); }}>Post</button>
+          <button type="button" className={postKind === "debate" ? "active" : ""} onClick={() => { setPostKind("debate"); setComposerTitle(""); }}>⚖️ Start a debate</button>
         </div>
         <form className="social-compose-form" onSubmit={submit}>
           {postKind === "debate" && <div className="social-form-row"><label>Debate title<input name="title" required minLength={4} maxLength={140} placeholder="The question to discuss" /></label><label>Theme<select name="theme"><option value="lifestyle-ideas">Ideas / society</option><option value="politics-society">Politics / society</option><option value="culture-entertainment">Culture</option><option value="science-health">Science / health</option><option value="economy-tech">Economy / work / tech</option><option value="sports">Sports</option></select></label></div>}
-          <label className="social-body-label" htmlFor="social-body">{postKind === "debate" ? "Introduction" : "What's new?"}</label>
-          <textarea id="social-body" name="body" required minLength={2} maxLength={5000} placeholder={postKind === "debate" ? "Set the context and make your first argument. Each line will become a separate argument." : "Share an idea, link, or update with your Circle…"} />
+          {postKind === "publication" && <fieldset className="publication-format-picker"><legend>Format</legend>{[["text", "Text"], ["image", "Photo"], ["video", "Video"], ["reel", "Reel"], ["event", "Event"], ["alert", "Alert"]].map(([value, label]) => <label className={`goal-option${formats.includes(value) ? " selected" : ""}`} key={value}><input type="checkbox" checked={formats.includes(value)} onChange={() => toggleFormat(value)} /><span>{label}</span></label>)}</fieldset>}
+          {postKind === "publication" && formats.includes("event") && <label>Event title<input name="eventTitle" required minLength={2} placeholder="Event name" value={composerTitle} onChange={(event) => setComposerTitle(event.target.value)} /></label>}
+          <label className="social-body-label" htmlFor="social-body">{postKind === "debate" ? "Opening argument" : formats.includes("alert") ? "Alert message" : formats.includes("event") ? "Event description" : "What's new?"}</label>
+          <textarea id="social-body" name="body" required={!media.length && !formats.includes("event") && !formats.includes("alert")} minLength={postKind === "debate" ? 8 : 0} maxLength={5000} placeholder={postKind === "debate" ? "Set the context and make your first argument. Each line will become a separate argument." : "Share an idea, link, or update…"} />
+          {postKind === "publication" && formats.includes("event") && <div className="social-form-row"><label>Event date and time<input name="eventStartsAt" type="datetime-local" required /></label><label>Event location<input name="eventLocation" placeholder="Online or a place" required /></label></div>}
+          {postKind === "publication" && formats.includes("alert") && <div className="social-form-row"><label>Target<select name="target"><option value="feed">Publication feed</option><option value="story">Story</option></select></label><label>Duration<select name="duration"><option value="permanent">Permanent</option><option value="1h">1 hour</option><option value="1d">1 day</option><option value="1w">1 week</option></select></label></div>}
+          {(postKind === "debate" || formats.some((format) => ["image", "video", "reel"].includes(format))) && <MediaPicker profileId={profileId} media={media} onChange={setMedia} compact />}
           <div className="social-compose-footer"><div className="social-compose-selects"><label>Author profile<select value={profileId} onChange={(event) => setProfileId(event.target.value)}>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.category}</option>)}</select></label><label>Post to<select name="circleId"><option value="">Public feed</option>{circles.map((circle) => <option value={circle.id} key={circle.id}>{circle.name}</option>)}</select></label></div><button className="button-primary" type="submit" disabled={busy}>{busy ? "Posting…" : postKind === "debate" ? "Post and open debate" : "Post"}</button></div>
           {error && <p className="form-error" role="alert">{error}</p>}
         </form>
@@ -102,10 +126,14 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
       {notice && <p className="form-error" role="status">{notice}</p>}
       <div className={wall ? "social-post-grid" : "social-post-list"}>
         {filteredPosts.map((post) => <article className="social-post" id={post.id} key={post.id}>
-          <header className="social-post-header"><span className="social-avatar">{post.avatar}</span><div className="social-post-author"><strong>{post.author}</strong><span>{post.circleName || "Public feed"} · {new Date(post.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span></div><span className={`post-kind-label ${post.kind}`}>{post.kind === "debate" ? "Debate" : post.kind === "event" ? "Event" : "Post"}</span></header>
-          <div className="social-post-copy"><h2>{post.title}</h2><p>{post.body}</p></div>
+          <header className="social-post-header"><span className="social-avatar">{post.avatar}</span><div className="social-post-author"><strong>{post.author}</strong><span>{post.circleName || "Public feed"} · {new Date(post.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span></div><span className={`post-kind-label ${post.kind}`}>{post.kind === "debate" ? "Debate" : post.kind === "event" ? "Event" : post.kind === "alert" ? "Alert" : "Post"}</span></header>
+          <div className="social-post-copy">{post.title !== "Post" && <h2>{post.title}</h2>}{post.body && <p>{post.body}</p>}</div>
+          <MediaGallery media={post.media} />
+          {post.kind === "event" && post.metadata?.startsAt && <p className="social-post-meta-detail">Event · {new Date(post.metadata.startsAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}{post.metadata.location && ` · ${post.metadata.location}`}</p>}
+          {post.kind === "alert" && <p className="social-post-meta-detail">Alert · {post.metadata?.target === "story" ? "Story" : "Feed"} · {post.metadata?.duration === "permanent" ? "Permanent" : post.metadata?.duration === "1h" ? "1 hour" : post.metadata?.duration === "1d" ? "1 day" : "1 week"}</p>}
           <div className="social-post-subtext">{post.subtext}</div>
-          <footer className="social-post-actions"><div className="social-reactions" aria-label="Reactions">{reactions.map((reaction) => <button key={reaction} title={`React ${reaction}`} onClick={() => react(post.id, reaction, profileId)}>{reaction}{post.reactions?.[reaction] ? <small>{post.reactions[reaction]}</small> : null}</button>)}</div><span>{post.commentsCount} repl{post.commentsCount === 1 ? "y" : "ies"}</span></footer>
+          <footer className="social-post-actions"><div className="social-reactions" aria-label="Reactions">{reactions.map((reaction) => <button key={reaction} title={`React ${reaction}`} onClick={() => react(post.id, reaction, profileId)}>{reaction}{post.reactions?.[reaction] ? <small>{post.reactions[reaction]}</small> : null}</button>)}</div></footer>
+          {post.kind !== "debate" && <SocialPostDiscussion postId={post.id} profileId={profileId} initialCount={post.commentsCount} />}
           {post.debateId ? <Link className="linked-debate" href={`/debates/${encodeURIComponent(post.debateId)}`}>Open linked debate ↗</Link> : <button className="text-action" type="button" onClick={() => startDebate(post)}>⚖️ Turn this post into a debate</button>}
           {profiles.some((profile) => profile.id === post.profileId) && <DeleteEntityButton endpoint={`/api/social/posts/${encodeURIComponent(post.id)}`} label="Delete post" confirmation={`Delete “${post.title}” and its linked debate, if any? This cannot be undone.`} iconOnly onDeleted={() => setPosts((current) => current.filter((item) => item.id !== post.id))} />}
         </article>)}

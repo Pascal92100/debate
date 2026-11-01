@@ -185,9 +185,11 @@ CREATE TABLE IF NOT EXISTS social_post_comments (
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   parent_comment_id TEXT REFERENCES social_post_comments(id) ON DELETE CASCADE,
   body TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE social_post_comments ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb;
 CREATE INDEX IF NOT EXISTS social_post_comments_thread_idx ON social_post_comments(post_id, created_at);
 
 -- Keep the existing debate payload format while adding normalized relationships

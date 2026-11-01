@@ -3,6 +3,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { getSessionAccountId, createSessionToken, sessionCookieName, sessionLifetimeSeconds } from "@/lib/auth";
 import { database, isPersistentStore } from "@/lib/debates";
 import fixture from "../social.json";
+import type { MediaAttachment } from "@/lib/media";
 
 export { createSessionToken, getSessionAccountId, sessionCookieName, sessionLifetimeSeconds };
 
@@ -116,6 +117,9 @@ export type SocialPost = {
   debateId: string | null;
   reactions: Record<string, number>;
   commentsCount: number;
+  media?: MediaAttachment[];
+  formats?: string[];
+  metadata?: { startsAt?: string; location?: string; duration?: string; target?: string };
 };
 
 type SocialState = {
@@ -636,7 +640,7 @@ export async function getSocialPost(id: string) {
   return (rows[0]?.payload as SocialPost | undefined) ?? null;
 }
 
-export async function createSocialPost(input: { title: string; body: string; circleId?: string | null; profileId?: string; kind?: SocialPost["kind"]; visibility?: string }) {
+export async function createSocialPost(input: { title: string; body: string; circleId?: string | null; profileId?: string; kind?: SocialPost["kind"]; visibility?: string; media?: MediaAttachment[]; formats?: string[]; metadata?: SocialPost["metadata"] }) {
   const circles = await listCircles();
   const circle = circles.find((item) => item.id === input.circleId) ?? null;
   if (input.circleId && !circle) throw new Error("Circle not found.");
@@ -658,7 +662,10 @@ export async function createSocialPost(input: { title: string; body: string; cir
     createdAt: new Date().toISOString(),
     debateId: null,
     reactions: {},
-    commentsCount: 0
+    commentsCount: 0,
+    media: input.media ?? [],
+    formats: input.formats ?? ["text"],
+    metadata: input.metadata ?? {}
   };
   const sql = await useDatabase();
   if (sql) {

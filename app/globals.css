@@ -108,6 +108,9 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .social-post-mode { margin-bottom: 9px; }
 .social-compose-form { display: grid; gap: 9px; }
 .social-compose-form label { display: grid; gap: 5px; color: var(--muted); font-size: 10px; font-weight: 600; }
+.publication-format-picker { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; border: 0; }
+.publication-format-picker legend { width: 100%; margin-bottom: 2px; color: var(--muted); font-size: 10px; font-weight: 600; }
+.social-compose-form .publication-format-picker > .goal-option { display: inline-flex; width: auto; }
 .social-compose-form input, .social-compose-form textarea, .social-compose-form select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 0; outline: none; background: #fff; color: var(--ink); font-size: 12px; }
 .social-compose-form textarea { min-height: 77px; resize: vertical; line-height: 1.5; }
 .social-compose-form input:focus, .social-compose-form textarea:focus, .social-compose-form select:focus { border-color: var(--green); }
@@ -395,13 +398,23 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .discussion-messages { display: grid; gap: 9px; margin: 18px 0; }
 .discussion-message { width: min(82%, 720px); padding: 11px 13px; border: 1px solid var(--line); background: var(--surface); }
 .discussion-message.own-message { justify-self: end; border-color: #b7cfbd; background: #edf5ee; }
+.discussion-message { position: relative; touch-action: manipulation; -webkit-touch-callout: none; user-select: none; }
+.discussion-message > p { user-select: text; }
 .discussion-message > header, .discussion-message > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .discussion-message > header strong { font-size: 10px; }
 .discussion-message time { color: var(--muted); font-size: 9px; }
-.discussion-message > p { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.55; }
+.discussion-message > p { margin: 5px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.45; }
 .discussion-message blockquote { display: grid; gap: 3px; margin: 9px 0 0; padding: 6px 9px; border-left: 2px solid var(--green); background: #f3f5f1; color: var(--muted); font-size: 9px; }
 .discussion-message blockquote strong { color: var(--green-dark); }
-.discussion-message > footer { justify-content: flex-end; }
+.discussion-message-actions { position: absolute; z-index: 4; top: -12px; right: 8px; display: flex; align-items: center; gap: 9px; padding: 4px 8px; border: 1px solid var(--line); background: white; box-shadow: 0 3px 10px #17251d1c; }
+.discussion-message-actions .delete-entity-control { margin: 0; }
+.discussion-message-actions .button-icon-danger { width: 18px; height: 18px; }
+.discussion-sticky-header { position: sticky; z-index: 12; top: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px 12px; margin: -25px -14px 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(10px); }
+.discussion-sticky-profile { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.discussion-sticky-profile .back-link { overflow: hidden; max-width: 55%; margin: 0; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.discussion-sticky-profile .eyebrow { overflow: hidden; margin: 0; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
+.discussion-sticky-header h1 { grid-column: 1; margin: 0; overflow: hidden; font-family: "Newsreader", Georgia, serif; font-size: 18px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.discussion-back-action { grid-column: 2; grid-row: 1 / span 2; color: var(--green); font-size: 16px; }
 .discussion-message .delete-entity-control { margin: 0; }
 .discussion-message .button-danger { min-height: 27px; padding: 4px 7px; font-size: 9px; }
 .discussion-reply-preview { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0 0; padding: 9px 11px; border-left: 3px solid var(--green); background: var(--pale-green); color: var(--ink); font-size: 10px; }

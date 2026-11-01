@@ -2,6 +2,7 @@ import "server-only";
 import { neon } from "@neondatabase/serverless";
 import { getSessionAccountId } from "@/lib/auth";
 import fixture from "../debates.json";
+import type { MediaAttachment } from "@/lib/media";
 
 export type Debate = {
   id: string;
@@ -23,6 +24,7 @@ export type Debate = {
   content: string[];
   timestamp?: number;
   children?: Comment[];
+  media?: MediaAttachment[];
 };
 
 export type Comment = {
@@ -37,6 +39,7 @@ export type Comment = {
   paragraphs: Array<{ id: string; text: string }>;
   replyTo: string;
   children: Comment[];
+  media?: MediaAttachment[];
 };
 
 type StoreState = { debates: Debate[]; reports: Array<{ id: string; debateId: string; messageId: string; reason: string }>; ready: boolean; persistent: boolean };
@@ -161,6 +164,7 @@ export async function createDebate(input: Pick<Debate, "title" | "content"> & Pa
     definitions: input.definitions ?? [],
     facts: input.facts ?? [],
     content: input.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean)),
+    media: input.media ?? [],
     timestamp: Date.now(),
     children: []
   };
@@ -227,7 +231,7 @@ function attachComment(debate: Debate, comment: Comment) {
   }
 }
 
-export async function createComment(debateId: string, input: { replyTo: string; text: string; title?: string; author?: string; evaluation?: string }) {
+export async function createComment(debateId: string, input: { replyTo: string; text: string; title?: string; author?: string; evaluation?: string; media?: MediaAttachment[] }) {
   const debate = await getDebate(debateId);
   if (!debate) return null;
   const paragraphTexts = input.text.replace(/\r\n?/g, "\n").split("\n").map((text) => text.trim()).filter(Boolean);
@@ -252,7 +256,8 @@ export async function createComment(debateId: string, input: { replyTo: string; 
     evaluation: input.evaluation,
     paragraphs: paragraphTexts.map((text) => ({ id: `paragraph_${crypto.randomUUID().slice(0, 8)}`, text })),
     replyTo: input.replyTo,
-    children: []
+    children: [],
+    media: input.media ?? []
   };
   if (sql) {
     await sql`INSERT INTO debate_comments (id, debate_id, reply_to, author_profile_id, payload) VALUES (${comment.id}, ${debateId}, ${comment.replyTo}, ${comment.authorProfileId}, ${JSON.stringify(comment)}::jsonb)`;

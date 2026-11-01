@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import type { Comment, Debate } from "@/lib/debates";
 import { CommentForm } from "@/components/comment-form";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
+import { MediaGallery } from "@/components/media-gallery";
 
 const reportReasons = [
   { icon: "🚫", label: "Prohibited" },
@@ -68,7 +69,7 @@ function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { deba
   );
 }
 
-function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0, compact = false, evaluation }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean; evaluation?: string }) {
+function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProfileId, depth = 0, compact = false, evaluation }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; authorProfileId: string; depth?: number; compact?: boolean; evaluation?: string }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
@@ -158,19 +159,19 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, depth = 0,
       <button type="button" role="menuitem" onClick={() => { setContextOpen(false); setReportOpen(true); }}>⚑ Report</button>
     </div>}
     {infoOpen && <div className="argument-info"><span>Argument <code>{id}</code></span><button className="text-action" type="button" onClick={() => navigator.clipboard.writeText(text).then(() => setFeedback("Text copied.")).catch(() => setFeedback("Copy unavailable."))}>Copy</button></div>}
-    <CommentForm key={id} debateId={debateId} replyTo={id} controlId={`reply-${id}`} />
+    <CommentForm key={id} debateId={debateId} replyTo={id} controlId={`reply-${id}`} profileId={authorProfileId} />
     {feedback && <span className="action-feedback argument-feedback" role="status">{feedback}</span>}
-    {repliesOpen && <div className="argument-replies">{replies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} depth={depth + 1} />)}</div>}
+    {repliesOpen && <div className="argument-replies">{replies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth + 1} />)}</div>}
   </div>;
 }
 
-function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileIds, depth = 0, compact = false, rootAliases = [], titleEvaluation }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; depth?: number; compact?: boolean; rootAliases?: string[]; titleEvaluation?: string }) {
-  return <div className="argument-list">{paragraphs.map((paragraph, index) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} depth={depth} compact={compact} evaluation={index === 0 ? titleEvaluation : undefined} />)}
-    {children.filter((child) => child.replyTo === parentId || rootAliases.includes(child.replyTo)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} depth={depth + 1} />)}
+function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileIds, authorProfileId, depth = 0, compact = false, rootAliases = [], titleEvaluation }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; authorProfileId: string; depth?: number; compact?: boolean; rootAliases?: string[]; titleEvaluation?: string }) {
+  return <div className="argument-list">{paragraphs.map((paragraph, index) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth} compact={compact} evaluation={index === 0 ? titleEvaluation : undefined} />)}
+    {children.filter((child) => child.replyTo === parentId || rootAliases.includes(child.replyTo)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth + 1} />)}
   </div>;
 }
 
-function CommentCard({ debateId, node, ownedProfileIds, depth = 0 }: { debateId: string; node: Comment; ownedProfileIds: string[]; depth?: number }) {
+function CommentCard({ debateId, node, ownedProfileIds, authorProfileId, depth = 0 }: { debateId: string; node: Comment; ownedProfileIds: string[]; authorProfileId: string; depth?: number }) {
   const paragraphs = node.paragraphs ?? [];
   const text = paragraphs.map((paragraph) => paragraph.text).join(" ");
   const firstParagraph = paragraphs[0]?.text ?? "";
@@ -181,8 +182,9 @@ function CommentCard({ debateId, node, ownedProfileIds, depth = 0 }: { debateId:
     {node.definitions?.length ? <details className="data-accordion"><summary>Definitions <span>{node.definitions.length}</span></summary><div>{node.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
     {node.facts?.length ? <details className="data-accordion"><summary>Facts and references <span>{node.facts.length}</span></summary><div>{node.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
     {!titleDuplicatesFirstParagraph && <div className="thread-message-title-row"><h3 className="thread-message-title">{node.title}</h3>{node.evaluation && <span className="evaluation-badge" title="Reply evaluation">{node.evaluation}</span>}</div>}
-    <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact titleEvaluation={titleDuplicatesFirstParagraph ? node.evaluation : undefined} />
-    {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={node.title} replies={node.children ?? []} ownedProfileIds={ownedProfileIds} depth={depth} compact evaluation={node.evaluation} />}
+    <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={node.children ?? []} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth} compact titleEvaluation={titleDuplicatesFirstParagraph ? node.evaluation : undefined} />
+    {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={node.title} replies={node.children ?? []} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth} compact evaluation={node.evaluation} />}
+    <MediaGallery media={node.media} compact />
     <div className="message-control-row">
       <MessageInfo debateId={debateId} id={node.id} author={node.author} confidence={node.confidence} replyTo={node.replyTo} text={`${node.title}\n${text}`} />
       <CommentForm debateId={debateId} replyTo={node.id} />
@@ -201,6 +203,7 @@ function rootPostId(debate: Debate) {
 }
 
 export function ThreadView({ debate, comments, ownedProfileIds = [] }: { debate: Debate; comments: Comment[]; ownedProfileIds?: string[] }) {
+  const authorProfileId = ownedProfileIds[0] ?? "profile-john";
   const rootId = rootPostId(debate);
   const paragraphs = debate.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean)).map((text, index) => ({
     id: rootId === "p1" ? `p1-${index + 1}` : `${rootId}-p-${index + 1}`,
@@ -213,7 +216,8 @@ export function ThreadView({ debate, comments, ownedProfileIds = [] }: { debate:
     <article className="thread-message thread-root">
       {debate.definitions?.length ? <details className="data-accordion" open><summary>Definitions <span>{debate.definitions.length}</span></summary><div>{debate.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
       {debate.facts?.length ? <details className="data-accordion" open><summary>Facts and references <span>{debate.facts.length}</span></summary><div>{debate.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
-      <ArgumentLines debateId={debate.id} parentId={rootId} paragraphs={paragraphs} children={rootComments} ownedProfileIds={ownedProfileIds} rootAliases={[debate.id]} compact />
+      <ArgumentLines debateId={debate.id} parentId={rootId} paragraphs={paragraphs} children={rootComments} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} rootAliases={[debate.id]} compact />
+      <MediaGallery media={debate.media} />
       <div className="message-control-row thread-root-actions"><MessageInfo debateId={debate.id} id={debate.id} author={debate.from || "Participant"} confidence={debate.confidence ?? 0} text={`${debate.title}\n${debate.content.join("\n")}`} /><CommentForm debateId={debate.id} replyTo={debate.id} /></div>
     </article>
   </section>;
