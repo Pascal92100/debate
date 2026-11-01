@@ -235,3 +235,23 @@ export async function listMetaProfileMembers(metaProfileId: string) {
     ORDER BY member.created_at`;
   return rows as MetaProfileMember[];
 }
+
+export async function listMetaProfilesForMember(memberProfileId: string): Promise<InviteSearchResult[]> {
+  const sql = await invitationDatabase();
+  if (!sql) {
+    const profiles = await listProfiles();
+    const member = profiles.find((profile) => profile.id === memberProfileId && profile.kind === "individual");
+    if (!member) return [];
+    const socialState = globalThis as typeof globalThis & { __socialState?: { profiles: SocialProfile[] } };
+    return (socialState.__socialState?.profiles ?? []).filter((profile) => profile.kind === "meta" && profile.members?.includes(memberProfileId)).map(({ id, name, category, avatar }) => ({ id, name, category, avatar }));
+  }
+  const accountId = await currentAccountId();
+  if (!accountId) return [];
+  const rows = await sql`SELECT meta.id, meta.name, meta.category, meta.avatar
+    FROM meta_profile_members membership
+    JOIN profiles meta ON meta.id = membership.meta_profile_id AND meta.kind = 'meta'
+    JOIN profiles member ON member.id = membership.member_profile_id
+    WHERE membership.member_profile_id = ${memberProfileId} AND member.account_id = ${accountId}
+    ORDER BY meta.created_at`;
+  return rows as InviteSearchResult[];
+}

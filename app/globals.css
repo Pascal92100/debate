@@ -402,6 +402,9 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .account-choice-arrow { color: var(--green); font-size: 13px; }
 .account-profile-list { display: grid; border: 1px solid var(--line); background: var(--line); gap: 1px; }
 .account-profile-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto auto; align-items: center; gap: 11px; padding: 10px 12px; background: var(--surface); }
+.account-profile-row > .meta-profile-member-link { display: grid; grid-column: 1 / 3; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 11px; min-width: 0; color: var(--ink); font-size: inherit; font-weight: inherit; text-decoration: none; }
+.meta-profile-member-link > span:last-child { min-width: 0; }
+.meta-profile-member-link:hover strong { color: var(--green); text-decoration: underline; }
 .account-profile-row strong, .account-profile-row small { display: block; }
 .account-profile-row strong { font-size: 11px; }
 .account-profile-row small { margin-top: 3px; color: var(--muted); font-size: 9px; }

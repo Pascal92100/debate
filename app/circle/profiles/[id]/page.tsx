@@ -5,7 +5,7 @@ import { MetaProfileMembers } from "@/components/meta-profile-members";
 import { PublicProfileView } from "@/components/public-profile-view";
 import { isPersistentStore } from "@/lib/debates";
 import { getSessionAccountId } from "@/lib/auth";
-import { listMetaProfileMembers } from "@/lib/meta-profile-invitations";
+import { listMetaProfileMembers, listMetaProfilesForMember } from "@/lib/meta-profile-invitations";
 import { getUnreadProfileAlertCount } from "@/lib/profile-modules";
 import { getPublicProfileView } from "@/lib/public-profile";
 import { listProfiles } from "@/lib/social";
@@ -31,7 +31,7 @@ export default async function CircleProfilePage({ params, searchParams }: { para
     getUnreadProfileAlertCount(profile.id)
   ]);
   const canInvite = true;
-  const relatedMetaProfiles = profile.kind === "individual" ? profiles.filter((item) => item.kind === "meta" && item.members?.includes(profile.id)) : [];
+  const relatedMetaProfiles = profile.kind === "individual" ? await listMetaProfilesForMember(profile.id) : [];
   const profileLinks = [
     { icon: "📝", title: "Edit Descriptions", description: "Your self-presentation", section: "descriptions" },
     { icon: "🔍", title: "Edit Searches", description: "Your preferences", section: "searches" },
