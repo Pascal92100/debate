@@ -94,7 +94,7 @@ async function loadStoredDescription(profileId: string): Promise<ProfileDescript
   return (rows[0]?.payload as ProfileDescription | undefined) ?? null;
 }
 
-export async function getPublicProfileView(profileId: string, allowJoinedMetaProfile = false, forcePublicPreview = false): Promise<PublicProfileView | null> {
+export async function getPublicProfileView(profileId: string, allowJoinedMetaProfile = false, forcePublicPreview = false, viewerProfileId?: string): Promise<PublicProfileView | null> {
   const persistent = await isPersistentStore();
   const accountId = persistent ? await getSessionAccountId() : "account-demo";
   const profiles = await listProfiles();
@@ -140,7 +140,7 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
     const state = globalSocial.__socialState;
     if (state) {
       if (baseProfile.kind === "meta") {
-        memberProfiles = (baseProfile.members ?? []).map((id) => state.profiles.find((item) => item.id === id)).filter((item): item is SocialProfile => Boolean(item && (item.visibility === "all" || (allowJoinedMetaProfile && item.accountId === accountId))));
+        memberProfiles = (baseProfile.members ?? []).map((id) => state.profiles.find((item) => item.id === id)).filter((item): item is SocialProfile => Boolean(item && (item.visibility === "all" || (allowJoinedMetaProfile && item.id === viewerProfileId))));
       } else {
         relatedMetaProfiles = state.profiles.filter((item) => item.kind === "meta" && item.visibility === "all" && item.members?.includes(profileId));
       }
@@ -163,7 +163,7 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
     circles = publicCircles as SocialCircle[];
     const circleIds = circles.map((circle) => circle.id);
     if (baseProfile.kind === "meta") {
-      const rows = await sql`SELECT p.payload FROM profiles p JOIN meta_profile_members mm ON mm.member_profile_id = p.id WHERE mm.meta_profile_id = ${profileId} AND (p.visibility = 'all' OR (${allowJoinedMetaProfile} AND p.account_id = ${accountId})) ORDER BY p.created_at`;
+      const rows = await sql`SELECT p.payload FROM profiles p JOIN meta_profile_members mm ON mm.member_profile_id = p.id WHERE mm.meta_profile_id = ${profileId} AND (p.visibility = 'all' OR (${allowJoinedMetaProfile} AND p.id = ${viewerProfileId} AND p.account_id = ${accountId})) ORDER BY p.created_at`;
       memberProfiles = rows.map((row) => row.payload as SocialProfile);
     } else {
       const rows = await sql`SELECT p.payload FROM profiles p WHERE p.kind = 'meta' AND p.visibility = 'all' AND (p.payload->'members' ? ${profileId} OR EXISTS (SELECT 1 FROM meta_profile_members mm WHERE mm.meta_profile_id = p.id AND mm.member_profile_id = ${profileId})) ORDER BY p.created_at`;
