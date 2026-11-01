@@ -205,6 +205,8 @@ async function useDatabase() {
     settings JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
+  const duplicatePseudos = await sql`SELECT LOWER(BTRIM(name)) AS pseudo FROM profiles GROUP BY LOWER(BTRIM(name)) HAVING COUNT(*) > 1 LIMIT 1`;
+  if (!duplicatePseudos.length) await sql`CREATE UNIQUE INDEX IF NOT EXISTS profiles_pseudo_unique_idx ON profiles (LOWER(BTRIM(name)))`;
   await sql`ALTER TABLE profile_preferences ADD COLUMN IF NOT EXISTS dynamic_location_enabled BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`CREATE TABLE IF NOT EXISTS circles (
     id TEXT PRIMARY KEY,
@@ -273,9 +275,10 @@ export async function listProfiles() {
   if (!sql) return structuredClone(state.profiles);
   const accountId = await getSessionAccountId();
   if (!accountId) return [];
-  const rows = await sql`SELECT p.payload, fp.content_filters, fp.location_label, fp.dynamic_location_enabled, fp.dynamic_location_circle_id FROM profiles p LEFT JOIN profile_preferences fp ON fp.profile_id = p.id WHERE p.account_id = ${accountId} ORDER BY p.created_at`;
+  const rows = await sql`SELECT p.payload, p.account_id = ${accountId} AS "isOwner", COALESCE((SELECT jsonb_agg(m.member_profile_id) FROM meta_profile_members m JOIN profiles represented ON represented.id = m.member_profile_id WHERE m.meta_profile_id = p.id AND represented.account_id = ${accountId}), '[]'::jsonb) AS "ownMembers", fp.content_filters, fp.location_label, fp.dynamic_location_enabled, fp.dynamic_location_circle_id FROM profiles p LEFT JOIN profile_preferences fp ON fp.profile_id = p.id WHERE p.account_id = ${accountId} OR EXISTS (SELECT 1 FROM meta_profile_members m JOIN profiles represented ON represented.id = m.member_profile_id WHERE m.meta_profile_id = p.id AND represented.account_id = ${accountId}) ORDER BY p.created_at`;
   return rows.map((row) => ({
     ...(row.payload as SocialProfile),
+    ...(!(row.isOwner as boolean) ? { members: (row.ownMembers as string[]) ?? [], memberRoles: {} } : {}),
     contentFilters: (row.content_filters as string[] | null) ?? [],
     locationLabel: row.location_label as string | null ?? undefined,
     dynamicLocationEnabled: Boolean(row.dynamic_location_enabled),
@@ -681,6 +684,11 @@ export async function createSocialProfile(input: { accountId?: string; name: str
   const sql = await useDatabase();
   const accountId = sql ? input.accountId : "account-demo";
   if (!accountId) throw new Error("An authenticated account is required to create a profile.");
+  const normalizedPseudo = input.name.trim().toLocaleLowerCase();
+  const duplicate = sql
+    ? await sql`SELECT id FROM profiles WHERE LOWER(BTRIM(name)) = ${normalizedPseudo} LIMIT 1`
+    : state.profiles.filter((item) => item.name.trim().toLocaleLowerCase() === normalizedPseudo);
+  if (duplicate.length) throw new Error("This pseudonym is already in use. Choose another one.");
   if (input.dynamicLocationEnabled && !input.dynamicLocationCircleId) throw new Error("Choose a Circle for dynamic location.");
   const profile: SocialProfile = {
     id: `profile_${crypto.randomUUID()}`,
@@ -698,14 +706,14 @@ export async function createSocialProfile(input: { accountId?: string; name: str
     locationLabel: input.locationLabel?.trim() || "",
     dynamicLocationEnabled: Boolean(input.dynamicLocationEnabled),
     dynamicLocationCircleId: input.dynamicLocationEnabled ? input.dynamicLocationCircleId || "" : "",
-    members: input.kind === "meta" ? (input.members ?? []) : [],
+    members: input.kind === "meta" ? [...new Set(input.members ?? [])] : [],
     memberRoles: {}
   };
   if (sql) {
     const memberIds = profile.members ?? [];
     if (memberIds.length) {
-      const ownedMembers = await sql`SELECT id FROM profiles WHERE account_id = ${accountId} AND id = ANY(${memberIds})`;
-      if (ownedMembers.length !== memberIds.length) throw new Error("Meta-profile members must belong to this account.");
+      const ownedMembers = await sql`SELECT id FROM profiles WHERE account_id = ${accountId} AND kind = 'individual' AND id = ANY(${memberIds})`;
+      if (ownedMembers.length !== memberIds.length) throw new Error("Meta-profile members must be individual profiles belonging to this account.");
     }
     await sql.transaction([
       sql`INSERT INTO profiles (id, account_id, name, kind, category, avatar, bio, visibility, social_distance, anonymous, payload)
@@ -715,6 +723,7 @@ export async function createSocialProfile(input: { accountId?: string; name: str
       ...memberIds.map((memberId) => sql`INSERT INTO meta_profile_members (meta_profile_id, member_profile_id, role) VALUES (${profile.id}, ${memberId}, 'member') ON CONFLICT DO NOTHING`)
     ]);
   } else {
+    if (profile.members?.some((memberId) => !state.profiles.some((member) => member.id === memberId && member.accountId === accountId && member.kind === "individual"))) throw new Error("Meta-profile members must be individual profiles belonging to this account.");
     state.profiles.push(profile);
   }
   return profile;

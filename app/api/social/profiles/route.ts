@@ -26,6 +26,7 @@ export async function POST(request: Request) {
   }
   const accountId = process.env.DATABASE_URL ? await getSessionAccountId() : undefined;
   if (process.env.DATABASE_URL && !accountId) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  try {
   const profile = await createSocialProfile({
     accountId: accountId ?? undefined,
     name: body.name,
@@ -43,4 +44,8 @@ export async function POST(request: Request) {
     members: Array.isArray(body.members) ? body.members.filter((member: unknown): member is string => typeof member === "string") : []
   });
   return NextResponse.json({ profile }, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The profile could not be created.";
+    return NextResponse.json({ error: message }, { status: message.includes("already in use") ? 409 : 400 });
+  }
 }

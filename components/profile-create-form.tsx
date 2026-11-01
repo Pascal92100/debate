@@ -54,6 +54,7 @@ export function ProfileCreateForm({ profiles, circles, kind }: { profiles: Socia
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [dynamicLocationEnabled, setDynamicLocationEnabled] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -76,7 +77,7 @@ export function ProfileCreateForm({ profiles, circles, kind }: { profiles: Socia
         locationLabel: form.get("locationLabel"),
         dynamicLocationEnabled: form.get("dynamicLocationEnabled") === "yes",
         dynamicLocationCircleId: form.get("dynamicLocationCircleId"),
-        members: form.getAll("members")
+        members: selectedMemberIds
       })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
@@ -94,8 +95,8 @@ export function ProfileCreateForm({ profiles, circles, kind }: { profiles: Socia
 
   return <form className="form-panel profile-create-page-form" onSubmit={submit}>
     <div className="field"><label htmlFor="category">{kind === "individual" ? "Profile context" : "Meta-profile type"}</label><select id="category" name="category" required defaultValue=""><option value="" disabled>Select a context</option>{contexts.map((context) => <option value={context} key={context}>{context}</option>)}</select></div>
-    <div className="field"><label htmlFor="name">Profile name</label><input id="name" name="name" required minLength={2} maxLength={70} placeholder={kind === "meta" ? "e.g. Doe Family" : "Name or pseudonym"} /></div>
-    {kind === "meta" && <div className="field"><label htmlFor="members">Members</label><select id="members" name="members" multiple size={Math.max(3, Math.min(7, availableMembers.length))}>{availableMembers.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.category}</option>)}</select><span className="field-hint">Select individual profiles belonging to this meta-profile.</span></div>}
+    <div className="field"><label htmlFor="name">Unique Circles pseudonym</label><input id="name" name="name" required minLength={2} maxLength={70} placeholder={kind === "meta" ? "e.g. Doe Family" : "Choose a pseudonym"} /><span className="field-hint">Every individual and meta-profile must have a unique pseudonym across Circles.</span></div>
+    {kind === "meta" && <div className="field"><label htmlFor="members">Members</label><select id="members" name="members" multiple size={Math.max(3, Math.min(7, availableMembers.length))} value={selectedMemberIds} onChange={(event) => setSelectedMemberIds(Array.from(event.currentTarget.selectedOptions, (option) => option.value))}>{availableMembers.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.category}</option>)}</select>{selectedMemberIds.length > 0 && <div className="selected-meta-members" aria-live="polite"><strong>Selected profiles</strong>{selectedMemberIds.map((memberId) => { const member = availableMembers.find((profile) => profile.id === memberId); return member ? <span key={memberId}>{member.name} · {member.category}<button type="button" aria-label={`Remove ${member.name}`} onClick={() => setSelectedMemberIds((current) => current.filter((id) => id !== memberId))}>×</button></span> : null; })}</div>}<span className="field-hint">Select individual profiles belonging to this meta-profile.</span></div>}
     <div className="field"><label htmlFor="bio">Introduction</label><textarea id="bio" name="bio" maxLength={500} placeholder="How should this profile be presented?" /></div>
     <fieldset className="profile-research-settings"><legend>For other&apos;s research</legend>
       <div className="profile-setting-block"><div className="profile-setting-title">Visibility</div><div className="profile-choice-row">

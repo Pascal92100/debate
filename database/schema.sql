@@ -52,6 +52,7 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS profiles_account_id_idx ON profiles(account_id);
 CREATE INDEX IF NOT EXISTS profiles_visibility_idx ON profiles(visibility, social_distance);
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_pseudo_unique_idx ON profiles (LOWER(BTRIM(name)));
 
 CREATE TABLE IF NOT EXISTS meta_profile_members (
   meta_profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -62,6 +63,19 @@ CREATE TABLE IF NOT EXISTS meta_profile_members (
   CHECK (meta_profile_id <> member_profile_id)
 );
 CREATE INDEX IF NOT EXISTS meta_profile_members_member_idx ON meta_profile_members(member_profile_id);
+
+CREATE TABLE IF NOT EXISTS meta_profile_invitations (
+  id TEXT PRIMARY KEY,
+  token TEXT NOT NULL UNIQUE,
+  meta_profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  inviter_profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  invited_profile_id TEXT REFERENCES profiles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+  represented_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  responded_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS meta_profile_invites_inbox_idx ON meta_profile_invitations(invited_profile_id, created_at DESC) WHERE status = 'pending';
 
 CREATE TABLE IF NOT EXISTS profile_descriptions (
   id TEXT PRIMARY KEY,

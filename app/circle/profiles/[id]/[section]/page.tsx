@@ -7,6 +7,7 @@ import { ProfileAlerts } from "@/components/profile-alerts";
 import { isPersistentStore, listDebates } from "@/lib/debates";
 import { listCircles, listProfiles, listSocialPosts } from "@/lib/social";
 import { listProfileAlerts, listProfileEvents, listProfileSearches } from "@/lib/profile-modules";
+import { listIncomingMetaProfileInvitations } from "@/lib/meta-profile-invitations";
 import { listProfileSpaces, type ProfileSpaceKind } from "@/lib/profile-spaces";
 
 export const dynamic = "force-dynamic";
@@ -51,12 +52,12 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
     </main>;
   }
   if (section === "alerts") {
-    const [profiles, alerts] = await Promise.all([listProfiles(), listProfileAlerts(id)]);
+    const [profiles, alerts, invitations] = await Promise.all([listProfiles(), listProfileAlerts(id), listIncomingMetaProfileInvitations(id)]);
     const profile = profiles.find((item) => item.id === id);
     if (!profile) notFound();
     return <main className="social-shell social-directory-shell">
       <div className="social-page-heading"><div><p className="eyebrow">{profile.name} · Profile space</p><h1>Alerts</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← {profile.name}</Link></div>
-      <ProfileAlerts initialAlerts={alerts} />
+      <ProfileAlerts initialAlerts={alerts} initialInvitations={invitations} profiles={profiles} />
     </main>;
   }
   const [profiles, debates, posts, circles, persistent] = await Promise.all([

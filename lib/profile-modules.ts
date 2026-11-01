@@ -165,6 +165,27 @@ export async function listProfileAlerts(profileId: string): Promise<ProfileAlert
   return rows.map((row) => ({ ...row, readAt: row.readAt ? new Date(row.readAt as string).toISOString() : null, createdAt: new Date(row.createdAt as string).toISOString() })) as ProfileAlert[];
 }
 
+export async function createProfileAlert(profileId: string, kind: string, payload: Record<string, unknown>) {
+  const alert: ProfileAlert = { id: `alert_${crypto.randomUUID()}`, profileId, kind, payload, readAt: null, createdAt: new Date().toISOString() };
+  const persistent = await isPersistentStore();
+  const sql = persistent ? await ensureModuleSchema() : null;
+  if (sql) {
+    await sql`INSERT INTO alerts (id, profile_id, kind, payload) VALUES (${alert.id}, ${alert.profileId}, ${alert.kind}, ${JSON.stringify(alert.payload)}::jsonb)`;
+  } else demo.alerts.unshift(alert);
+  return alert;
+}
+
+export async function markMetaProfileInvitationAlertRead(invitationToken: string) {
+  const persistent = await isPersistentStore();
+  const sql = persistent ? await ensureModuleSchema() : null;
+  if (sql) {
+    await sql`UPDATE alerts SET read_at = NOW() WHERE payload->>'invitationToken' = ${invitationToken} AND read_at IS NULL`;
+    return;
+  }
+  const alert = demo.alerts.find((item) => item.payload.invitationToken === invitationToken);
+  if (alert) alert.readAt = new Date().toISOString();
+}
+
 export async function markProfileAlertRead(alertId: string) {
   const persistent = await isPersistentStore();
   const sql = persistent ? await ensureModuleSchema() : null;
