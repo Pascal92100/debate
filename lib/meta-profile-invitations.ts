@@ -121,8 +121,7 @@ export async function searchDiscoverableProfiles(query: string, scope: "individu
   const authenticatedViewerProfileId = searcher?.id;
   const { direct, secondDegree } = await contactDistances(authenticatedViewerProfileId);
   const normalizedPseudo = normalized.toLocaleLowerCase();
-  const isAllowedForViewer = (profile: Pick<SocialProfile, "id" | "accountId" | "kind" | "visibility" | "socialDistance" | "name"> & { members?: string[] }) => {
-    if (searcher && profile.accountId === searcher.accountId) return true;
+  const isAllowedForViewer = (profile: Pick<SocialProfile, "id" | "kind" | "visibility" | "socialDistance" | "name"> & { members?: string[] }) => {
     if (!searcher) return profile.socialDistance === 0 && (profile.visibility === "all" || (profile.visibility === "relatives" && profile.name.trim().toLocaleLowerCase() === normalizedPseudo));
     if (profile.visibility === "ghost") return false;
     const representedProfiles = profile.kind === "meta" ? [profile.id, ...(profile.members ?? [])] : [profile.id];
@@ -143,7 +142,7 @@ export async function searchDiscoverableProfiles(query: string, scope: "individu
   if (!accountId) return [];
   const kind = scope === "meta" ? "meta" : "individual";
   const rows = await sql`WITH discoverable_profiles AS (
-      SELECT p.id, p.account_id, p.kind, p.name, p.category, p.avatar, p.bio,
+      SELECT p.id, p.kind, p.name, p.category, p.avatar, p.bio,
         COALESCE((SELECT array_agg(mm.member_profile_id) FROM meta_profile_members mm WHERE mm.meta_profile_id = p.id), ARRAY(SELECT jsonb_array_elements_text(COALESCE(p.payload->'members', '[]'::jsonb)))) AS members,
         CASE WHEN p.kind <> 'meta' THEN p.visibility
           WHEN p.visibility = 'ghost' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'ghost') THEN 'ghost'
@@ -152,11 +151,11 @@ export async function searchDiscoverableProfiles(query: string, scope: "individu
         CASE WHEN p.kind <> 'meta' THEN p.social_distance ELSE GREATEST(p.social_distance, COALESCE((SELECT MAX(member.social_distance) FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id), 0)) END AS effective_distance
       FROM profiles p
     )
-    SELECT id, account_id AS "accountId", kind, name, category, avatar, members, effective_visibility AS visibility, effective_distance AS "socialDistance" FROM discoverable_profiles
+    SELECT id, kind, name, category, avatar, members, effective_visibility AS visibility, effective_distance AS "socialDistance" FROM discoverable_profiles
     WHERE (${scope === "all"} OR kind = ${kind})
       AND (${normalized} = '' OR POSITION(LOWER(${normalized}) IN LOWER(name || ' ' || bio)) > 0)
     ORDER BY LOWER(name), id LIMIT 50`;
-  return (rows as Array<InviteSearchResult & { accountId: string; kind: string; members: string[]; visibility: string; socialDistance: number }>).filter(isAllowedForViewer).map(({ id, name, category, avatar }) => ({ id, name, category, avatar }));
+  return (rows as Array<InviteSearchResult & { kind: string; members: string[]; visibility: string; socialDistance: number }>).filter(isAllowedForViewer).map(({ id, name, category, avatar }) => ({ id, name, category, avatar }));
 }
 
 export async function createMetaProfileInvitation(metaProfileId: string, inviterProfileId: string, invitedProfileId?: string | null) {
