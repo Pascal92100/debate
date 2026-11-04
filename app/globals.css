@@ -167,6 +167,19 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .circle-card-footer a { color: var(--green); font-weight: 700; }
 .social-profile-directory { display: grid; gap: 8px; margin-top: 20px; }
 .social-profile-card { display: grid; grid-template-columns: 48px minmax(0, 1fr) 190px; align-items: center; gap: 13px; padding: 13px; border: 1px solid var(--line); background: var(--surface); }
+.meta-profile-account-heading { margin-bottom: 10px; padding-bottom: 9px; }
+.meta-profile-account-heading h1 { font-size: 30px; }
+.meta-profile-create-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 12px; color: var(--muted); font-size: 10px; }
+.meta-profile-create-link { display: inline-flex; flex: none; align-items: center; gap: 6px; min-height: 31px; padding: 5px 9px; border: 1px solid var(--green); color: var(--green); font-size: 10px; font-weight: 700; }
+.meta-profile-create-link > span { font-size: 15px; line-height: 1; }
+.meta-profile-directory { gap: 6px; margin-top: 0; }
+.meta-profile-account-card { display: grid; grid-template-columns: 40px minmax(0, 1fr) 18px; align-items: center; gap: 10px; min-width: 0; padding: 9px 11px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; }
+.meta-profile-account-card:hover { border-color: var(--green); background: #f7faf6; }
+.meta-profile-account-card .social-avatar-large { width: 38px; height: 38px; }
+.meta-profile-account-card-copy { display: grid; min-width: 0; gap: 2px; }
+.meta-profile-account-card-copy > strong { overflow: hidden; font-family: "Newsreader", Georgia, serif; font-size: 16px; font-weight: 500; text-overflow: ellipsis; }
+.meta-profile-account-card-copy > small { color: var(--muted); font-size: 9px; }
+.meta-profile-account-card-copy > span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .social-avatar-large { width: 46px; height: 46px; }
 .social-profile-card h2 { margin: 0 0 3px; font-family: "Newsreader", Georgia, serif; font-size: 18px; font-weight: 500; }
 .social-profile-card p { margin: 0 0 3px; color: var(--muted); font-size: 10px; }
@@ -757,6 +770,17 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
   .site-footer { margin-top: 45px; }
   .social-shell { width: calc(100% - 28px); margin-top: 25px; }
   .social-page-heading { display: block; }
+  .meta-profile-account-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; padding-bottom: 8px; }
+  .meta-profile-account-heading > div { min-width: 0; }
+  .meta-profile-account-heading h1 { font-size: 23px; white-space: nowrap; }
+  .meta-profile-account-heading .back-link { flex: none; margin: 0; font-size: 9px; }
+  .meta-profile-create-row { align-items: center; gap: 8px; margin-bottom: 9px; font-size: 9px; line-height: 1.35; }
+  .meta-profile-create-link { min-height: 29px; gap: 4px; padding: 4px 7px; font-size: 9px; }
+  .meta-profile-directory { gap: 5px; }
+  .meta-profile-account-card { grid-template-columns: 34px minmax(0, 1fr) 15px; gap: 8px; padding: 8px; }
+  .meta-profile-account-card .social-avatar-large { width: 34px; height: 34px; font-size: 12px; }
+  .meta-profile-account-card-copy > strong { font-size: 15px; }
+  .meta-profile-account-card-copy > small, .meta-profile-account-card-copy > span { font-size: 8px; }
   .social-nav { margin-top: 12px; }
   .social-layout { grid-template-columns: minmax(0, 1fr); gap: 13px; }
   .social-sidebar { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
