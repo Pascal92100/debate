@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { SignOutButton } from "@/components/sign-out-button";
+import { AccountSocialDistanceDebug } from "@/components/account-social-distance-debug";
+import { listAccountSocialDistances } from "@/lib/account-social-distance";
 import { isPersistentStore } from "@/lib/debates";
 import { getAccount, getSessionAccountId, getUnreadAlertCount } from "@/lib/social";
 
@@ -22,7 +24,11 @@ export default async function CircleAccountPage() {
   const persistent = await isPersistentStore();
   const accountId = persistent ? await getSessionAccountId() : undefined;
   if (persistent && !accountId) redirect("/login");
-  const [account, unreadAlerts] = await Promise.all([getAccount(accountId ?? undefined), getUnreadAlertCount(accountId ?? undefined)]);
+  const [account, unreadAlerts, accountDistances] = await Promise.all([
+    getAccount(accountId ?? undefined),
+    getUnreadAlertCount(accountId ?? undefined),
+    listAccountSocialDistances(accountId ?? undefined)
+  ]);
   if (!account) redirect("/setup");
 
   return <main className="circle-account-shell">
@@ -41,6 +47,7 @@ export default async function CircleAccountPage() {
       <div className="account-section-heading"><div><p className="eyebrow">Account</p><h2>Your choices</h2></div></div>
       <div className="account-choice-grid">{accountChoices.map((choice) => <Link className="account-choice" href={choice.href} key={choice.title}><span className="account-choice-icon">{choice.icon}{choice.title === "Alerts" && unreadAlerts > 0 && <span className="account-alert-badge" aria-label={`${unreadAlerts} alerts`}>{unreadAlerts}</span>}</span><span><strong>{choice.title}</strong><small>{choice.description}</small></span><span className="account-choice-arrow">→</span></Link>)}</div>
     </section>
+    <AccountSocialDistanceDebug rows={accountDistances} />
     {persistent && <DeleteEntityButton endpoint="/api/account" label="Delete my account" confirmation="Permanently delete your account and all of its profiles and content? This cannot be undone." redirectTo="/" />}
   </main>;
 }

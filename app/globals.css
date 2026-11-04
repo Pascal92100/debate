@@ -301,6 +301,13 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .account-profile-row { text-decoration: none; color: var(--ink); }
 .source-post-link { display: inline-block; margin-top: 10px; color: var(--green); font-size: 10px; font-weight: 700; }
 .circle-account-shell { width: min(1050px, calc(100% - 40px)); margin: 38px auto 60px; animation: arrive .45s both; }
+.account-distance-debug { margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.account-distance-debug > p { margin: 6px 0 12px; color: var(--muted); font-size: 10px; }
+.account-distance-table-wrap { max-width: 100%; overflow-x: auto; }
+.account-distance-table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 10px; text-align: left; }
+.account-distance-table th, .account-distance-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.account-distance-table th { color: var(--muted); font-weight: 700; }
+.account-distance-table code { color: var(--muted); font-size: 9px; }
 .circle-account-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
 .account-header-actions { display: flex; align-items: center; gap: 14px; }
 .private-name-note { margin: 0 0 14px; padding: 10px 12px; background: #f0f1f0; color: #777e79; font-size: 11px; line-height: 1.5; }
