@@ -106,6 +106,14 @@ export async function contactGraphFor(profileIds: string[]) {
       JOIN meta_profile_members contact_member ON contact_member.meta_profile_id = source_member.meta_profile_id
       WHERE source_member.member_profile_id = ANY(${profileIds})
         AND source_member.member_profile_id <> contact_member.member_profile_id
+      UNION
+      SELECT source_member.member_profile_id AS source_profile_id, contact_member.member_profile_id AS contact_profile_id
+      FROM profiles meta
+      CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(meta.payload->'members', '[]'::jsonb)) AS source_member(member_profile_id)
+      CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(meta.payload->'members', '[]'::jsonb)) AS contact_member(member_profile_id)
+      WHERE meta.kind = 'meta'
+        AND source_member.member_profile_id = ANY(${profileIds})
+        AND source_member.member_profile_id <> contact_member.member_profile_id
     ) connections`;
   for (const row of rows) {
     const sourceId = row.sourceId as string;
