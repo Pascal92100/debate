@@ -17,7 +17,8 @@ export default async function SavedSearchResultsPage({ params }: { params: Promi
   if (!profile || !search) notFound();
   const what = String(search.criteria.what ?? "Profiles");
   const scope = what === "Meta-profiles" ? "meta" : "individual";
-  const query = typeof search.criteria.keywords === "string" ? search.criteria.keywords : "";
+  const savedKeywords = typeof search.criteria.keywords === "string" ? search.criteria.keywords.trim() : "";
+  const query = savedKeywords || search.name;
   const theme = typeof search.criteria.theme === "string" && search.criteria.theme !== "Any theme" ? search.criteria.theme : "";
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const matches = (value: string) => !normalizedQuery || value.toLocaleLowerCase().includes(normalizedQuery);

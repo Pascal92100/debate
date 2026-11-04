@@ -67,7 +67,20 @@ export async function contactGraphFor(profileIds: string[]) {
   const graph = new Map<string, Set<string>>();
   if (!profileIds.length) return graph;
   const sql = await invitationDatabase();
-  if (!sql) return graph;
+  if (!sql) {
+    const globalSocial = globalThis as typeof globalThis & { __socialState?: { profiles: SocialProfile[] } };
+    const allProfiles = globalSocial.__socialState?.profiles ?? [];
+    const sourceSet = new Set(profileIds);
+    for (const metaProfile of allProfiles.filter((profile) => profile.kind === "meta")) {
+      const members = metaProfile.members ?? [];
+      for (const sourceId of members.filter((memberId) => sourceSet.has(memberId))) {
+        const contacts = graph.get(sourceId) ?? new Set<string>();
+        for (const contactId of members) if (contactId !== sourceId) contacts.add(contactId);
+        graph.set(sourceId, contacts);
+      }
+    }
+    return graph;
+  }
   const rows = await sql`SELECT source_profile_id AS "sourceId", contact_profile_id AS "contactId" FROM (
       SELECT follower_profile_id AS source_profile_id, followed_profile_id AS contact_profile_id
       FROM profile_follows WHERE status = 'active' AND follower_profile_id = ANY(${profileIds})
@@ -87,6 +100,12 @@ export async function contactGraphFor(profileIds: string[]) {
       SELECT members.profile_id AS source_profile_id, circles.owner_profile_id AS contact_profile_id
       FROM circles JOIN circle_members members ON members.circle_id = circles.id
       WHERE members.profile_id = ANY(${profileIds}) AND members.profile_id <> circles.owner_profile_id AND members.status = 'active'
+      UNION
+      SELECT source_member.member_profile_id AS source_profile_id, contact_member.member_profile_id AS contact_profile_id
+      FROM meta_profile_members source_member
+      JOIN meta_profile_members contact_member ON contact_member.meta_profile_id = source_member.meta_profile_id
+      WHERE source_member.member_profile_id = ANY(${profileIds})
+        AND source_member.member_profile_id <> contact_member.member_profile_id
     ) connections`;
   for (const row of rows) {
     const sourceId = row.sourceId as string;
