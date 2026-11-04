@@ -24,13 +24,17 @@ export default async function CircleProfilePage({ params, searchParams }: { para
   const isOwner = Boolean(profile && accountId && profile.accountId === accountId);
   const publicPreview = isOwner && query.view === "public";
   if (!isOwner || publicPreview) {
-    const sourceProfile = profiles.find((item) => item.id === query.from && item.kind === "individual");
+    const explicitSourceProfile = profiles.find((item) => item.id === query.from && item.kind === "individual");
+    const joinedRepresentative = profile?.kind === "meta"
+      ? profile.members?.map((memberId) => profiles.find((item) => item.id === memberId && item.kind === "individual" && item.accountId === accountId)).find(Boolean)
+      : undefined;
+    const sourceProfile = explicitSourceProfile ?? joinedRepresentative;
     const sourceMetaProfiles = sourceProfile ? await listMetaProfilesForMember(sourceProfile.id) : [];
     const joinedMetaProfile = Boolean(profile?.kind === "meta" && sourceMetaProfiles.some((meta) => meta.id === profile.id));
     const viewerProfileId = sourceProfile?.id ?? (publicPreview && profile?.kind === "individual" ? profile.id : undefined);
     const publicView = await getPublicProfileView(id, joinedMetaProfile, publicPreview, viewerProfileId, query.view === "public");
     if (!publicView) notFound();
-    const returnTo = safeReturnTo(query.returnTo) ?? (sourceProfile ? `/circle/profiles/${encodeURIComponent(sourceProfile.id)}` : "/social");
+    const returnTo = safeReturnTo(query.returnTo) ?? (joinedMetaProfile ? "/circle/meta-profiles" : sourceProfile ? `/circle/profiles/${encodeURIComponent(sourceProfile.id)}` : "/social");
     const currentQuery = new URLSearchParams({ view: "public" });
     if (viewerProfileId) currentQuery.set("from", viewerProfileId);
     currentQuery.set("returnTo", returnTo);

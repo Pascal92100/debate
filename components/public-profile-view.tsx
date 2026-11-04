@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MediaGallery } from "@/components/media-gallery";
+import { LeaveMetaProfileButton } from "@/components/leave-meta-profile-button";
 import type { PublicProfileView as PublicProfileData, VisibleDescription } from "@/lib/public-profile";
 
 function DescriptionView({ description }: { description: VisibleDescription | null }) {
@@ -25,6 +26,7 @@ export function PublicProfileView({ view, returnTo = "/social", currentUrl, view
     <DescriptionView description={view.description} />
 
     {profile.kind === "meta" && view.members.length > 0 && <section className="public-profile-section"><div className="account-section-heading"><div><p className="eyebrow">Shared identity</p><h2>{isMemberOfMetaProfile ? "Your membership" : "Public members"}</h2></div>{!isMemberOfMetaProfile && <span>{view.members.length}</span>}</div><div className="public-member-list">{view.members.map(({ profile: member, description }) => <article className={`public-member-item${member.id === viewerProfileId ? " is-viewer-member" : ""}`} key={member.id}><header><Link href={memberHref(member.id)}><span className="social-avatar">{member.avatar}</span><span><strong>{member.name}</strong><small>{member.id === viewerProfileId ? "Your profile here" : member.category}</small></span></Link>{member.bio && <p>{member.bio}</p>}</header><DescriptionView description={description} /></article>)}</div></section>}
+    {isMemberOfMetaProfile && profile.kind === "meta" && viewerProfileId && <LeaveMetaProfileButton metaProfileId={profile.id} memberProfileId={viewerProfileId} metaProfileName={profile.name} returnTo={returnTo} />}
 
     {profile.kind === "individual" && view.relatedMetaProfiles.length > 0 && <section className="public-profile-section"><div className="account-section-heading"><div><p className="eyebrow">Shared identities</p><h2>Public meta-profiles</h2></div><span>{view.relatedMetaProfiles.length}</span></div><div className="account-profile-list">{view.relatedMetaProfiles.map((meta) => <Link className="account-profile-row" href={memberHref(meta.id)} key={meta.id}><span className="social-avatar">{meta.avatar}</span><span><strong>{meta.name}</strong><small>{meta.category} · Meta-profile</small></span><span className="account-profile-row-arrow">→</span></Link>)}</div></section>}
 
