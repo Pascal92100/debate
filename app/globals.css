@@ -179,7 +179,9 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .meta-profile-account-card-copy { display: grid; min-width: 0; gap: 2px; }
 .meta-profile-account-card-copy > strong { overflow: hidden; font-family: "Newsreader", Georgia, serif; font-size: 16px; font-weight: 500; text-overflow: ellipsis; }
 .meta-profile-account-card-copy > small { color: var(--muted); font-size: 9px; }
-.meta-profile-account-card-copy > span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.meta-profile-account-card-copy > span { color: var(--green); font-size: 10px; font-weight: 700; overflow-wrap: anywhere; }
+.profile-context-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; padding: 6px 10px; border: 1px solid var(--line); background: var(--surface); font-size: 10px; color: var(--muted); }
+.profile-context-bar strong { color: var(--ink); }
 .social-avatar-large { width: 46px; height: 46px; }
 .social-profile-card h2 { margin: 0 0 3px; font-family: "Newsreader", Georgia, serif; font-size: 18px; font-weight: 500; }
 .social-profile-card p { margin: 0 0 3px; color: var(--muted); font-size: 10px; }

@@ -95,13 +95,20 @@ export async function getAccountSocialDistanceMap(viewerAccountId: string): Prom
   return new Map(distances.flatMap(({ accountId, distance }) => distance === null ? [] : [[accountId, distance] as const]));
 }
 
+// Displayed distance = number of intermediaries: self 0, direct contact 0, contact of a contact 1.
+function displayDistance(accountId: string, viewerAccountId: string, distances: Map<string, number>) {
+  const hops = distances.get(accountId);
+  if (hops === undefined) return null;
+  return accountId === viewerAccountId ? 0 : Math.max(0, hops - 1);
+}
+
 export async function listAccountSocialDistances(viewerAccountId?: string): Promise<AccountSocialDistance[]> {
   if (!await isPersistentStore()) {
     const profiles = await listProfiles();
     const accountIds = [...new Set(profiles.map((profile) => profile.accountId))];
     const viewer = viewerAccountId ?? "account-demo";
     const distances = await getAccountSocialDistanceMap(viewer);
-    return accountIds.map((accountId) => ({ accountId, displayName: accountId === "account-demo" ? "Demo account" : accountId, distance: distances.get(accountId) ?? null }));
+    return accountIds.map((accountId) => ({ accountId, displayName: accountId === "account-demo" ? "Demo account" : accountId, distance: displayDistance(accountId, viewer, distances) }));
   }
   const accountId = viewerAccountId ?? await getSessionAccountId();
   if (!accountId) return [];
@@ -111,7 +118,7 @@ export async function listAccountSocialDistances(viewerAccountId?: string): Prom
     sql`SELECT id, display_name AS "displayName" FROM accounts ORDER BY display_name, id`,
     getAccountSocialDistanceMap(accountId)
   ]);
-  return accounts.map((account) => ({ accountId: account.id as string, displayName: account.displayName as string, distance: distances.get(account.id as string) ?? null }));
+  return accounts.map((account) => ({ accountId: account.id as string, displayName: account.displayName as string, distance: displayDistance(account.id as string, accountId, distances) }));
 }
 
 export async function isAccountWithinProfileDistance(profile: SocialProfile, viewerAccountId?: string) {

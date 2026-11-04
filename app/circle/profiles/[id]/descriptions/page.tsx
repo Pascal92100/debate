@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ProfileContextBar } from "@/components/profile-context-bar";
 import { ProfileDescriptionsEditor } from "@/components/profile-descriptions-editor";
 import { isPersistentStore } from "@/lib/debates";
 import { getAccountDescription, getProfileDescription, listCircles, listProfiles } from "@/lib/social";
@@ -13,6 +14,7 @@ export default async function ProfileDescriptionsPage({ params }: { params: Prom
   if (!profile) notFound();
   return <main className="social-shell social-directory-shell">
     <div className="social-page-heading"><div><p className="eyebrow">Circles · profile</p><h1>{profile.name}</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← Profile</Link></div>
+    <ProfileContextBar profile={profile} profiles={profiles} />
     <ProfileDescriptionsEditor profile={profile} initialDescription={description} accountDescription={accountDescription} circles={circles} persistent={persistent} />
   </main>;
 }

@@ -14,7 +14,7 @@ export function SocialProfiles({ initialProfiles, persistent, kind, currentAccou
     {visibleProfiles.length === 0 ? <div className="empty-state">{isMeta ? "No meta-profiles yet." : "No individual profiles yet."} <Link href={createHref}>Create one →</Link></div> : <section className={`social-profile-directory${isMeta ? " meta-profile-directory" : ""}`}>
       {visibleProfiles.map((profile) => {
         if (isMeta) {
-          const representedMembers = (profile.members ?? []).map((memberId) => initialProfiles.find((member) => member.id === memberId)).filter((member): member is SocialProfile => Boolean(member));
+          const representedMembers = (profile.ownMembers ?? profile.members ?? []).map((memberId) => initialProfiles.find((member) => member.id === memberId)).filter((member): member is SocialProfile => Boolean(member));
           const isOwned = Boolean(currentAccountId && profile.accountId === currentAccountId);
           const representative = representedMembers[0];
           const href = isOwned
@@ -23,10 +23,10 @@ export function SocialProfiles({ initialProfiles, persistent, kind, currentAccou
               ? `/circle/profiles/${encodeURIComponent(profile.id)}?view=public&from=${encodeURIComponent(representative.id)}&returnTo=%2Fcircle%2Fmeta-profiles`
               : `/circle/profiles/${encodeURIComponent(profile.id)}?view=public&returnTo=%2Fcircle%2Fmeta-profiles`;
           const memberNames = representedMembers.map((member) => member.name);
-          const description = profile.relationship || (memberNames.length ? `Represented by ${memberNames.join(", ")}` : profile.bio || "No profile represents this identity yet.");
+          const description = memberNames.length ? `Your profile${memberNames.length > 1 ? "s" : ""}: ${memberNames.join(", ")}` : profile.relationship || profile.bio || "No profile of yours is a member.";
           return <Link className="meta-profile-account-card" href={href} key={profile.id}>
             <span className="social-avatar social-avatar-large">{profile.avatar}</span>
-            <span className="meta-profile-account-card-copy"><strong>{profile.name}</strong><small>{profile.category} · Meta-profile</small><span>{description}</span></span>
+            <span className="meta-profile-account-card-copy"><strong>{profile.name}</strong><small>{profile.category} · Meta-profile</small><span className="meta-profile-members-line">{description}</span></span>
             <span className="account-profile-row-arrow" aria-hidden="true">→</span>
           </Link>;
         }

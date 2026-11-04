@@ -25,6 +25,7 @@ export type SocialProfile = {
   members?: string[];
   includesLabel?: string;
   memberRoles?: Record<string, string>;
+  ownMembers?: string[];
   relationship?: string;
   firstName?: string;
   lastName?: string;
@@ -279,7 +280,7 @@ export async function listProfiles() {
       const members = profiles.filter((candidate) => profile.members?.includes(candidate.id));
       const accessRank = (visibility: string) => visibility === "ghost" ? 0 : visibility === "relatives" ? 1 : 2;
       const strictest = [profile, ...members].reduce((current, candidate) => accessRank(candidate.visibility) < accessRank(current.visibility) ? candidate : current, profile);
-      return { ...profile, visibility: strictest.visibility, socialDistance: Math.max(profile.socialDistance, ...members.map((member) => member.socialDistance)) };
+      return { ...profile, ownMembers: members.map((member) => member.id), visibility: strictest.visibility, socialDistance: Math.max(profile.socialDistance, ...members.map((member) => member.socialDistance)) };
     });
   }
   const accountId = await getSessionAccountId();
@@ -298,6 +299,7 @@ export async function listProfiles() {
     ...(row.payload as SocialProfile),
     visibility: row.effectiveVisibility as string,
     socialDistance: Number(row.effectiveSocialDistance),
+    ownMembers: (row.ownMembers as string[]) ?? [],
     ...(!(row.isOwner as boolean) ? { members: (row.ownMembers as string[]) ?? [], memberRoles: {} } : {}),
     contentFilters: (row.content_filters as string[] | null) ?? [],
     locationLabel: row.location_label as string | null ?? undefined,
