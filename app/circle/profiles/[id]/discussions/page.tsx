@@ -21,7 +21,7 @@ export default async function ProfileDiscussionsPage({ params }: { params: Promi
   if (!profile) notFound();
   const profileDebates = debates.filter((debate) => debate.authorProfileId === id);
   return <main className="social-shell social-directory-shell">
-    <div className="social-page-heading"><div><p className="eyebrow">{profile.name} · Profile space</p><h1>Debates and discussions</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← {profile.name}</Link></div>
+    <div className="social-page-heading"><div><p className="eyebrow">Profile space</p><h1>Debates and discussions</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← {profile.name}</Link></div>
     <ProfileContextBar profile={profile} profiles={profiles} />
     <ProfileDiscussions profile={profile} initialDiscussions={discussions} debates={profileDebates} circles={circles} persistent={persistent} />
   </main>;

@@ -186,7 +186,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
     <section className="description-editor">
       {!persistent && <p className="notice social-notice">Demo data: changes remain in memory until the server restarts.</p>}
       <header className="description-editor-heading">
-        <div><p className="eyebrow">Profile · {profile.name}</p><h2>Descriptions</h2><p>Every item is optional. Account details are available here but only used when enabled.</p></div>
+        <div><p>Every item is optional. Account details are available here but only used when enabled.</p></div>
         <div className="description-heading-actions"><button className="button-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
       </header>
 

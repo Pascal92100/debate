@@ -21,7 +21,7 @@ export function PublicProfileView({ view, returnTo = "/social", currentUrl, view
     return `/circle/profiles/${encodeURIComponent(profileId)}?${params.toString()}`;
   };
   return <main className="social-shell social-directory-shell public-profile-page">
-    <div className="social-page-heading"><div><p className="eyebrow">{isMemberOfMetaProfile ? "Circles · member view" : "Circles · visitor view"}</p><h1>{profile.name}</h1></div><Link className="back-link" href={returnTo}>← Back</Link></div>
+    <div className="social-page-heading"><div><p className="eyebrow">{isMemberOfMetaProfile ? "Circles · member view" : "Circles · visitor view"}</p><h1>{profile.kind === "individual" ? "Profile" : "Meta-profile"}</h1></div><Link className="back-link" href={returnTo}>← Back</Link></div>
     <section className="profile-detail-header"><span className="social-avatar social-avatar-large">{profile.avatar}</span><div><h2>{profile.name}</h2><p>{profile.kind === "individual" ? `${profile.category} · Individual profile` : `${profile.category} · Meta-profile`}</p>{profile.bio && <p>{profile.bio}</p>}{profile.relationship && <p>{profile.relationship}</p>}</div></section>
     <DescriptionView description={view.description} />
 

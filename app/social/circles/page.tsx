@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 export default async function CirclesPage() {
   const [circles, profiles, persistent] = await Promise.all([listCircles(), listProfiles(), isPersistentStore()]);
   const ownedCircleIds = profiles.map((profile) => profile.id);
-  return <main className="social-shell social-directory-shell"><div className="social-page-heading"><div><p className="eyebrow">Social network</p><h1>Circles</h1></div><SocialNav active="circles" /></div><SocialCircles initialCircles={circles} ownedCircleIds={ownedCircleIds} persistent={persistent} /></main>;
+  return <main className="social-shell social-directory-shell"><div className="social-page-heading"><div><p className="eyebrow">Social network</p><h1>Circles</h1></div><SocialNav active="circles" /></div><SocialCircles initialCircles={circles} ownedCircleIds={ownedCircleIds} persistent={persistent} hideSectionTitle /></main>;
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { MetaProfileMembers } from "@/components/meta-profile-members";
-import { ProfileContextBar } from "@/components/profile-context-bar";
 import { PublicProfileView } from "@/components/public-profile-view";
 import { isPersistentStore } from "@/lib/debates";
 import { getSessionAccountId } from "@/lib/auth";
@@ -66,8 +65,7 @@ export default async function CircleProfilePage({ params, searchParams }: { para
   ];
 
   return <main className="social-shell social-directory-shell">
-    <div className="social-page-heading"><div><p className="eyebrow">Circles · profile</p><h1>{profile.name}</h1></div><div className="description-heading-actions">{((profile.visibility === "all" && profile.socialDistance === 0) || (profile.kind === "meta" && previewIdentityProfileId)) && <Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(profile.id)}?view=public${previewIdentityProfileId ? `&from=${encodeURIComponent(previewIdentityProfileId)}` : ""}&returnTo=${encodeURIComponent(`/circle/profiles/${profile.id}`)}`}>Preview public view</Link>}<Link className="back-link" href="/circle">← Account</Link></div></div>
-    <ProfileContextBar profile={profile} profiles={profiles} />
+    <div className="social-page-heading"><div><p className="eyebrow">Circles</p><h1>{profile.kind === "individual" ? "Profile" : "Meta-profile"}</h1></div><div className="description-heading-actions">{((profile.visibility === "all" && profile.socialDistance === 0) || (profile.kind === "meta" && previewIdentityProfileId)) && <Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(profile.id)}?view=public${previewIdentityProfileId ? `&from=${encodeURIComponent(previewIdentityProfileId)}` : ""}&returnTo=${encodeURIComponent(`/circle/profiles/${profile.id}`)}`}>Preview public view</Link>}<Link className="back-link" href="/circle">← Account</Link></div></div>
     {!persistent && <p className="notice social-notice">This profile's contributions are temporary without DATABASE_URL.</p>}
     <section className="profile-detail-header"><span className="social-avatar social-avatar-large">{profile.avatar}</span><div><h2>{profile.name}</h2><p>{profile.kind === "individual" ? "Individual profile" : `${profile.category} (Meta-profile)`}</p><p>{profile.bio}</p></div></section>
     {profile.kind !== "individual" && <MetaProfileMembers metaProfileId={profile.id} members={metaMembers} canInvite={canInvite} viewerProfileId={metaMembers.find((member) => member.isOwn)?.id} returnTo={`/circle/profiles/${encodeURIComponent(profile.id)}`} />}

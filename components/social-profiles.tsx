@@ -5,12 +5,10 @@ export function SocialProfiles({ initialProfiles, persistent, kind, currentAccou
   const visibleProfiles = kind ? initialProfiles.filter((profile) => kind === "individual" ? profile.kind === "individual" : profile.kind !== "individual") : initialProfiles;
   const isMeta = kind === "meta";
   const createHref = isMeta ? "/circle/meta-profiles/new" : "/circle/profiles/new";
-  const title = kind === "individual" ? "Individual Profiles" : "Profiles";
 
   return <>
     {!persistent && <p className="notice social-notice">New profiles are temporary without DATABASE_URL.</p>}
-    {!isMeta && <div className="social-section-heading"><div><p className="eyebrow">Identities and contexts</p><h1>Your {title}</h1><p>An account can have separate individual and meta-profiles.</p></div><Link className="button-primary" href={createHref}>+ Create a profile</Link></div>}
-    {isMeta && <div className="meta-profile-create-row"><span>Shared identities represented by your profiles</span><Link className="meta-profile-create-link" href={createHref}><span aria-hidden="true">+</span>Create meta-profile</Link></div>}
+    <div className="meta-profile-create-row"><span>{isMeta ? "Shared identities represented by your profiles" : "Separate identities and contexts for your account"}</span><Link className="meta-profile-create-link" href={createHref}><span aria-hidden="true">+</span>{isMeta ? "Create meta-profile" : "Create profile"}</Link></div>
     {visibleProfiles.length === 0 ? <div className="empty-state">{isMeta ? "No meta-profiles yet." : "No individual profiles yet."} <Link href={createHref}>Create one →</Link></div> : <section className={`social-profile-directory${isMeta ? " meta-profile-directory" : ""}`}>
       {visibleProfiles.map((profile) => {
         if (isMeta) {

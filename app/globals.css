@@ -79,8 +79,13 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #8b9d70; }
 .site-footer { width: min(1050px, calc(100% - 40px)); margin: 65px auto 0; padding: 19px 0 25px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .social-shell { width: min(1260px, calc(100% - 40px)); margin: 35px auto 0; }
-.social-page-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 20px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
-.social-page-heading h1, .social-section-heading h1 { margin: 0; font-family: "Newsreader", Georgia, serif; font-size: 38px; font-weight: 500; }
+.social-page-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.social-page-heading > div:first-child { min-width: 0; }
+.social-page-heading .eyebrow { margin-bottom: 2px; }
+.social-page-heading .back-link { margin: 0; font-size: 11px; white-space: nowrap; }
+.social-page-heading .button-primary, .social-page-heading .button-secondary { min-height: 30px; padding: 0 10px; font-size: 10px; white-space: nowrap; }
+.social-page-heading .description-heading-actions { flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 12px; }
+.social-page-heading h1, .social-section-heading h1 { margin: 0; font-family: "Newsreader", Georgia, serif; font-size: 30px; font-weight: 500; line-height: 1.1; }
 .social-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .social-nav a { padding: 8px 11px; color: var(--muted); font-size: 11px; font-weight: 600; }
 .social-nav a.active { color: var(--green); background: var(--pale-green); }
@@ -149,7 +154,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .prototype-note { margin-top: 13px; color: var(--muted); font-size: 9px; line-height: 1.5; }
 .social-notice { margin-top: 10px; }
 .social-directory-shell { max-width: 1050px; }
-.social-section-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin: 28px 0 20px; }
+.social-section-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin: 0 0 14px; }
 .social-section-heading.circle-create-only { justify-content: flex-end; }
 .social-section-heading p:not(.eyebrow) { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
 .circle-create-form { max-width: 720px; margin-bottom: 18px; padding: 15px; border: 1px solid var(--line); background: var(--surface); }
@@ -771,7 +776,9 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
   .report-palette { right: -2px; width: min(245px, calc(100vw - 90px)); }
   .site-footer { margin-top: 45px; }
   .social-shell { width: calc(100% - 28px); margin-top: 25px; }
-  .social-page-heading { display: block; }
+  .social-page-heading { gap: 8px; }
+  .social-page-heading h1 { font-size: 24px; }
+  .social-page-heading .description-heading-actions { justify-content: flex-end; gap: 8px; }
   .meta-profile-account-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; padding-bottom: 8px; }
   .meta-profile-account-heading > div { min-width: 0; }
   .meta-profile-account-heading h1 { font-size: 23px; white-space: nowrap; }
