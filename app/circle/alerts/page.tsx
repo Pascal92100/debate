@@ -5,12 +5,12 @@ import { getSessionAccountId } from "@/lib/auth";
 import { isPersistentStore } from "@/lib/debates";
 import { listIncomingMetaProfileInvitations } from "@/lib/meta-profile-invitations";
 import { listProfileAlerts } from "@/lib/profile-modules";
-import { listProfiles } from "@/lib/social";
+import { listProfilesCached } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountAlertsPage() {
-  const [profiles, persistent] = await Promise.all([listProfiles(), isPersistentStore()]);
+  const [profiles, persistent] = await Promise.all([listProfilesCached(), isPersistentStore()]);
   if (persistent && !await getSessionAccountId()) redirect("/login");
   const [alertsByProfile, invitationsByProfile] = await Promise.all([
     Promise.all(profiles.map((profile) => listProfileAlerts(profile.id))),

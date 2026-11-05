@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { getSessionAccountId } from "@/lib/auth";
 import { database, isPersistentStore } from "@/lib/debates";
-import { listProfiles, type SocialProfile } from "@/lib/social";
+import { ensureSocialSchema, listProfiles, listProfilesCached, type SocialProfile } from "@/lib/social";
 import { createProfileAlert, markMetaProfileInvitationAlertRead } from "@/lib/profile-modules";
 import { getAccountSocialDistanceMap } from "@/lib/account-social-distance";
 
@@ -28,7 +28,7 @@ const globalSocial = globalThis as typeof globalThis & { __socialState?: { profi
 async function invitationDatabase() {
   const sql = database();
   if (!sql || !await isPersistentStore()) return null;
-  await listProfiles();
+  await ensureSocialSchema();
   globalInvitations.__metaProfileInvitationSchema ??= (async () => {
     await sql`CREATE TABLE IF NOT EXISTS meta_profile_invitations (
       id TEXT PRIMARY KEY,
@@ -128,7 +128,7 @@ export async function contactGraphFor(profileIds: string[]) {
 
 export async function contactDistances(viewerProfileId?: string) {
   if (!viewerProfileId) return { direct: new Set<string>(), secondDegree: new Set<string>() };
-  const profiles = await listProfiles();
+  const profiles = await listProfilesCached();
   const viewer = profiles.find((profile) => profile.id === viewerProfileId);
   if (!viewer) return { direct: new Set<string>(), secondDegree: new Set<string>() };
   const viewerIdentities = [viewerProfileId, ...(viewer.kind === "meta" ? viewer.members ?? [] : [])];
@@ -144,7 +144,7 @@ export async function contactDistances(viewerProfileId?: string) {
 export async function searchDiscoverableProfiles(query: string, scope: "individual" | "meta" | "all" = "individual", viewerProfileId?: string): Promise<InviteSearchResult[]> {
   const normalized = query.trim();
   if (normalized.length > 120) return [];
-  const profiles = await listProfiles();
+  const profiles = await listProfilesCached();
   const searcher = viewerProfileId ? profiles.find((profile) => profile.id === viewerProfileId) : undefined;
   const accountDistances = searcher ? await getAccountSocialDistanceMap(searcher.accountId) : new Map<string, number>();
   const normalizedPseudo = normalized.toLocaleLowerCase();
@@ -159,7 +159,7 @@ export async function searchDiscoverableProfiles(query: string, scope: "individu
     return profile.visibility === "all";
   };
   const sql = await invitationDatabase();
-  if (!sql) return (await listProfiles()).filter((profile) => {
+  if (!sql) return (await listProfilesCached()).filter((profile) => {
     const correctKind = scope === "all" || (scope === "meta" ? profile.kind === "meta" : profile.kind === "individual");
     const matchesText = !normalized || `${profile.name} ${profile.bio}`.toLocaleLowerCase().includes(normalized.toLocaleLowerCase());
     const globalSocial = globalThis as typeof globalThis & { __socialState?: { profiles: SocialProfile[] } };
@@ -188,7 +188,7 @@ export async function searchDiscoverableProfiles(query: string, scope: "individu
 }
 
 export async function createMetaProfileInvitation(metaProfileId: string, inviterProfileId: string, invitedProfileId?: string | null) {
-  const profiles = await listProfiles();
+  const profiles = await listProfilesCached();
   const metaProfile = profiles.find((profile) => profile.id === metaProfileId && profile.kind !== "individual");
   const inviter = profiles.find((profile) => profile.id === inviterProfileId);
   if (!metaProfile || !inviter || inviter.id !== metaProfile.id) return null;
@@ -336,7 +336,7 @@ export async function leaveMetaProfile(metaProfileId: string, memberProfileId: s
 export async function listMetaProfileMembers(metaProfileId: string) {
   const sql = await invitationDatabase();
   if (!sql) {
-    const profiles = await listProfiles();
+    const profiles = await listProfilesCached();
     const metaProfile = profiles.find((profile) => profile.id === metaProfileId && profile.kind !== "individual");
     if (!metaProfile) return [];
     return (metaProfile.members ?? []).map((id) => profiles.find((profile) => profile.id === id)).filter((profile): profile is SocialProfile => Boolean(profile)).map(({ id, name, category, avatar }) => ({ id, name, category, avatar, isOwn: true }));
@@ -353,7 +353,7 @@ export async function listMetaProfileMembers(metaProfileId: string) {
 export async function listMetaProfilesForMember(memberProfileId: string): Promise<InviteSearchResult[]> {
   const sql = await invitationDatabase();
   if (!sql) {
-    const profiles = await listProfiles();
+    const profiles = await listProfilesCached();
     const member = profiles.find((profile) => profile.id === memberProfileId && profile.kind === "individual");
     if (!member) return [];
     const socialState = globalThis as typeof globalThis & { __socialState?: { profiles: SocialProfile[] } };

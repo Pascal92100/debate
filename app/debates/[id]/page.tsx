@@ -4,13 +4,13 @@ import { getDebate, isPersistentStore } from "@/lib/debates";
 import { ThreadView } from "@/components/thread-view";
 import { DebateControls } from "@/components/debate-controls";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
-import { listProfiles } from "@/lib/social";
+import { listProfilesCached } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
 export default async function DebatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [debate, persistent, profiles] = await Promise.all([getDebate(id), isPersistentStore(), listProfiles()]);
+  const [debate, persistent, profiles] = await Promise.all([getDebate(id), isPersistentStore(), listProfilesCached()]);
   if (!debate) notFound();
 
   const comments = debate.children ?? [];

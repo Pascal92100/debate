@@ -4,14 +4,14 @@ import { ProfileContextBar } from "@/components/profile-context-bar";
 import { ProfileDiscussions } from "@/components/profile-discussions";
 import { isPersistentStore, listDebates } from "@/lib/debates";
 import { listDiscussions } from "@/lib/discussions";
-import { listCircles, listProfiles } from "@/lib/social";
+import { listCircles, listProfilesCached } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfileDiscussionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [profiles, debates, discussions, circles, persistent] = await Promise.all([
-    listProfiles(),
+    listProfilesCached(),
     listDebates(),
     listDiscussions(id),
     listCircles(),

@@ -4,7 +4,7 @@ import { database, isPersistentStore, type Debate } from "@/lib/debates";
 import { listDiscussions, type SimpleDiscussion } from "@/lib/discussions";
 import { listProfileSpaces, type ProfileSpace } from "@/lib/profile-spaces";
 import { listProfileEvents, type ProfileEvent } from "@/lib/profile-modules";
-import { listProfiles, type ProfileDescription, type SocialCircle, type SocialPost, type SocialProfile } from "@/lib/social";
+import { listProfilesCached, type ProfileDescription, type SocialCircle, type SocialPost, type SocialProfile } from "@/lib/social";
 import type { MediaAttachment } from "@/lib/media";
 import { contactDistances } from "@/lib/meta-profile-invitations";
 
@@ -98,7 +98,7 @@ async function loadStoredDescription(profileId: string): Promise<ProfileDescript
 export async function getPublicProfileView(profileId: string, allowJoinedMetaProfile = false, forcePublicPreview = false, viewerProfileId?: string, allowExactRelativesLink = false): Promise<PublicProfileView | null> {
   const persistent = await isPersistentStore();
   const accountId = persistent ? await getSessionAccountId() : "account-demo";
-  const profiles = await listProfiles();
+  const profiles = await listProfilesCached();
   const locallyAvailable = profiles.find((profile) => profile.id === profileId);
   const isOwner = Boolean(locallyAvailable && accountId && locallyAvailable.accountId === accountId);
   if (isOwner && !forcePublicPreview) return null;

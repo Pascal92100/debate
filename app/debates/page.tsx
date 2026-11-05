@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { isPersistentStore, listDebates } from "@/lib/debates";
-import { listProfiles } from "@/lib/social";
+import { listProfilesCached } from "@/lib/social";
 
 const themes: Record<string, string> = {
   "politics-society": "Society",
@@ -16,7 +16,7 @@ const themes: Record<string, string> = {
 export const dynamic = "force-dynamic";
 
 export default async function DebatesPage({ searchParams }: { searchParams: Promise<{ profileId?: string }> }) {
-  const [{ profileId }, allDebates, persistent, profiles] = await Promise.all([searchParams, listDebates(), isPersistentStore(), listProfiles()]);
+  const [{ profileId }, allDebates, persistent, profiles] = await Promise.all([searchParams, listDebates(), isPersistentStore(), listProfilesCached()]);
   const profile = profiles.find((item) => item.id === profileId);
   const debates = profile ? allDebates.filter((debate) => debate.authorProfileId === profile.id) : allDebates;
 

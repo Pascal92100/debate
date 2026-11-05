@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { DiscussionThread } from "@/components/discussion-thread";
 import { getDiscussion } from "@/lib/discussions";
-import { listCircles, listProfiles } from "@/lib/social";
+import { listCircles, listProfilesCached } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
 export default async function SimpleDiscussionPage({ params }: { params: Promise<{ id: string; discussionId: string }> }) {
   const { id, discussionId } = await params;
-  const [profiles, circles, discussion] = await Promise.all([listProfiles(), listCircles(), getDiscussion(discussionId)]);
+  const [profiles, circles, discussion] = await Promise.all([listProfilesCached(), listCircles(), getDiscussion(discussionId)]);
   const profile = profiles.find((item) => item.id === id);
   const canAccess = discussion?.profileId === profile?.id || Boolean(discussion?.circleId && circles.some((circle) => circle.id === discussion.circleId));
   if (!profile || !discussion || !canAccess) notFound();

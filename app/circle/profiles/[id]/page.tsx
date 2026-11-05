@@ -8,7 +8,7 @@ import { getSessionAccountId } from "@/lib/auth";
 import { listMetaProfileMembers, listMetaProfilesForMember } from "@/lib/meta-profile-invitations";
 import { getUnreadProfileAlertCount } from "@/lib/profile-modules";
 import { getPublicProfileView } from "@/lib/public-profile";
-import { listProfiles } from "@/lib/social";
+import { listProfilesCached } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ function safeReturnTo(value?: string) {
 
 export default async function CircleProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ view?: string; from?: string; returnTo?: string }> }) {
   const [{ id }, query] = await Promise.all([params, searchParams ?? Promise.resolve<{ view?: string; from?: string; returnTo?: string }>({})]);
-  const [profiles, persistent] = await Promise.all([listProfiles(), isPersistentStore()]);
+  const [profiles, persistent] = await Promise.all([listProfilesCached(), isPersistentStore()]);
   const profile = profiles.find((item) => item.id === id);
   const accountId = persistent ? await getSessionAccountId() : "account-demo";
   const isOwner = Boolean(profile && accountId && profile.accountId === accountId);

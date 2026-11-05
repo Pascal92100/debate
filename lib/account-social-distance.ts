@@ -1,7 +1,8 @@
 import "server-only";
+import { cache } from "react";
 import { getSessionAccountId } from "@/lib/auth";
 import { database, isPersistentStore } from "@/lib/debates";
-import { listProfiles, type SocialProfile } from "@/lib/social";
+import { listProfilesCached, type SocialProfile } from "@/lib/social";
 
 export type AccountSocialDistance = {
   accountId: string;
@@ -33,11 +34,13 @@ function graphDistances(viewerAccountId: string, accountIds: string[], edges: Ar
   return accountIds.map((accountId) => ({ accountId, distance: distances.get(accountId) ?? null }));
 }
 
-export async function getAccountSocialDistanceMap(viewerAccountId: string): Promise<Map<string, number>> {
+export const getAccountSocialDistanceMap = cache(computeAccountSocialDistanceMap);
+
+async function computeAccountSocialDistanceMap(viewerAccountId: string): Promise<Map<string, number>> {
   const sql = database();
   if (!sql || !await isPersistentStore()) {
     const globalSocial = globalThis as typeof globalThis & { __socialState?: { profiles: SocialProfile[] } };
-    const profiles = globalSocial.__socialState?.profiles ?? await listProfiles();
+    const profiles = globalSocial.__socialState?.profiles ?? await listProfilesCached();
     const accountIds = [...new Set(profiles.map((profile) => profile.accountId))];
     const edges: Array<{ sourceId: string; targetId: string }> = [];
     const addProfileEdge = (firstProfileId: string, secondProfileId: string) => {
@@ -104,7 +107,7 @@ function displayDistance(accountId: string, viewerAccountId: string, distances: 
 
 export async function listAccountSocialDistances(viewerAccountId?: string): Promise<AccountSocialDistance[]> {
   if (!await isPersistentStore()) {
-    const profiles = await listProfiles();
+    const profiles = await listProfilesCached();
     const accountIds = [...new Set(profiles.map((profile) => profile.accountId))];
     const viewer = viewerAccountId ?? "account-demo";
     const distances = await getAccountSocialDistanceMap(viewer);
@@ -126,7 +129,7 @@ export async function isAccountWithinProfileDistance(profile: SocialProfile, vie
   const distances = await getAccountSocialDistanceMap(viewerAccountId);
   const targetAccounts = new Set([profile.accountId]);
   if (profile.kind === "meta") {
-    const profiles = await listProfiles();
+    const profiles = await listProfilesCached();
     for (const memberId of profile.members ?? []) {
       const member = profiles.find((item) => item.id === memberId);
       if (member) targetAccounts.add(member.accountId);

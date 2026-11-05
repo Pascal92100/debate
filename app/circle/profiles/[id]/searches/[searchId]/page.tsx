@@ -5,13 +5,13 @@ import { searchDiscoverableProfiles } from "@/lib/meta-profile-invitations";
 import { listProfileSearches } from "@/lib/profile-modules";
 import { listProfileSpaces } from "@/lib/profile-spaces";
 import { listDiscussions } from "@/lib/discussions";
-import { listProfiles, listSocialPosts } from "@/lib/social";
+import { listProfilesCached, listSocialPosts } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
 export default async function SavedSearchResultsPage({ params }: { params: Promise<{ id: string; searchId: string }> }) {
   const { id, searchId } = await params;
-  const [profiles, searches, persistent] = await Promise.all([listProfiles(), listProfileSearches(id), isPersistentStore()]);
+  const [profiles, searches, persistent] = await Promise.all([listProfilesCached(), listProfileSearches(id), isPersistentStore()]);
   const profile = profiles.find((item) => item.id === id);
   const search = searches.find((item) => item.id === searchId);
   if (!profile || !search) notFound();

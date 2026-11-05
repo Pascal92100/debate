@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { DebateForm } from "@/components/debate-form";
-import { listProfiles } from "@/lib/social";
+import { listProfilesCached } from "@/lib/social";
 
 export default async function NewDebatePage({ searchParams }: { searchParams: Promise<{ profileId?: string }> }) {
-  const [{ profileId }, profiles] = await Promise.all([searchParams, listProfiles()]);
+  const [{ profileId }, profiles] = await Promise.all([searchParams, listProfilesCached()]);
   return (
     <main className="form-shell">
       <Link href="/debates" className="back-link">← All debates</Link>

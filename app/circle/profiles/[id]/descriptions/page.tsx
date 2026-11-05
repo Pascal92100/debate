@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { ProfileContextBar } from "@/components/profile-context-bar";
 import { ProfileDescriptionsEditor } from "@/components/profile-descriptions-editor";
 import { isPersistentStore } from "@/lib/debates";
-import { getAccountDescription, getProfileDescription, listCircles, listProfiles } from "@/lib/social";
+import { getAccountDescription, getProfileDescription, listCircles, listProfilesCached } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfileDescriptionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [profiles, description, accountDescription, circles, persistent] = await Promise.all([listProfiles(), getProfileDescription(id), getAccountDescription(), listCircles(), isPersistentStore()]);
+  const [profiles, description, accountDescription, circles, persistent] = await Promise.all([listProfilesCached(), getProfileDescription(id), getAccountDescription(), listCircles(), isPersistentStore()]);
   const profile = profiles.find((item) => item.id === id);
   if (!profile) notFound();
   return <main className="social-shell social-directory-shell">

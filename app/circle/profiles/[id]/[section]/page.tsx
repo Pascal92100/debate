@@ -6,7 +6,7 @@ import { ProfileContextBar } from "@/components/profile-context-bar";
 import { ProfileSpaces } from "@/components/profile-spaces";
 import { ProfileAlerts } from "@/components/profile-alerts";
 import { isPersistentStore, listDebates } from "@/lib/debates";
-import { listCircles, listProfiles, listSocialPosts } from "@/lib/social";
+import { listCircles, listProfilesCached, listSocialPosts } from "@/lib/social";
 import { listProfileAlerts, listProfileEvents, listProfileSearches } from "@/lib/profile-modules";
 import { listIncomingMetaProfileInvitations } from "@/lib/meta-profile-invitations";
 import { listProfileSpaces, type ProfileSpaceKind } from "@/lib/profile-spaces";
@@ -28,7 +28,7 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
   const { id, section } = await params;
   if (section === "searches" || section === "events") {
     const [profiles, persistent, searches, events] = await Promise.all([
-      listProfiles(),
+      listProfilesCached(),
       isPersistentStore(),
       section === "searches" ? listProfileSearches(id) : Promise.resolve([]),
       section === "events" ? listProfileEvents(id) : Promise.resolve([])
@@ -44,7 +44,7 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
     </main>;
   }
   if (section === "communities" || section === "groups" || section === "forums") {
-    const [profiles, spaces] = await Promise.all([listProfiles(), listProfileSpaces(id, section as ProfileSpaceKind)]);
+    const [profiles, spaces] = await Promise.all([listProfilesCached(), listProfileSpaces(id, section as ProfileSpaceKind)]);
     const profile = profiles.find((item) => item.id === id);
     if (!profile) notFound();
     const titles = { communities: "Communities", groups: "Groups", forums: "Your Forums" };
@@ -55,7 +55,7 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
     </main>;
   }
   if (section === "alerts") {
-    const [profiles, alerts, invitations] = await Promise.all([listProfiles(), listProfileAlerts(id), listIncomingMetaProfileInvitations(id)]);
+    const [profiles, alerts, invitations] = await Promise.all([listProfilesCached(), listProfileAlerts(id), listIncomingMetaProfileInvitations(id)]);
     const profile = profiles.find((item) => item.id === id);
     if (!profile) notFound();
     return <main className="social-shell social-directory-shell">
@@ -65,7 +65,7 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
     </main>;
   }
   const [profiles, debates, posts, circles, persistent] = await Promise.all([
-    listProfiles(),
+    listProfilesCached(),
     listDebates(),
     listSocialPosts(),
     listCircles(),

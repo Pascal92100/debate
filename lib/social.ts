@@ -1,5 +1,6 @@
 import "server-only";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { cache } from "react";
 import { getSessionAccountId, createSessionToken, sessionCookieName, sessionLifetimeSeconds } from "@/lib/auth";
 import { database, isPersistentStore } from "@/lib/debates";
 import fixture from "../social.json";
@@ -267,9 +268,19 @@ async function useDatabase() {
     circle_id = NULLIF(payload->>'circleId', ''),
     source_post_id = NULLIF(payload->>'sourcePostId', '')
     WHERE author_profile_id IS NULL OR source_post_id IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS profiles_account_id_idx ON profiles(account_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS meta_profile_members_member_idx ON meta_profile_members(member_profile_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS circles_owner_profile_idx ON circles(owner_profile_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS circle_members_profile_idx ON circle_members(profile_id, status)`;
   state.persistentReady = true;
   return sql;
 }
+
+export async function ensureSocialSchema() {
+  await useDatabase();
+}
+
+export const listProfilesCached = cache(() => listProfiles());
 
 export async function listProfiles() {
   const sql = await useDatabase();

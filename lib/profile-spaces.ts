@@ -1,7 +1,7 @@
 import "server-only";
 import { getSessionAccountId } from "@/lib/auth";
 import { database, isPersistentStore } from "@/lib/debates";
-import { listProfiles } from "@/lib/social";
+import { ensureSocialSchema, listProfiles } from "@/lib/social";
 
 export type ProfileSpaceKind = "communities" | "groups" | "forums";
 export type ProfileSpace = { id: string; profileId: string; kind: ProfileSpaceKind; name: string; description: string; createdAt: string };
@@ -13,7 +13,7 @@ const demo = globalSpaces.__profileSpaces ??= { items: [] };
 async function ensureSchema() {
   const sql = database();
   if (!sql) return null;
-  await listProfiles();
+  await ensureSocialSchema();
   globalSpaces.__profileSpaceSchema ??= (async () => {
     await sql`CREATE TABLE IF NOT EXISTS profile_spaces (
       id TEXT PRIMARY KEY,
