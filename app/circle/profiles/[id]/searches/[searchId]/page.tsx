@@ -39,6 +39,7 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
     : typeof criteria.descriptionGoal === "string" ? [criteria.descriptionGoal] : values("audience").length ? values("audience") : ["friends"];
   const selectedDescriptionThemes = values("descriptionThemes");
   const selectedDescriptionTags = values("descriptionTags");
+  const descriptionRanges = criteria.descriptionRanges && typeof criteria.descriptionRanges === "object" ? criteria.descriptionRanges as Record<string, { min?: number; max?: number }> : {};
   const selectedTargets = values("targets");
   const selectedFilters = values("filters");
   const selectedFormats = values("formats");
@@ -73,6 +74,26 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
     };
     return tagMatch === "all" ? selectedDescriptionTags.every(hasTag) : selectedDescriptionTags.some(hasTag);
   };
+  const descriptionRangesMatch = (description: import("@/lib/public-profile").VisibleDescription | null) => Object.entries(descriptionRanges).every(([key, range]) => {
+    const [themeId, fieldId] = key.split(":");
+    let value: number | undefined;
+    if (themeId === "physical" && fieldId === "age") {
+      const birthdate = description?.identity.find((field) => field.id === "birthdate")?.value;
+      if (birthdate) {
+        const born = new Date(birthdate);
+        const today = new Date();
+        value = today.getFullYear() - born.getFullYear() - (today < new Date(today.getFullYear(), born.getMonth(), born.getDate()) ? 1 : 0);
+      }
+    } else {
+      const fieldValue = description?.themes.find((theme) => theme.id === themeId)?.fieldValues[fieldId];
+      if (fieldValue !== undefined) {
+        const numeric = typeof fieldValue === "number" ? fieldValue : Number.parseFloat(String(fieldValue));
+        if (Number.isFinite(numeric)) value = numeric;
+      }
+    }
+    if (value === undefined) return false;
+    return value >= Number(range.min) && value <= Number(range.max);
+  });
   const allowedMessage = (message: { body: string; safetyTags?: string[]; targetTags?: string[] }) => !selectedFilters.some((filter) => message.safetyTags?.includes(filter)) && (!selectedTargets.length || (tagMatch === "all" ? selectedTargets.every((target) => message.targetTags?.includes(target)) : selectedTargets.some((target) => message.targetTags?.includes(target))));
   let profileResults: Awaited<ReturnType<typeof searchDiscoverableProfiles>> = [];
   let contentResults: Array<{ id: string; title: string; detail: string; href: string }> = [];
@@ -84,6 +105,7 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
     profileResults = visibleProfiles.filter(({ candidate, view }) => {
       if (visibility !== "any" && candidate.visibility !== visibility) return false;
       if (!descriptionMatches(view?.description ?? null)) return false;
+      if (!descriptionRangesMatch(view?.description ?? null)) return false;
       const descriptionText = view?.description ? [view.description.text, ...view.description.identity.map((field) => `${field.label} ${field.value}`), ...view.description.themes.flatMap((theme) => [theme.label, theme.description, ...theme.fields, ...theme.tags])].join(" ") : `${candidate.name} ${candidate.category}`;
       if (!isIncluded(`${candidate.name} ${candidate.category} ${descriptionText}`, "text", [])) return false;
       if (language && !descriptionText.toLocaleLowerCase().includes(language)) return false;

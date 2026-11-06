@@ -5,12 +5,13 @@ export type ThemeDefinition = {
   tags: string[];
   fieldTags?: Record<string, string[]>;
   fieldHints?: Record<string, string>;
+  searchRanges?: Array<{ id: string; label: string; min: number; max: number; step: number; unit: string }>;
 };
 
 export const relationshipStatusOptions = ["Single", "Married", "In relationship", "Open relationship", "Complicated"];
 
 export const descriptionThemes: ThemeDefinition[] = [
-  { id: "physical", label: "Physical", fields: [["height", "Height"], ["weight", "Weight"], ["bodyShape", "Body shape"], ["eyes", "Eyes"], ["hair", "Hair"], ["origins", "Origins"], ["smoker", "Smoker"]], tags: [] },
+  { id: "physical", label: "Physical", fields: [["height", "Height"], ["weight", "Weight"], ["bodyShape", "Body shape"], ["eyes", "Eyes"], ["hair", "Hair"], ["origins", "Origins"], ["smoker", "Smoker"]], tags: [], searchRanges: [{ id: "height", label: "Height", min: 100, max: 230, step: 1, unit: "cm" }, { id: "weight", label: "Weight", min: 30, max: 250, step: 1, unit: "kg" }, { id: "age", label: "Age", min: 18, max: 100, step: 1, unit: "years" }] },
   { id: "culture", label: "Culture", fields: [["architecture", "Architecture"], ["sculpture", "Sculpture"], ["painting", "Painting"], ["music", "Music"], ["literature", "Literature"], ["theatre", "Theatre"], ["cinema", "Cinema"], ["series", "TV series"], ["media", "Media"], ["comics", "Comics"], ["videoGames", "Video games"], ["sciences", "Science"], ["other", "Other"]], tags: [], fieldTags: {
     architecture: ["Classical", "Gothic", "Renaissance", "Modern", "Contemporary", "Art Deco", "Sustainable"],
     sculpture: ["Classical", "Modern", "Contemporary", "Abstract", "Public art", "Installation"],
@@ -31,7 +32,7 @@ export const descriptionThemes: ThemeDefinition[] = [
   { id: "sport", label: "Sports", fields: [], tags: ["sedentary", "beginner", "regular", "intense", "outdoor", "indoor", "team sports", "individual sports", "running", "cycling", "swimming", "fitness", "yoga", "combat sports", "ball sports", "mountain", "water sports", "competition", "just for fun"] },
   { id: "spirituality", label: "Spirituality", fields: [], tags: ["atheist", "agnostic", "spiritual but not religious", "religious", "christian", "muslim", "jewish", "buddhist", "hindu", "other religion", "meditation", "mindfulness", "energy work", "esoteric", "rituals", "philosophy-oriented", "questioning", "practicing", "non-practicing"] },
   { id: "psycho", label: "Psycho", fields: [], tags: ["adaptable", "affectionate", "ambitious", "ambivert", "analytical", "anxious", "assertive", "attentive", "calm", "chaotic", "confident", "creative", "curious", "dreamer", "emotional", "empathetic", "extrovert", "flexible", "grounded", "humorous", "idealistic", "independent", "introvert", "intuitive", "loyal", "mindful", "open-minded", "organized", "patient", "perfectionist", "playful", "pragmatic", "protective", "rational", "realistic", "reserved", "sensitive", "serious", "shy", "spontaneous", "stubborn", "deep talks", "intimate talks", "professional talks", "small talks"] },
-  { id: "sexo", label: "Sexuality", fields: [["desire", "Desire level"], ["modesty", "Modesty"], ["communication", "Communication"], ["touch", "Physical touch"]], fieldHints: { desire: "Interest and intensity", modesty: "Comfort with exposure", communication: "How openly you talk", touch: "Comfort with physical contact" }, tags: ["straight", "bi", "demi", "alter", "asexual", "homo", "pan", "sapio", "skolio", "monogamy", "non-monogamy", "polyamory", "exclusive", "open"] },
+  { id: "sexo", label: "Sexuality", fields: [["desire", "Desire level"], ["modesty", "Modesty"], ["communication", "Communication"], ["touch", "Physical touch"]], fieldHints: { desire: "Interest and intensity", modesty: "Comfort with exposure", communication: "How openly you talk", touch: "Comfort with physical contact" }, tags: ["straight", "bi", "demi", "alter", "asexual", "homo", "pan", "sapio", "skolio", "monogamy", "non-monogamy", "polyamory", "exclusive", "open"], searchRanges: [{ id: "desire", label: "Desire level", min: 0, max: 10, step: 1, unit: "" }, { id: "modesty", label: "Modesty", min: 0, max: 10, step: 1, unit: "" }, { id: "communication", label: "Communication", min: 0, max: 10, step: 1, unit: "" }, { id: "touch", label: "Physical touch", min: 0, max: 10, step: 1, unit: "" }] },
   { id: "kinky", label: "Kinky · preferences and limits", fields: [], tags: ["Soft", "BDSM", "Roleplay", "Switch", "Dom", "Sub"] }
 ];
 

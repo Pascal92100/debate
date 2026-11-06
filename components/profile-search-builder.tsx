@@ -38,6 +38,7 @@ export function ProfileSearchBuilder({ profileId, descriptionGoals, availableThe
   const [themeValues, setThemeValues] = useState<string[]>([]);
   const [descriptionThemeValues, setDescriptionThemeValues] = useState<string[]>([]);
   const [descriptionTagValues, setDescriptionTagValues] = useState<string[]>([]);
+  const [descriptionRanges, setDescriptionRanges] = useState<Record<string, { min: number; max: number }>>({});
   const [tagText, setTagText] = useState("");
   const [tagMatchValue, setTagMatchValue] = useState<"one" | "all">("one");
   const [scopeValue, setScopeValue] = useState("world");
@@ -63,6 +64,13 @@ export function ProfileSearchBuilder({ profileId, descriptionGoals, availableThe
       descriptionGoals,
       descriptionThemes: array("descriptionTheme"),
       descriptionTags: array("descriptionTag"),
+      descriptionRanges: Object.fromEntries(availableThemeIds.filter((themeId) => descriptionThemeValues.includes(themeId)).flatMap((themeId) => {
+        const theme = descriptionThemes.find((item) => item.id === themeId);
+        return (theme?.searchRanges ?? []).flatMap((range) => {
+          const value = descriptionRanges[`${themeId}:${range.id}`] ?? { min: range.min, max: range.max };
+          return value.min === range.min && value.max === range.max ? [] : [[`${themeId}:${range.id}`, value]];
+        });
+      })),
       scope: String(data.get("scope") ?? "world"),
       region: String(data.get("region") ?? "").trim(),
       radius: String(data.get("radius") ?? "").trim(),
@@ -96,6 +104,7 @@ export function ProfileSearchBuilder({ profileId, descriptionGoals, availableThe
     setThemeValues([]);
     setDescriptionThemeValues([]);
     setDescriptionTagValues([]);
+    setDescriptionRanges({});
     setTagText("");
     setTagMatchValue("one");
     setScopeValue("world");
@@ -117,22 +126,41 @@ export function ProfileSearchBuilder({ profileId, descriptionGoals, availableThe
     {what !== "Forums" && <details className="search-builder-accordion"><summary><span>Qualitative filtering</span><small>{targetValues.length ? `${targetValues.length} selected` : "Optional"}</small></summary><fieldset className="search-builder-section"><legend>Choose desired qualities</legend><div className="search-emoji-grid">{targets.map(([emoji, id, description]) => <EmojiChoice key={id} emoji={emoji} id="target" label={id === "feelgood" ? "Feel-good" : id[0].toUpperCase() + id.slice(1)} description={description} checked={targetValues.includes(id)} onChange={(checked) => setTargetValues((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset></details>}
     {what !== "Profiles" && what !== "Forums" && <details className="search-builder-accordion"><summary><span>Safety filters</span><small>{filterValues.length ? `${filterValues.length} selected` : "No exclusions"}</small></summary><fieldset className="search-builder-section"><legend>Hide content tagged as</legend><div className="search-emoji-grid">{safetyFilters.map(([emoji, id, description]) => <EmojiChoice key={id} emoji={emoji} id="filter" label={id[0].toUpperCase() + id.slice(1)} description={description} checked={filterValues.includes(id)} onChange={(checked) => setFilterValues((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset></details>}
     {what === "Publications" && <fieldset className="search-builder-section"><legend>Format</legend><div className="search-check-grid">{formats.map(([id, label]) => <label key={id}><input type="checkbox" name="format" value={id} checked={formatValues.includes(id)} onChange={(event) => setFormatValues((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />{label}</label>)}</div></fieldset>}
-    {what === "Profiles" && availableThemeIds.length > 0 && <details className="search-builder-accordion profile-description-search" open>
+    {what === "Profiles" && availableThemeIds.length > 0 && <details className="search-builder-accordion profile-description-search">
       <summary><span>Thematic filtering</span><small>{descriptionGoals.map((goal) => descriptionRelationships.find(([id]) => id === goal)?.[1] ?? goal).join(" · ")}{descriptionTagValues.length ? ` · ${descriptionTagValues.length} tags` : ""}</small></summary>
       <div className="description-search-theme-list">{availableThemeIds.map((themeId) => {
         const theme = descriptionThemes.find((item) => item.id === themeId);
         if (!theme) return null;
         const themeSelected = descriptionThemeValues.includes(theme.id);
+        const updateRange = (rangeId: string, side: "min" | "max", nextValue: number, min: number, max: number) => {
+          const key = `${theme.id}:${rangeId}`;
+          setDescriptionThemeValues((current) => current.includes(theme.id) ? current : [...current, theme.id]);
+          setDescriptionRanges((current) => {
+            const value = current[key] ?? { min, max };
+            return { ...current, [key]: side === "min" ? { min: Math.min(nextValue, value.max), max: value.max } : { min: value.min, max: Math.max(nextValue, value.min) } };
+          });
+        };
         const renderTags = (field: string, tags: string[]) => <div className="description-search-tags">{tags.map((tag) => {
           const key = field ? `${theme.id}:${field}:${tag}` : `${theme.id}:${tag}`;
           const selected = descriptionTagValues.includes(key);
           return <label className={`search-tag-toggle${selected ? " selected" : ""}`} key={key}><input type="checkbox" name="descriptionTag" value={key} checked={selected} onChange={(event) => { setDescriptionTagValues((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key)); if (event.target.checked && !themeSelected) setDescriptionThemeValues((current) => [...current, theme.id]); }} /><span>{tag}</span></label>;
         })}</div>;
-        return <section className="description-search-theme" key={theme.id}>
-          <label className={`description-search-theme-heading${themeSelected ? " selected" : ""}`}><input type="checkbox" name="descriptionTheme" value={theme.id} checked={themeSelected} onChange={(event) => { setDescriptionThemeValues((current) => event.target.checked ? [...current, theme.id] : current.filter((value) => value !== theme.id)); if (!event.target.checked) setDescriptionTagValues((current) => current.filter((value) => !value.startsWith(`${theme.id}:`))); }} /><strong>{theme.label}</strong></label>
+        return <details className={`description-search-theme${themeSelected ? " selected" : ""}`} key={theme.id} open={themeSelected}>
+          <summary><span className={`description-search-theme-heading${themeSelected ? " selected" : ""}`}><input type="checkbox" name="descriptionTheme" value={theme.id} checked={themeSelected} onClick={(event) => event.stopPropagation()} onChange={(event) => { setDescriptionThemeValues((current) => event.target.checked ? [...current, theme.id] : current.filter((value) => value !== theme.id)); if (!event.target.checked) { setDescriptionTagValues((current) => current.filter((value) => !value.startsWith(`${theme.id}:`))); setDescriptionRanges((current) => Object.fromEntries(Object.entries(current).filter(([key]) => !key.startsWith(`${theme.id}:`)))); } }} /><strong>{theme.label}</strong></span><small>{themeSelected ? "Selected" : "Choose to filter"}</small></summary>
+          <div className="description-search-theme-body">
           {theme.tags.length > 0 && renderTags("", theme.tags)}
           {Object.entries(theme.fieldTags ?? {}).map(([field, tags]) => <details className="description-search-subtheme" key={field}><summary><span>{theme.fields.find(([key]) => key === field)?.[1] ?? field}</span><small>{tags.filter((tag) => descriptionTagValues.includes(`${theme.id}:${field}:${tag}`)).length || "Tags"}</small></summary>{renderTags(field, tags)}</details>)}
-        </section>;
+          {(theme.searchRanges ?? []).map((range) => {
+            const key = `${theme.id}:${range.id}`;
+            const current = descriptionRanges[key] ?? { min: range.min, max: range.max };
+            return <div className="description-range-filter" key={key}>
+              <strong>{range.label}{range.unit ? ` (${range.unit})` : ""}</strong>
+              <label><span>Min <output>{current.min}</output></span><input aria-label={`${range.label} minimum`} name={`range:${key}:min`} type="range" min={range.min} max={range.max} step={range.step} value={current.min} onChange={(event) => updateRange(range.id, "min", Number(event.target.value), range.min, range.max)} /></label>
+              <label><span>Max <output>{current.max}</output></span><input aria-label={`${range.label} maximum`} name={`range:${key}:max`} type="range" min={range.min} max={range.max} step={range.step} value={current.max} onChange={(event) => updateRange(range.id, "max", Number(event.target.value), range.min, range.max)} /></label>
+            </div>;
+          })}
+          </div>
+        </details>;
       })}</div>
     </details>}
     <details className="search-builder-accordion"><summary><span>Tags</span><small>{tagText.trim() ? `${tagText.split(",").filter((tag) => tag.trim()).length} tags · ${tagMatchValue === "all" ? "all" : "any"}` : "Optional"}</small></summary><fieldset className="search-builder-section search-tags-section"><legend>Tag matching</legend><div className="search-mode"><span>Match</span><div className="search-mode-options"><label className={tagMatchValue === "one" ? "selected" : ""}><input type="radio" name="tagMatch" value="one" checked={tagMatchValue === "one"} onChange={() => setTagMatchValue("one")} /><span>Any selected tag</span></label><label className={tagMatchValue === "all" ? "selected" : ""}><input type="radio" name="tagMatch" value="all" checked={tagMatchValue === "all"} onChange={() => setTagMatchValue("all")} /><span>All selected tags</span></label></div></div><input name="tags" value={tagText} onChange={(event) => setTagText(event.target.value)} placeholder="Comma-separated tags" /></fieldset></details>

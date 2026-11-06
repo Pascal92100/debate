@@ -11,8 +11,8 @@ import { contactDistances } from "@/lib/meta-profile-invitations";
 export type VisibleDescription = {
   text: string;
   audience: string[];
-  identity: Array<{ label: string; value: string }>;
-  themes: Array<{ id: string; label: string; description: string; fields: string[]; tags: string[] }>;
+  identity: Array<{ id: string; label: string; value: string }>;
+  themes: Array<{ id: string; label: string; description: string; fields: string[]; fieldValues: Record<string, string | number>; tags: string[] }>;
 };
 
 export type VisibleMember = {
@@ -67,12 +67,13 @@ function visibleDescription(description: ProfileDescription | null | undefined):
   if (!description || description.visibility !== "other") return null;
   const identity = Object.entries(description.identity ?? {})
     .filter(([key, field]) => field.enabled && isDescriptionItemActive(field.expiresAt) && String(field.value).trim() && identityLabels[key])
-    .map(([key, field]) => ({ label: identityLabels[key], value: String(field.value) }));
+    .map(([key, field]) => ({ id: key, label: identityLabels[key], value: String(field.value) }));
   const themes = Object.entries(description.themes ?? {}).filter(([, theme]) => theme.enabled && isDescriptionItemActive(theme.expiresAt)).map(([id, theme]) => ({
     id,
     label: themeLabels[id] ?? id,
     description: theme.description?.trim() ?? "",
     fields: Object.entries(theme.fields ?? {}).filter(([key, value]) => theme.fieldStates?.[key] !== false && isDescriptionItemActive(theme.fieldExpiresAt?.[key]) && String(value).trim()).map(([key, value]) => `${key}: ${String(value)}`),
+    fieldValues: Object.fromEntries(Object.entries(theme.fields ?? {}).filter(([key, value]) => theme.fieldStates?.[key] !== false && isDescriptionItemActive(theme.fieldExpiresAt?.[key]) && String(value).trim())),
     tags: theme.tags ?? []
   })).filter((theme) => theme.description || theme.fields.length || theme.tags.length);
   const text = description.textEnabled && isDescriptionItemActive(description.textExpiresAt) ? description.text.trim() : "";
