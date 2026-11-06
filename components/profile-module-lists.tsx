@@ -5,7 +5,39 @@ import Link from "next/link";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { ProfileSearchBuilder } from "@/components/profile-search-builder";
 import type { ProfileEvent, SavedProfileSearch } from "@/lib/profile-modules";
+import { descriptionRelationships, descriptionThemes } from "@/lib/profile-description-taxonomy";
 import type { SocialProfile } from "@/lib/social";
+
+function searchDescription(search: SavedProfileSearch) {
+  const criteria = search.criteria;
+  const what = String(criteria.what ?? "Profiles");
+  const parts = [what];
+  if (what === "Profiles") {
+    const goal = String(criteria.descriptionGoal ?? "friends");
+    parts.push(String(descriptionRelationships.find(([id]) => id === goal)?.[1] ?? "Friends"));
+    const descriptionThemes = Array.isArray(criteria.descriptionThemes) ? criteria.descriptionThemes.map(String) : [];
+    const descriptionTags = Array.isArray(criteria.descriptionTags) ? criteria.descriptionTags.map(String) : [];
+    if (descriptionThemes.length) parts.push(descriptionThemes.map((id) => descriptionThemesCatalogLabel(id)).join(", "));
+    if (descriptionTags.length) parts.push(descriptionTags.slice(0, 3).map(descriptionTagLabel).join(", ") + (descriptionTags.length > 3 ? ` +${descriptionTags.length - 3}` : ""));
+  }
+  if (Array.isArray(criteria.themes) && criteria.themes.length) parts.push((criteria.themes as string[]).join(", "));
+  if (typeof criteria.keywords === "string" && criteria.keywords.trim()) parts.push(criteria.keywords.trim());
+  return parts.join(" · ");
+}
+
+function descriptionThemesCatalogLabel(id: string) {
+  return descriptionThemes.find((theme) => theme.id === id)?.label ?? id;
+}
+
+function descriptionTagLabel(value: string) {
+  const [themeId, ...parts] = value.split(":");
+  const theme = descriptionThemes.find((item) => item.id === themeId);
+  if (parts.length > 1) {
+    const field = theme?.fields.find(([id]) => id === parts[0])?.[1] ?? parts[0];
+    return `${field}: ${parts.slice(1).join(":")}`;
+  }
+  return parts[0] ?? value;
+}
 
 export function ProfileModuleLists({ profile, kind, initialSearches = [], initialEvents = [] }: { profile: SocialProfile; kind: "searches" | "events"; initialSearches?: SavedProfileSearch[]; initialEvents?: ProfileEvent[] }) {
   const [searches, setSearches] = useState(initialSearches);
@@ -58,7 +90,7 @@ export function ProfileModuleLists({ profile, kind, initialSearches = [], initia
     {creating && isSearch && <ProfileSearchBuilder profileId={profile.id} onSaved={(search) => { setSearches((current) => [search, ...current]); setCreating(false); }} />}
     {creating && !isSearch && <form className="social-compose-form profile-module-form" onSubmit={submit}><label>Event title<input name="title" required minLength={2} placeholder="Event name" /></label><div className="social-form-row"><label>Date and time<input name="startsAt" type="datetime-local" /></label><label>Location<input name="location" placeholder="Online or a place" /></label></div><label>Description<textarea name="description" placeholder="What is happening?" /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button-primary" disabled={busy}>{busy ? "Saving…" : "Create event"}</button></form>}
     {isSearch && error && !creating && <p className="form-error" role="alert">{error}</p>}
-    {isSearch ? searches.length ? <div className="profile-post-list">{searches.map((search) => <article className="profile-activity-item saved-search-item" key={search.id}><strong>{search.name}</strong><p>{String(search.criteria.what ?? "Profiles")} · {String(search.criteria.theme ?? "Any theme")}{search.criteria.keywords ? ` · ${String(search.criteria.keywords)}` : ""}</p><small>Saved {new Date(search.updatedAt).toLocaleDateString("en-US")}</small><div className="saved-search-actions"><Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(profile.id)}/searches/${encodeURIComponent(search.id)}`}>View results</Link><button className="button-icon-danger" type="button" aria-label={`Delete search ${search.name}`} title="Delete search" disabled={Boolean(deletingSearchId)} onClick={() => void deleteSearch(search)}>{deletingSearchId === search.id ? "…" : "🗑"}</button></div></article>)}</div> : <p className="account-empty">No saved searches for this profile yet.</p>
+    {isSearch ? searches.length ? <div className="profile-post-list">{searches.map((search) => <article className="profile-activity-item saved-search-item" key={search.id}><strong>{search.name}</strong><p>{searchDescription(search)}</p><small>Saved {new Date(search.updatedAt).toLocaleDateString("en-US")}</small><div className="saved-search-actions"><Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(profile.id)}/searches/${encodeURIComponent(search.id)}`}>View results</Link><button className="button-icon-danger" type="button" aria-label={`Delete search ${search.name}`} title="Delete search" disabled={Boolean(deletingSearchId)} onClick={() => void deleteSearch(search)}>{deletingSearchId === search.id ? "…" : "🗑"}</button></div></article>)}</div> : <p className="account-empty">No saved searches for this profile yet.</p>
       : events.length ? <div className="profile-post-list">{events.map((item) => <article className="profile-activity-item" key={item.id}><div className="profile-post-meta">{item.startsAt ? new Date(item.startsAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "Date to be announced"}{item.location && ` · ${item.location}`}</div><strong>{item.title}</strong><p>{item.description}</p><DeleteEntityButton endpoint={`/api/social/profiles/${encodeURIComponent(profile.id)}/events?id=${encodeURIComponent(item.id)}`} label="Delete event" confirmation={`Delete the event “${item.title}”?`} iconOnly onDeleted={() => setEvents((current) => current.filter((event) => event.id !== item.id))} /></article>)}</div> : <p className="account-empty">No events created by this profile yet.</p>}
   </>;
 }

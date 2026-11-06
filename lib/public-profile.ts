@@ -12,7 +12,7 @@ export type VisibleDescription = {
   text: string;
   audience: string[];
   identity: Array<{ label: string; value: string }>;
-  themes: Array<{ label: string; description: string; fields: string[]; tags: string[] }>;
+  themes: Array<{ id: string; label: string; description: string; fields: string[]; tags: string[] }>;
 };
 
 export type VisibleMember = {
@@ -69,6 +69,7 @@ function visibleDescription(description: ProfileDescription | null | undefined):
     .filter(([key, field]) => field.enabled && isDescriptionItemActive(field.expiresAt) && String(field.value).trim() && identityLabels[key])
     .map(([key, field]) => ({ label: identityLabels[key], value: String(field.value) }));
   const themes = Object.entries(description.themes ?? {}).filter(([, theme]) => theme.enabled && isDescriptionItemActive(theme.expiresAt)).map(([id, theme]) => ({
+    id,
     label: themeLabels[id] ?? id,
     description: theme.description?.trim() ?? "",
     fields: Object.entries(theme.fields ?? {}).filter(([key, value]) => theme.fieldStates?.[key] !== false && isDescriptionItemActive(theme.fieldExpiresAt?.[key]) && String(value).trim()).map(([key, value]) => `${key}: ${String(value)}`),

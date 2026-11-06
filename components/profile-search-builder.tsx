@@ -2,6 +2,7 @@
 
 import { FormEvent, useRef, useState } from "react";
 import type { SavedProfileSearch } from "@/lib/profile-modules";
+import { descriptionRelationships, descriptionThemeAccess, descriptionThemes } from "@/lib/profile-description-taxonomy";
 
 const themes = [
   ["politics-society", "Politics / society"], ["culture-entertainment", "Culture / entertainment"], ["sports", "Sport"], ["science-health", "Science / health"], ["economy-tech", "Economy / work / tech"], ["lifestyle-ideas", "Lifestyle / ideas"], ["other", "Other"]
@@ -9,7 +10,6 @@ const themes = [
 const targets = [["🔑", "useful", "Useful: practical, actionable or valuable information."], ["💡", "inspiring", "Inspiring: ideas that open possibilities or encourage reflection."], ["🎓", "interesting", "Interesting: informative, thoughtful or worth exploring."], ["☀️", "feelgood", "Feel-good: positive, supportive or wellbeing-oriented."]] as const;
 const safetyFilters = [["🚫", "forbidden", "Troll, insults, toxicity, hate, racism or discrimination."], ["🤑", "commercial", "Commercial, advertising or clickbait content."], ["🔞", "sexual", "Sexual content; enables the Kinky filter."], ["⚠️", "shocking", "Violence, anxiety-inducing, disturbing or blasphemous content."], ["❌", "aggressive", "Aggressive tone or behavior."]] as const;
 const formats = [["text", "Text"], ["image", "Image"], ["video", "Video"], ["reel", "Reel"], ["event", "Event"], ["alert", "Alert"]] as const;
-const purposes = [["none", "No specific purpose"], ["employment", "Employment"], ["clients", "Clients"], ["suppliers", "Suppliers"], ["employees", "Employees"], ["service-providers", "Service providers"], ["study", "Study"], ["opportunities", "Opportunities"], ["entertainment", "Have fun"], ["information", "Get informed"], ["connect", "Connect"], ["meet", "Meet people"], ["hobbies", "Shared hobbies"], ["romantic", "Romantic"], ["friendship", "Friendship"], ["casual", "Casual"], ["feeling", "See how it goes"]] as const;
 
 function EmojiChoice({ emoji, id, label, description, checked, onChange }: { emoji: string; id: string; label: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
   const [showHelp, setShowHelp] = useState(false);
@@ -36,7 +36,13 @@ export function ProfileSearchBuilder({ profileId, onSaved }: { profileId: string
   const [filterValues, setFilterValues] = useState<string[]>([]);
   const [formatValues, setFormatValues] = useState<string[]>([]);
   const [themeValues, setThemeValues] = useState<string[]>([]);
-  const [purposeValues, setPurposeValues] = useState<string[]>([]);
+  const [descriptionGoal, setDescriptionGoal] = useState("friends");
+  const [descriptionThemeValues, setDescriptionThemeValues] = useState<string[]>([]);
+  const [descriptionTagValues, setDescriptionTagValues] = useState<string[]>([]);
+  const [tagText, setTagText] = useState("");
+  const [tagMatchValue, setTagMatchValue] = useState<"one" | "all">("one");
+  const [scopeValue, setScopeValue] = useState("world");
+  const [region, setRegion] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const selectedThemeLabels = themes.filter(([id]) => themeValues.includes(id)).map(([, label]) => label);
@@ -55,8 +61,9 @@ export function ProfileSearchBuilder({ profileId, onSaved }: { profileId: string
       tagMatch: String(data.get("tagMatch") ?? "one"),
       tags: String(data.get("tags") ?? "").split(",").map((tag) => tag.trim()).filter(Boolean),
       visibility: String(data.get("visibility") ?? "any"),
-      audience: array("audience"),
-      purpose: array("purpose"),
+      descriptionGoal: String(data.get("descriptionGoal") ?? "friends"),
+      descriptionThemes: array("descriptionTheme"),
+      descriptionTags: array("descriptionTag"),
       scope: String(data.get("scope") ?? "world"),
       region: String(data.get("region") ?? "").trim(),
       radius: String(data.get("radius") ?? "").trim(),
@@ -88,7 +95,12 @@ export function ProfileSearchBuilder({ profileId, onSaved }: { profileId: string
     setFilterValues([]);
     setFormatValues([]);
     setThemeValues([]);
-    setPurposeValues([]);
+    setDescriptionThemeValues([]);
+    setDescriptionTagValues([]);
+    setTagText("");
+    setTagMatchValue("one");
+    setScopeValue("world");
+    setRegion("");
     setSaving(false);
   }
 
@@ -99,17 +111,37 @@ export function ProfileSearchBuilder({ profileId, onSaved }: { profileId: string
       {what === "Profiles" && <><label>Profile type<select name="profileKind"><option value="individual">Individual profile</option><option value="meta">Meta-profile</option><option value="all">Both types</option></select></label><label>Profile visibility<select name="visibility"><option value="any">Any discoverable profile</option><option value="all">For all</option><option value="relatives">Exact pseudonym / link</option></select></label></>}
     </div>
     <label>Keywords<input name="keywords" maxLength={120} placeholder="Words or phrases" /></label>
-    <details className="search-builder-accordion search-theme-menu">
+    {what !== "Profiles" && <details className="search-builder-accordion search-theme-menu">
       <summary><span>Themes</span><small>{selectedThemeLabels.length ? selectedThemeLabels.join(" · ") : "Any theme"}</small></summary>
       <fieldset className="search-builder-section"><legend>Choose one or more themes</legend><div className="search-check-grid">{themes.map(([id, label]) => <label key={id}><input type="checkbox" name="theme" value={id} checked={themeValues.includes(id)} onChange={(event) => setThemeValues((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />{label}</label>)}</div></fieldset>
-    </details>
-    <fieldset className="search-builder-section"><legend>Qualitative filtering</legend><p className="search-hint">Choose the qualities you want to find in posts and messages.</p><div className="search-emoji-grid">{targets.map(([emoji, id, description]) => <EmojiChoice key={id} emoji={emoji} id="target" label={id === "feelgood" ? "Feel-good" : id[0].toUpperCase() + id.slice(1)} description={description} checked={targetValues.includes(id)} onChange={(checked) => setTargetValues((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset>
+    </details>}
+    {what !== "Profiles" && what !== "Forums" && <details className="search-builder-accordion"><summary><span>Qualitative filtering</span><small>{targetValues.length ? `${targetValues.length} selected` : "Optional"}</small></summary><fieldset className="search-builder-section"><legend>Choose desired qualities</legend><div className="search-emoji-grid">{targets.map(([emoji, id, description]) => <EmojiChoice key={id} emoji={emoji} id="target" label={id === "feelgood" ? "Feel-good" : id[0].toUpperCase() + id.slice(1)} description={description} checked={targetValues.includes(id)} onChange={(checked) => setTargetValues((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset></details>}
     {what !== "Profiles" && what !== "Forums" && <details className="search-builder-accordion"><summary><span>Safety filters</span><small>{filterValues.length ? `${filterValues.length} selected` : "No exclusions"}</small></summary><fieldset className="search-builder-section"><legend>Hide content tagged as</legend><div className="search-emoji-grid">{safetyFilters.map(([emoji, id, description]) => <EmojiChoice key={id} emoji={emoji} id="filter" label={id[0].toUpperCase() + id.slice(1)} description={description} checked={filterValues.includes(id)} onChange={(checked) => setFilterValues((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset></details>}
     {what === "Publications" && <fieldset className="search-builder-section"><legend>Format</legend><div className="search-check-grid">{formats.map(([id, label]) => <label key={id}><input type="checkbox" name="format" value={id} checked={formatValues.includes(id)} onChange={(event) => setFormatValues((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />{label}</label>)}</div></fieldset>}
-    {what === "Profiles" && <><details className="search-builder-accordion"><summary><span>Profile description themes</span><small>{purposeValues.filter((value) => value.startsWith("audience:")).length ? `${purposeValues.filter((value) => value.startsWith("audience:")).length} selected` : "Optional"}</small></summary><fieldset className="search-builder-section"><legend>Who is this profile presenting itself to?</legend><p className="search-hint">Select one or more presentation goals to match profile descriptions.</p><div className="search-check-grid">{[["friends", "Friends · general profile only"], ["professional", "Professional"], ["socializing", "Socializing · culture / politics"], ["friendship", "Friendship · culture"], ["love", "Love · physical / culture / personality"], ["casual", "Casual · physical"], ["undecided", "Undecided · physical / culture / personality"], ["casualfun", "Casual fun · physical / sexuality"]].map(([id, label]) => <label key={id}><input type="checkbox" name="audience" value={id} checked={purposeValues.includes(`audience:${id}`)} onChange={(event) => setPurposeValues((current) => event.target.checked ? [...current, `audience:${id}`] : current.filter((value) => value !== `audience:${id}`))} />{label}</label>)}</div></fieldset></details>
-    <details className="search-builder-accordion"><summary><span>Search purpose</span><small>{purposeValues.filter((value) => !value.startsWith("audience:")).length ? `${purposeValues.filter((value) => !value.startsWith("audience:")).length} selected` : "Optional"}</small></summary><fieldset className="search-builder-section"><legend>What is the search for?</legend><div className="search-check-grid">{purposes.map(([id, label]) => <label key={id}><input type="checkbox" name="purpose" value={id} checked={purposeValues.includes(id)} onChange={(event) => setPurposeValues((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />{label}</label>)}</div></fieldset></details></>}
-    <fieldset className="search-builder-section search-tags-section"><legend>Tags</legend><div className="search-mode"><span>Match</span><div className="search-mode-options"><label><input type="radio" name="tagMatch" value="one" defaultChecked /><span>Any selected tag</span></label><label><input type="radio" name="tagMatch" value="all" /><span>All selected tags</span></label></div></div><input name="tags" placeholder="Comma-separated tags" /></fieldset>
-    {what !== "Messages" && <fieldset className="search-builder-section"><legend>Scope</legend><div className="search-builder-grid"><label>Area<select name="scope"><option value="world">World</option><option value="continent">Continent</option><option value="country">Country</option><option value="region">Region</option><option value="radius">Distance around me</option></select></label><label>Region, country or city<input name="region" placeholder="Optional place" /></label><label>Distance in km<input name="radius" type="number" min="1" max="20000" placeholder="e.g. 50" /></label><label>Language<input name="language" placeholder="e.g. French" /></label></div></fieldset>}
+    {what === "Profiles" && <details className="search-builder-accordion profile-description-search" open>
+      <summary><span>Profile description</span><small>{descriptionGoal ? String(descriptionRelationships.find(([id]) => id === descriptionGoal)?.[1] ?? "") : "Choose a goal"}{descriptionTagValues.length ? ` · ${descriptionTagValues.length} tags` : ""}</small></summary>
+      <fieldset className="search-builder-section"><legend>Presentation goal</legend><select name="descriptionGoal" value={descriptionGoal} onChange={(event) => { setDescriptionGoal(event.target.value); setDescriptionThemeValues([]); setDescriptionTagValues([]); }}>
+        {descriptionRelationships.map(([id, label]) => <option value={id} key={id}>{label}</option>)}
+      </select></fieldset>
+      <div className="description-search-theme-list">{(descriptionThemeAccess[descriptionGoal] ?? []).map((themeId) => {
+        const theme = descriptionThemes.find((item) => item.id === themeId);
+        if (!theme) return null;
+        const themeSelected = descriptionThemeValues.includes(theme.id);
+        const renderTags = (field: string, tags: string[]) => <div className="description-search-tags">{tags.map((tag) => {
+          const key = field ? `${theme.id}:${field}:${tag}` : `${theme.id}:${tag}`;
+          const selected = descriptionTagValues.includes(key);
+          return <label className={`search-tag-toggle${selected ? " selected" : ""}`} key={key}><input type="checkbox" name="descriptionTag" value={key} checked={selected} onChange={(event) => { setDescriptionTagValues((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key)); if (event.target.checked && !themeSelected) setDescriptionThemeValues((current) => [...current, theme.id]); }} /><span>{tag}</span></label>;
+        })}</div>;
+        return <section className="description-search-theme" key={theme.id}>
+          <label className={`description-search-theme-heading${themeSelected ? " selected" : ""}`}><input type="checkbox" name="descriptionTheme" value={theme.id} checked={themeSelected} onChange={(event) => { setDescriptionThemeValues((current) => event.target.checked ? [...current, theme.id] : current.filter((value) => value !== theme.id)); if (!event.target.checked) setDescriptionTagValues((current) => current.filter((value) => !value.startsWith(`${theme.id}:`))); }} /><strong>{theme.label}</strong></label>
+          {theme.tags.length > 0 && renderTags("", theme.tags)}
+          {Object.entries(theme.fieldTags ?? {}).map(([field, tags]) => <details className="description-search-subtheme" key={field}><summary><span>{theme.fields.find(([key]) => key === field)?.[1] ?? field}</span><small>{tags.filter((tag) => descriptionTagValues.includes(`${theme.id}:${field}:${tag}`)).length || "Tags"}</small></summary>{renderTags(field, tags)}</details>)}
+        </section>;
+      })}</div>
+      {(descriptionGoal === "friends" || !(descriptionThemeAccess[descriptionGoal] ?? []).length) && <p className="search-hint">This goal searches the general profile description only.</p>}
+    </details>}
+    <details className="search-builder-accordion"><summary><span>Tags</span><small>{tagText.trim() ? `${tagText.split(",").filter((tag) => tag.trim()).length} tags · ${tagMatchValue === "all" ? "all" : "any"}` : "Optional"}</small></summary><fieldset className="search-builder-section search-tags-section"><legend>Tag matching</legend><div className="search-mode"><span>Match</span><div className="search-mode-options"><label className={tagMatchValue === "one" ? "selected" : ""}><input type="radio" name="tagMatch" value="one" checked={tagMatchValue === "one"} onChange={() => setTagMatchValue("one")} /><span>Any selected tag</span></label><label className={tagMatchValue === "all" ? "selected" : ""}><input type="radio" name="tagMatch" value="all" checked={tagMatchValue === "all"} onChange={() => setTagMatchValue("all")} /><span>All selected tags</span></label></div></div><input name="tags" value={tagText} onChange={(event) => setTagText(event.target.value)} placeholder="Comma-separated tags" /></fieldset></details>
+    {what !== "Messages" && <details className="search-builder-accordion"><summary><span>Scope</span><small>{scopeValue === "world" ? "World" : scopeValue[0].toUpperCase() + scopeValue.slice(1)}{region ? ` · ${region}` : ""}</small></summary><fieldset className="search-builder-section"><legend>Where should results come from?</legend><div className="search-builder-grid"><label>Area<select name="scope" value={scopeValue} onChange={(event) => setScopeValue(event.target.value)}><option value="world">World</option><option value="continent">Continent</option><option value="country">Country</option><option value="region">Region</option><option value="radius">Distance around me</option></select></label><label>Region, country or city<input name="region" value={region} onChange={(event) => setRegion(event.target.value)} placeholder="Optional place" /></label><label>Distance in km<input name="radius" type="number" min="1" max="20000" placeholder="e.g. 50" /></label><label>Language<input name="language" placeholder="e.g. French" /></label></div></fieldset></details>}
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="search-builder-actions"><button className="button-secondary" type="button" onClick={(event) => { const form = event.currentTarget.form; if (!form) return; const criteria = criteriaFrom(form); if (criteria.scope === "radius" && (!criteria.radius || Number(criteria.radius) < 1)) { setError("Enter a distance in kilometres."); return; } if (["continent", "country", "region"].includes(criteria.scope) && !criteria.region) { setError("Enter a continent, country, or region for this search area."); return; } window.location.assign(`/circle/profiles/${encodeURIComponent(profileId)}/searches/results?criteria=${encodeURIComponent(JSON.stringify(criteria))}`); }}>See results</button><button className="button-primary" type="submit" disabled={saving}>{saving ? "Saving…" : "Save search"}</button></div>
   </form>;

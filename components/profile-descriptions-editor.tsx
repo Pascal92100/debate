@@ -3,18 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AccountDescription, DescriptionField, ProfileDescription, SocialCircle, SocialProfile } from "@/lib/social";
+import { contextThemeAccess, descriptionRelationships, descriptionThemeAccess, descriptionThemes, relationshipStatusOptions, type ThemeDefinition } from "@/lib/profile-description-taxonomy";
 import { ContentFilterOption, contentFilters } from "@/components/profile-create-form";
+export { contextThemeAccess, descriptionRelationships, descriptionThemeAccess, descriptionThemes, relationshipStatusOptions } from "@/lib/profile-description-taxonomy";
 
-export type ThemeDefinition = {
-  id: string;
-  label: string;
-  fields: Array<[string, string]>;
-  tags: string[];
-  fieldTags?: Record<string, string[]>;
-  fieldHints?: Record<string, string>;
-};
-
-export const relationshipStatusOptions = ["Single", "Married", "In relationship", "Open relationship", "Complicated"];
 const visibilityDurations = [["permanent", "Until switched off"], ["1h", "1 hour"], ["1d", "1 day"], ["1w", "1 week"]] as const;
 
 const identityFields: Array<[string, string, string]> = [
@@ -27,54 +19,6 @@ const identityFields: Array<[string, string, string]> = [
   ["languages", "Languages spoken", "text"],
   ["location", "Location", "text"]
 ];
-
-export const descriptionThemes: ThemeDefinition[] = [
-  { id: "physical", label: "Physical", fields: [["height", "Height"], ["weight", "Weight"], ["bodyShape", "Body shape"], ["eyes", "Eyes"], ["hair", "Hair"], ["origins", "Origins"], ["smoker", "Smoker"]], tags: [] },
-  { id: "culture", label: "Culture", fields: [["architecture", "Architecture"], ["sculpture", "Sculpture"], ["painting", "Painting"], ["music", "Music"], ["literature", "Literature"], ["theatre", "Theatre"], ["cinema", "Cinema"], ["series", "TV series"], ["media", "Media"], ["comics", "Comics"], ["videoGames", "Video games"], ["sciences", "Science"], ["other", "Other"]], tags: [], fieldTags: {
-    architecture: ["Classical", "Gothic", "Renaissance", "Modern", "Contemporary", "Art Deco", "Sustainable"],
-    sculpture: ["Classical", "Modern", "Contemporary", "Abstract", "Public art", "Installation"],
-    painting: ["Renaissance", "Impressionism", "Modern", "Contemporary", "Abstract", "Street art", "Photography"],
-    music: ["Classical", "Jazz", "Rock", "Pop", "Hip-hop", "Electronic", "Folk", "World music", "Live music"],
-    literature: ["Novels", "Poetry", "Essays", "History", "Science fiction", "Fantasy", "Mystery", "Biography"],
-    theatre: ["Classical", "Contemporary", "Comedy", "Musical", "Opera", "Dance", "Live performance"],
-    cinema: ["Drama", "Comedy", "Documentary", "Thriller", "Science fiction", "Animation", "Independent", "World cinema"],
-    series: ["Drama", "Comedy", "Documentary", "Crime", "Science fiction", "Fantasy", "Animation", "Mini-series"],
-    media: ["News", "Podcasts", "Radio", "Magazines", "Long-form", "Independent media"],
-    comics: ["Comics", "Graphic novels", "Manga", "Webcomics", "Independent"],
-    videoGames: ["Adventure", "Strategy", "Role-playing", "Puzzle", "Simulation", "Cooperative", "Indie"],
-    sciences: ["Physics", "Biology", "Astronomy", "Technology", "Psychology", "Environment", "Popular science"],
-    other: ["Museums", "Design", "Photography", "Crafts", "Heritage", "Festivals"]
-  } },
-  { id: "professional", label: "Professional", fields: [], tags: ["manager", "individual contributor", "freelance", "entrepreneur", "remote", "hybrid", "onsite", "tech", "creative", "consulting", "non-profit", "public sector", "education", "healthcare", "finance", "early career", "mid-career", "senior", "executive"] },
-  { id: "political", label: "Politics / Economy", fields: [], tags: ["far Left", "radical Left", "left", "center-left", "center", "center-right", "right", "radical Right", "Far right", "liberal", "conservative", "libertarian", "ecologist", "social-democrat", "socialist", "anarchist", "capitalist", "anti-capitalist", "pro-EU", "eurosceptic", "globalist", "localist", "apolitical"] },
-  { id: "sport", label: "Sports", fields: [], tags: ["sedentary", "beginner", "regular", "intense", "outdoor", "indoor", "team sports", "individual sports", "running", "cycling", "swimming", "fitness", "yoga", "combat sports", "ball sports", "mountain", "water sports", "competition", "just for fun"] },
-  { id: "spirituality", label: "Spirituality", fields: [], tags: ["atheist", "agnostic", "spiritual but not religious", "religious", "christian", "muslim", "jewish", "buddhist", "hindu", "other religion", "meditation", "mindfulness", "energy work", "esoteric", "rituals", "philosophy-oriented", "questioning", "practicing", "non-practicing"] },
-  { id: "psycho", label: "Psycho", fields: [], tags: ["adaptable", "affectionate", "ambitious", "ambivert", "analytical", "anxious", "assertive", "attentive", "calm", "chaotic", "confident", "creative", "curious", "dreamer", "emotional", "empathetic", "extrovert", "flexible", "grounded", "humorous", "idealistic", "independent", "introvert", "intuitive", "loyal", "mindful", "open-minded", "organized", "patient", "perfectionist", "playful", "pragmatic", "protective", "rational", "realistic", "reserved", "sensitive", "serious", "shy", "spontaneous", "stubborn", "deep talks", "intimate talks", "professional talks", "small talks"] },
-  { id: "sexo", label: "Sexuality", fields: [["desire", "Desire level"], ["modesty", "Modesty"], ["communication", "Communication"], ["touch", "Physical touch"]], fieldHints: { desire: "Interest and intensity", modesty: "Comfort with exposure", communication: "How openly you talk", touch: "Comfort with physical contact" }, tags: ["straight", "bi", "demi", "alter", "asexual", "homo", "pan", "sapio", "skolio", "monogamy", "non-monogamy", "polyamory", "exclusive", "open"] },
-  { id: "kinky", label: "Kinky · preferences and limits", fields: [], tags: ["Soft", "BDSM", "Roleplay", "Switch", "Dom", "Sub"] }
-];
-
-const relationships = [
-  ["friends", "Friends"], ["professional", "Professional"], ["oldfriends", "Old friends"], ["socializing", "Socializing"], ["friendship", "For friendship"], ["love", "For love"], ["casual", "For casual"], ["undecided", "Undecided"], ["casualfun", "For casual fun"]
-];
-const themeAccess: Record<string, string[]> = {
-  friends: [],
-  professional: ["professional"],
-  oldfriends: ["professional"],
-  socializing: ["culture", "political", "professional", "sexo"],
-  friendship: ["culture"],
-  love: ["physical", "culture", "psycho"],
-  casual: ["physical"],
-  undecided: ["physical", "culture", "psycho"],
-  casualfun: ["physical", "sexo", "kinky"]
-};
-
-const contextThemeAccess: Record<string, string[]> = {
-  Professional: ["professional", "culture", "political", "sport", "spirituality", "psycho", "physical"],
-  Personal: ["physical", "culture", "sport", "spirituality", "psycho"],
-  Political: ["political", "culture", "professional", "psycho"],
-  Dating: ["physical", "culture", "spirituality", "psycho", "sexo", "kinky"]
-};
 
 function defaultDescription(profile: SocialProfile): ProfileDescription {
   const values: Record<string, string> = {
@@ -143,7 +87,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
   const [error, setError] = useState("");
   const selectedGoals = document.relationship.split("|").filter(Boolean);
   const contextThemes = new Set(profile.kind === "individual" ? contextThemeAccess[profile.category] ?? [] : descriptionThemes.filter((theme) => !["sexo", "kinky"].includes(theme.id)).map((theme) => theme.id));
-  const allowedThemes = new Set(selectedGoals.flatMap((goal) => themeAccess[goal] ?? []).filter((themeId) => contextThemes.has(themeId)));
+  const allowedThemes = new Set(selectedGoals.flatMap((goal) => descriptionThemeAccess[goal] ?? []).filter((themeId) => contextThemes.has(themeId)));
   const isIndividual = profile.kind === "individual";
 
   function updateIdentity(key: string, patch: Partial<DescriptionField>) {
@@ -240,7 +184,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
         {showThemes && <div className="available-theme-list">
           <section className="presentation-goal-panel">
             <header className="description-section-header"><div><span className="description-section-icon">◎</span><div><h3>Presentation goal</h3><p>Choose the targeted people. This determines which description themes are available.</p></div></div></header>
-            <div className="relationship-picker"><p>Choose all that apply</p><div>{relationships.map(([value, label]) => <label className="goal-option" key={value}><input type="checkbox" checked={selectedGoals.includes(value)} onChange={(event) => setDocument((current) => {
+            <div className="relationship-picker"><p>Choose all that apply</p><div>{descriptionRelationships.map(([value, label]) => <label className="goal-option" key={value}><input type="checkbox" checked={selectedGoals.includes(value)} onChange={(event) => setDocument((current) => {
               const goals = current.relationship.split("|").filter(Boolean);
               const nextGoals = event.target.checked ? [...new Set([...goals, value])] : goals.filter((goal) => goal !== value);
               return { ...current, visibility: "other", relationship: nextGoals.join("|") };

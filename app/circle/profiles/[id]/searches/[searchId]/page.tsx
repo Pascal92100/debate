@@ -5,6 +5,7 @@ import { searchDiscoverableProfiles } from "@/lib/meta-profile-invitations";
 import { listProfileSearches } from "@/lib/profile-modules";
 import { listProfileSpacesForProfiles } from "@/lib/profile-spaces";
 import { listDiscussions } from "@/lib/discussions";
+import { descriptionRelationships, descriptionThemes as descriptionThemeCatalog } from "@/lib/profile-description-taxonomy";
 import { getPublicProfileView } from "@/lib/public-profile";
 import { listProfilesCached, listPublicSocialPosts } from "@/lib/social";
 
@@ -33,8 +34,9 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
   const savedKeywords = typeof criteria.keywords === "string" ? criteria.keywords.trim() : "";
   const query = savedKeywords || (searchId !== "results" && !Array.isArray(criteria.themes) ? searchName : "");
   const selectedThemes = values("theme");
-  const selectedAudiences = values("audience");
-  const selectedPurposes = values("purpose").filter((purpose) => purpose !== "none");
+  const descriptionGoal = String(criteria.descriptionGoal ?? values("audience")[0] ?? "friends");
+  const selectedDescriptionThemes = values("descriptionThemes");
+  const selectedDescriptionTags = values("descriptionTags");
   const selectedTargets = values("targets");
   const selectedFilters = values("filters");
   const selectedFormats = values("formats");
@@ -43,9 +45,8 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
   const visibility = String(criteria.visibility ?? "any");
   const region = typeof criteria.region === "string" ? criteria.region.trim().toLocaleLowerCase() : "";
   const language = typeof criteria.language === "string" ? criteria.language.trim().toLocaleLowerCase() : "";
-  const purposeAudiences: Record<string, string[]> = { employment: ["professional"], clients: ["professional"], suppliers: ["professional"], employees: ["professional"], "service-providers": ["professional"], study: ["professional"], opportunities: ["professional"], entertainment: ["socializing", "friendship"], information: ["socializing"], connect: ["socializing", "friendship"], meet: ["friendship", "love", "casual", "undecided"], hobbies: ["friendship", "socializing"], romantic: ["love"], friendship: ["friendship"], casual: ["casual", "casualfun"], feeling: ["undecided"] };
-  const requiredAudiences = [...new Set([...selectedAudiences, ...selectedPurposes.flatMap((purpose) => purposeAudiences[purpose] ?? [])])];
-  const selectedSummary = [...selectedThemes, ...selectedAudiences, ...selectedTargets, ...selectedFormats];
+  const descriptionGoalLabel = String(descriptionRelationships.find(([goal]) => goal === descriptionGoal)?.[1] ?? descriptionGoal);
+  const selectedSummary = [...selectedThemes, ...(what === "Profiles" ? [descriptionGoalLabel, ...selectedDescriptionThemes.map((themeId) => descriptionThemeCatalog.find((theme) => theme.id === themeId)?.label ?? themeId), ...(selectedDescriptionTags.length ? [`${selectedDescriptionTags.length} description tags`] : [])] : []), ...selectedTargets, ...selectedFormats];
   const returnHref = searchId === "results"
     ? `/circle/profiles/${encodeURIComponent(id)}/searches`
     : `/circle/profiles/${encodeURIComponent(id)}/searches`;
@@ -58,6 +59,18 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
     return matches(description) && (!region || description.toLocaleLowerCase().includes(region)) && (!selectedFormats.length || selectedFormats.some((selected) => availableFormats.includes(selected))) && !selectedFilters.some((filter) => normalizedSafety.includes(filter));
   };
   const themeMatches = (theme: string) => !selectedThemes.length || selectedThemes.includes(theme) || selectedThemes.some((selected) => selected.includes(theme) || theme.includes(selected));
+  const descriptionMatches = (description: import("@/lib/public-profile").VisibleDescription | null) => {
+    if (descriptionGoal !== "friends" && !description?.audience.includes(descriptionGoal)) return false;
+    if (selectedDescriptionThemes.length && !description?.themes.some((theme) => selectedDescriptionThemes.includes(theme.id))) return false;
+    if (!selectedDescriptionTags.length) return true;
+    const hasTag = (selection: string) => {
+      const separator = selection.indexOf(":");
+      const themeId = selection.slice(0, separator);
+      const suffix = selection.slice(separator + 1);
+      return description?.themes.some((theme) => theme.id === themeId && theme.tags.some((tag) => tag === selection || tag === suffix || tag.endsWith(`:${suffix}`))) ?? false;
+    };
+    return tagMatch === "all" ? selectedDescriptionTags.every(hasTag) : selectedDescriptionTags.some(hasTag);
+  };
   const allowedMessage = (message: { body: string; safetyTags?: string[]; targetTags?: string[] }) => !selectedFilters.some((filter) => message.safetyTags?.includes(filter)) && (!selectedTargets.length || (tagMatch === "all" ? selectedTargets.every((target) => message.targetTags?.includes(target)) : selectedTargets.some((target) => message.targetTags?.includes(target))));
   let profileResults: Awaited<ReturnType<typeof searchDiscoverableProfiles>> = [];
   let contentResults: Array<{ id: string; title: string; detail: string; href: string }> = [];
@@ -68,11 +81,10 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
     const visibleProfiles = await Promise.all(profileResults.map(async (candidate) => ({ candidate, view: await getPublicProfileView(candidate.id, false, false, id, true) })));
     profileResults = visibleProfiles.filter(({ candidate, view }) => {
       if (visibility !== "any" && candidate.visibility !== visibility) return false;
-      if (requiredAudiences.length && !requiredAudiences.some((audience) => view?.description?.audience.includes(audience))) return false;
+      if (!descriptionMatches(view?.description ?? null)) return false;
       const descriptionText = view?.description ? [view.description.text, ...view.description.identity.map((field) => `${field.label} ${field.value}`), ...view.description.themes.flatMap((theme) => [theme.label, theme.description, ...theme.fields, ...theme.tags])].join(" ") : `${candidate.name} ${candidate.category}`;
       if (!isIncluded(`${candidate.name} ${candidate.category} ${descriptionText}`, "text", [])) return false;
       if (language && !descriptionText.toLocaleLowerCase().includes(language)) return false;
-      if (selectedThemes.length && !selectedThemes.some((theme) => descriptionText.toLocaleLowerCase().includes(theme.replaceAll("-", " ").split(" ")[0]))) return false;
       if (!matchTags(descriptionText.toLocaleLowerCase())) return false;
       if (selectedTargets.length) {
         const signalValues: Record<string, number> = { useful: view?.signals.useful ?? 0, inspiring: view?.signals.inspiring ?? 0, interesting: view?.signals.interesting ?? 0, feelgood: view?.signals.feelGood ?? 0 };
