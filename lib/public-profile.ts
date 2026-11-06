@@ -3,10 +3,11 @@ import { getSessionAccountId } from "@/lib/auth";
 import { database, isPersistentStore, type Debate } from "@/lib/debates";
 import type { SimpleDiscussion } from "@/lib/discussions";
 import { listProfileSpaces, type ProfileSpace } from "@/lib/profile-spaces";
-import { listProfileEvents, listPublicProfileSearches, type ProfileEvent, type SavedProfileSearch } from "@/lib/profile-modules";
+import { listProfileEvents, type ProfileEvent } from "@/lib/profile-modules";
 import { listProfilesCached, type ProfileDescription, type SocialCircle, type SocialPost, type SocialProfile } from "@/lib/social";
 import type { MediaAttachment } from "@/lib/media";
 import { contactDistances } from "@/lib/meta-profile-invitations";
+import { listSocialPostReactionData } from "@/lib/social";
 
 export type VisibleDescription = {
   text: string;
@@ -16,22 +17,21 @@ export type VisibleDescription = {
 };
 
 export type VisibleMember = {
-  profile: Pick<SocialProfile, "id" | "name" | "avatar" | "category" | "kind" | "bio">;
+  profile: Pick<SocialProfile, "id" | "name" | "avatar" | "category" | "kind">;
   description: VisibleDescription | null;
 };
 
 export type PublicProfileView = {
-  profile: Pick<SocialProfile, "id" | "name" | "avatar" | "avatarUrl" | "category" | "kind" | "bio" | "visibility" | "relationship" | "createdAt" | "lastSeenAt"> & { members: string[] };
+  profile: Pick<SocialProfile, "id" | "name" | "avatar" | "avatarUrl" | "category" | "kind" | "visibility" | "createdAt" | "lastSeenAt"> & { members: string[] };
   description: VisibleDescription | null;
   members: VisibleMember[];
-  relatedMetaProfiles: Array<Pick<SocialProfile, "id" | "name" | "avatar" | "category" | "kind" | "bio">>;
-  posts: Array<Pick<SocialPost, "id" | "title" | "body" | "author" | "createdAt" | "media" | "circleName">>;
+  relatedMetaProfiles: Array<Pick<SocialProfile, "id" | "name" | "avatar" | "category" | "kind">>;
+  posts: Array<Pick<SocialPost, "id" | "title" | "body" | "author" | "createdAt" | "media" | "circleName" | "reactions"> & { viewerReaction: string | null }>;
   debates: Array<Pick<Debate, "id" | "title" | "content" | "from" | "timestamp" | "media">>;
   discussions: SimpleDiscussion[];
   circles: SocialCircle[];
   forums: ProfileSpace[];
   events: ProfileEvent[];
-  searches: Array<Pick<SavedProfileSearch, "id" | "name" | "criteria" | "updatedAt">>;
   contacts: Array<Pick<SocialProfile, "id" | "name" | "avatar" | "category" | "kind">>;
   signals: { toxic: number; shocking: number; feelGood: number; inspiring: number; useful: number; interesting: number };
 };
@@ -89,11 +89,9 @@ function publicProfile(profile: SocialProfile) {
     avatarUrl: profile.avatarUrl,
     category: profile.category,
     kind: profile.kind,
-    bio: profile.bio,
     createdAt: profile.createdAt,
     lastSeenAt: profile.lastSeenAt,
     visibility: profile.visibility,
-    relationship: profile.relationship,
     members: profile.members ?? []
   };
 }
@@ -157,11 +155,10 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
     && !(baseProfile.socialDistance >= 2 && isSecondDegreeContact);
   if (!allowJoinedMetaProfile && !isViewingOwnProfile && !privacyAllowsView && !relativesLinkAllowsView) return null;
 
-  const [storedDescription, forums, existingEvents, existingSearches] = await Promise.all([
+  const [storedDescription, forums, existingEvents] = await Promise.all([
     loadStoredDescription(profileId),
     listProfileSpaces(profileId, "forums"),
-    listProfileEvents(profileId),
-    listPublicProfileSearches(profileId)
+    listProfileEvents(profileId)
   ]);
   const description = visibleDescription(storedDescription);
   let visibleForums = forums;
@@ -173,7 +170,6 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
   let discussions: SimpleDiscussion[] = [];
   let circles: SocialCircle[] = [];
   let events: ProfileEvent[] = existingEvents;
-  let searches: PublicProfileView["searches"] = existingSearches;
   let contacts: PublicProfileView["contacts"] = [];
   const signals: PublicProfileView["signals"] = { toxic: 0, shocking: 0, feelGood: 0, inspiring: 0, useful: 0, interesting: 0 };
 
@@ -206,10 +202,9 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
         signals.useful += post.reactions?.["🔑"] ?? 0;
         signals.interesting += post.reactions?.["🎓"] ?? 0;
       }
-      posts = publicPosts.map(({ id, title, body, author, createdAt, media, circleName }) => ({ id, title, body, author, createdAt, media, circleName }));
-      const globalModules = globalThis as typeof globalThis & { __profileModules?: { events?: ProfileEvent[]; searches?: SavedProfileSearch[] } };
+      posts = publicPosts.map(({ id, title, body, author, createdAt, media, circleName, reactions }) => ({ id, title, body, author, createdAt, media, circleName, reactions, viewerReaction: null }));
+      const globalModules = globalThis as typeof globalThis & { __profileModules?: { events?: ProfileEvent[] } };
       events = (globalModules.__profileModules?.events ?? []).filter((event) => event.profileId === profileId);
-      searches = (globalModules.__profileModules?.searches ?? []).filter((search) => search.profileId === profileId);
     }
     const debateStore = globalThis as typeof globalThis & { __debateStore?: { debates: Debate[] } };
     debates = (debateStore.__debateStore?.debates ?? []).filter((debate) => debate.authorProfileId === profileId && !debate.circleId).map(({ id, title, content, from, timestamp, media }) => ({ id, title, content, from, timestamp, media }));
@@ -245,7 +240,7 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
       signals.shocking += post.reactions?.["⚠️"] ?? 0;
       signals.feelGood += post.reactions?.["☀️"] ?? 0;
       signals.inspiring += post.reactions?.["💡"] ?? 0;
-      return { id: post.id, title: post.title, body: post.body, author: post.author, createdAt: post.createdAt, media: post.media, circleName: post.circleName };
+      return { id: post.id, title: post.title, body: post.body, author: post.author, createdAt: post.createdAt, media: post.media, circleName: post.circleName, reactions: post.reactions, viewerReaction: null };
     });
     const reactionRows = await sql`SELECT reaction, COUNT(*)::int AS count FROM social_post_reactions r JOIN social_posts p ON p.id = r.post_id WHERE p.profile_id = ${profileId} AND p.visibility = 'public' AND p.circle_id IS NULL AND reaction = ANY(${["❌", "⚠️", "☀️", "💡"]}) GROUP BY reaction`;
     for (const row of reactionRows) {
@@ -271,10 +266,17 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
   }
 
   const memberViews = await Promise.all(memberProfiles.map(async (member) => ({
-    profile: { id: member.id, name: member.name, avatar: member.avatar, category: member.category, kind: member.kind, bio: member.bio },
+    profile: { id: member.id, name: member.name, avatar: member.avatar, category: member.category, kind: member.kind },
     description: visibleDescription(await loadStoredDescription(member.id))
   })));
-  const metaProfiles = relatedMetaProfiles.map((item) => ({ id: item.id, name: item.name, avatar: item.avatar, category: item.category, kind: item.kind, bio: item.bio }));
+  const metaProfiles = relatedMetaProfiles.map((item) => ({ id: item.id, name: item.name, avatar: item.avatar, category: item.category, kind: item.kind }));
+  const reactionData = await listSocialPostReactionData(posts.map((post) => post.id), viewerProfileId);
+  posts = posts.map((post) => {
+    const data = reactionData[post.id];
+    const reactions = { ...(post.reactions ?? {}) };
+    for (const [reaction, count] of Object.entries(data?.counts ?? {})) reactions[reaction] = (reactions[reaction] ?? 0) + count;
+    return { ...post, reactions, viewerReaction: data?.viewerReaction ?? null };
+  });
 
   const safeProfile = publicProfile(baseProfile);
   safeProfile.members = memberProfiles.map((member) => member.id);
@@ -289,7 +291,6 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
     circles,
     forums: visibleForums,
     events,
-    searches,
     contacts,
     signals
   };

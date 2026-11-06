@@ -171,7 +171,12 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .circle-card-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 17px; color: var(--muted); font-size: 9px; }
 .circle-card-footer a { color: var(--green); font-weight: 700; }
 .social-profile-directory { display: grid; gap: 8px; margin-top: 20px; }
-.social-profile-card { display: grid; grid-template-columns: 48px minmax(0, 1fr) 190px; align-items: center; gap: 13px; padding: 13px; border: 1px solid var(--line); background: var(--surface); }
+.social-profile-card { display: grid; grid-template-columns: 48px minmax(0, 1fr) 16px; align-items: center; gap: 13px; padding: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; transition: background .15s ease; }
+.social-profile-card:hover { background: #edf2eb; }
+.social-profile-card:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.social-profile-result-copy { display: grid; min-width: 0; gap: 3px; }
+.social-profile-result-copy strong { font-family: "Newsreader", Georgia, serif; font-size: 18px; font-weight: 500; }
+.social-profile-result-copy small { color: var(--muted); font-size: 10px; }
 .meta-profile-account-heading { margin-bottom: 10px; padding-bottom: 9px; }
 .meta-profile-account-heading h1 { font-size: 30px; }
 .meta-profile-create-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 12px; color: var(--muted); font-size: 10px; }
@@ -291,6 +296,12 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .public-content-item { display: grid; gap: 6px; }
 .public-content-item > strong { font-family: "Newsreader", Georgia, serif; font-size: 17px; font-weight: 500; }
 .public-content-item > small, .public-discussion-message > small { color: var(--muted); font-size: 9px; }
+.public-reaction-profile { margin: 0 0 10px; }
+.public-reaction-profile label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
+.public-reaction-profile select { min-height: 30px; max-width: min(260px, 60vw); padding: 4px 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.public-post-reactions { padding-top: 5px; border-top: 1px solid var(--line); }
+.public-post-reactions button[aria-pressed="true"] { border-color: var(--green); background: #e8f0e7; }
+.public-post-reactions button:disabled { opacity: .6; cursor: wait; }
 .public-discussion-message { padding: 8px 0; border-top: 1px solid var(--line); }
 .public-profile-page .profile-detail-header { margin-bottom: 20px; }
 .saved-search-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 5px 12px; }
@@ -836,7 +847,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
   .social-section-heading { align-items: start; }
   .social-section-heading .button-primary { flex: none; }
   .circle-directory { grid-template-columns: 1fr; }
-  .social-profile-card { grid-template-columns: 45px minmax(0, 1fr); }
+  .social-profile-card { grid-template-columns: 45px minmax(0, 1fr) 16px; }
   .profile-visibility { grid-column: 2; text-align: left; }
   .profile-create-form .social-form-row { grid-template-columns: 1fr; }
   .circle-account-shell { width: calc(100% - 28px); margin-top: 24px; }

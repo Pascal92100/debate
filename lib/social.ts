@@ -1017,3 +1017,30 @@ export async function toggleSocialReaction(postId: string, reaction: string, pro
   for (const item of state.reactions.filter((entry) => entry.postId === postId)) totals[item.reaction] = (totals[item.reaction] ?? 0) + 1;
   return totals;
 }
+
+export async function listSocialPostReactionData(postIds: string[], profileId?: string) {
+  const result: Record<string, { counts: Record<string, number>; viewerReaction: string | null }> = {};
+  for (const postId of postIds) result[postId] = { counts: {}, viewerReaction: null };
+  if (!postIds.length) return result;
+
+  const sql = await useDatabase();
+  if (sql) {
+    const [countRows, viewerRows] = await Promise.all([
+      sql`SELECT post_id AS "postId", reaction, COUNT(*)::int AS count FROM social_post_reactions WHERE post_id = ANY(${postIds}) GROUP BY post_id, reaction`,
+      profileId ? sql`SELECT post_id AS "postId", reaction FROM social_post_reactions WHERE post_id = ANY(${postIds}) AND profile_id = ${profileId}` : Promise.resolve([])
+    ]);
+    for (const row of countRows) {
+      if (result[row.postId as string]) result[row.postId as string].counts[row.reaction as string] = Number(row.count);
+    }
+    for (const row of viewerRows) {
+      if (result[row.postId as string]) result[row.postId as string].viewerReaction = row.reaction as string;
+    }
+    return result;
+  }
+
+  for (const reaction of state.reactions.filter((item) => postIds.includes(item.postId))) {
+    result[reaction.postId].counts[reaction.reaction] = (result[reaction.postId].counts[reaction.reaction] ?? 0) + 1;
+    if (reaction.profileId === profileId) result[reaction.postId].viewerReaction = reaction.reaction;
+  }
+  return result;
+}

@@ -24,14 +24,15 @@ export default async function CircleProfilePage({ params, searchParams }: { para
   const isOwner = Boolean(profile && accountId && profile.accountId === accountId);
   const publicPreview = isOwner && query.view === "public";
   if (!isOwner || publicPreview) {
-    const explicitSourceProfile = profiles.find((item) => item.id === query.from && item.kind === "individual");
+    const viewerProfiles = profiles.filter((item) => item.kind === "individual" && item.accountId === accountId).map(({ id, name }) => ({ id, name }));
+    const explicitSourceProfile = profiles.find((item) => item.id === query.from && item.kind === "individual" && item.accountId === accountId);
     const joinedRepresentative = profile?.kind === "meta"
       ? profile.members?.map((memberId) => profiles.find((item) => item.id === memberId && item.kind === "individual" && item.accountId === accountId)).find(Boolean)
       : undefined;
     const sourceProfile = explicitSourceProfile ?? joinedRepresentative;
     const sourceMetaProfiles = sourceProfile ? await listMetaProfilesForMember(sourceProfile.id) : [];
     const joinedMetaProfile = Boolean(profile?.kind === "meta" && sourceMetaProfiles.some((meta) => meta.id === profile.id));
-    const viewerProfileId = sourceProfile?.id ?? (publicPreview && profile?.kind === "individual" ? profile.id : undefined);
+    const viewerProfileId = sourceProfile?.id ?? (publicPreview && profile?.kind === "individual" ? profile.id : viewerProfiles[0]?.id);
     const publicView = await getPublicProfileView(id, joinedMetaProfile, publicPreview, viewerProfileId, query.view === "public");
     if (!publicView) notFound();
     const returnTo = safeReturnTo(query.returnTo) ?? (joinedMetaProfile ? "/circle/meta-profiles" : sourceProfile ? `/circle/profiles/${encodeURIComponent(sourceProfile.id)}` : "/social");
@@ -39,7 +40,7 @@ export default async function CircleProfilePage({ params, searchParams }: { para
     if (viewerProfileId) currentQuery.set("from", viewerProfileId);
     currentQuery.set("returnTo", returnTo);
     const currentUrl = `/circle/profiles/${encodeURIComponent(id)}?${currentQuery.toString()}`;
-    return <PublicProfileView view={publicView} returnTo={returnTo} currentUrl={currentUrl} viewerProfileId={viewerProfileId} isMemberOfMetaProfile={joinedMetaProfile} />;
+    return <PublicProfileView view={publicView} returnTo={returnTo} currentUrl={currentUrl} viewerProfileId={viewerProfileId} viewerProfiles={viewerProfiles} isMemberOfMetaProfile={joinedMetaProfile} />;
   }
   if (!profile) notFound();
   if (isOwner && !publicPreview) await markProfileActive(profile.id);
