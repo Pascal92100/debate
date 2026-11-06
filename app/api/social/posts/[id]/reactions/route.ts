@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionAccountId, getSocialPost, listProfiles, listSocialPostReactionData, toggleSocialReaction } from "@/lib/social";
+import { getPublicSocialPost, getSessionAccountId, listProfiles, listSocialPostReactionData, toggleSocialReaction } from "@/lib/social";
 
 export const runtime = "nodejs";
 
@@ -7,8 +7,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const body = await request.json().catch(() => null);
   if (!body || typeof body.reaction !== "string") return NextResponse.json({ error: "Invalid reaction." }, { status: 400 });
-  const post = await getSocialPost(id);
-  if (!post || post.visibility !== "public" || post.circleId) return NextResponse.json({ error: "Post not found." }, { status: 404 });
+  const post = await getPublicSocialPost(id);
+  if (!post) return NextResponse.json({ error: "Post not found." }, { status: 404 });
   try {
     const accountId = process.env.DATABASE_URL ? await getSessionAccountId() : "account-demo";
     if (process.env.DATABASE_URL && !accountId) return NextResponse.json({ error: "Authentication required." }, { status: 401 });

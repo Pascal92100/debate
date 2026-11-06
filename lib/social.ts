@@ -795,6 +795,16 @@ export async function getSocialPost(id: string) {
   return (rows[0]?.payload as SocialPost | undefined) ?? null;
 }
 
+export async function getPublicSocialPost(id: string) {
+  const sql = await useDatabase();
+  if (!sql) {
+    const post = state.posts.find((item) => item.id === id && item.visibility === "public" && !item.circleId);
+    return structuredClone(post ?? null);
+  }
+  const rows = await sql`SELECT payload FROM social_posts WHERE id = ${id} AND visibility = 'public' AND circle_id IS NULL LIMIT 1`;
+  return (rows[0]?.payload as SocialPost | undefined) ?? null;
+}
+
 export async function createSocialPost(input: { title: string; body: string; circleId?: string | null; profileId?: string; kind?: SocialPost["kind"]; visibility?: string; media?: MediaAttachment[]; formats?: string[]; metadata?: SocialPost["metadata"] }) {
   const circles = await listCircles();
   const circle = circles.find((item) => item.id === input.circleId) ?? null;

@@ -299,9 +299,16 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .public-reaction-profile { margin: 0 0 10px; }
 .public-reaction-profile label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
 .public-reaction-profile select { min-height: 30px; max-width: min(260px, 60vw); padding: 4px 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.public-reaction-tools { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 5px; }
 .public-post-reactions { padding-top: 5px; border-top: 1px solid var(--line); }
 .public-post-reactions button[aria-pressed="true"] { border-color: var(--green); background: #e8f0e7; }
 .public-post-reactions button:disabled { opacity: .6; cursor: wait; }
+.public-reaction-help-button { display: inline-grid; flex: 0 0 22px; width: 22px; height: 22px; margin-top: 4px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--muted); font: 700 11px/1 "DM Sans", sans-serif; cursor: pointer; }
+.public-reaction-help-button:hover, .public-reaction-help-button[aria-expanded="true"] { border-color: var(--green); color: var(--green); }
+.public-reaction-legend { flex: 1 0 100%; max-width: 380px; padding: 9px 11px; border: 1px solid var(--line); background: var(--surface); }
+.public-reaction-legend > strong { font-size: 10px; }
+.public-reaction-legend ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 12px; margin: 7px 0 0; padding: 0; list-style: none; }
+.public-reaction-legend li { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--muted); font-size: 10px; }
 .public-discussion-message { padding: 8px 0; border-top: 1px solid var(--line); }
 .public-profile-page .profile-detail-header { margin-bottom: 20px; }
 .saved-search-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 5px 12px; }

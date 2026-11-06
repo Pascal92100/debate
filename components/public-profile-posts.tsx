@@ -16,6 +16,7 @@ export function PublicProfilePosts({ posts, viewerProfiles, initialProfileId }: 
   const [reactionStates, setReactionStates] = useState<Record<string, ReactionState>>(() => Object.fromEntries(posts.map((post) => [post.id, { reactions: post.reactions ?? {}, viewerReaction: post.viewerReaction }])));
   const [busyPostId, setBusyPostId] = useState("");
   const [error, setError] = useState("");
+  const [showReactionHelp, setShowReactionHelp] = useState(false);
 
   useEffect(() => {
     if (!profileId || posts.length === 0) return;
@@ -62,7 +63,11 @@ export function PublicProfilePosts({ posts, viewerProfiles, initialProfileId }: 
         <strong>{post.title}</strong>
         {post.body && <p>{post.body}</p>}
         <MediaGallery media={post.media} compact />
-        {viewerProfiles.length > 0 && <div className="social-reactions public-post-reactions" aria-label="Reactions">{reactions.map(([emoji, label]) => <button type="button" key={emoji} title={`React: ${label}`} aria-label={`React: ${label}`} aria-pressed={state.viewerReaction === emoji} className={state.viewerReaction === emoji ? "selected" : ""} disabled={busyPostId === post.id} onClick={() => void react(post.id, emoji)}>{emoji}{state.reactions[emoji] ? <small>{state.reactions[emoji]}</small> : null}</button>)}</div>}
+        {viewerProfiles.length > 0 && <div className="public-reaction-tools">
+          <div className="social-reactions public-post-reactions" aria-label="Reactions">{reactions.map(([emoji, label]) => <button type="button" key={emoji} title={`React: ${label}`} aria-label={`React: ${label}`} aria-pressed={state.viewerReaction === emoji} className={state.viewerReaction === emoji ? "selected" : ""} disabled={busyPostId === post.id} onClick={() => void react(post.id, emoji)}>{emoji}{state.reactions[emoji] ? <small>{state.reactions[emoji]}</small> : null}</button>)}</div>
+          <button type="button" className="public-reaction-help-button" aria-label="Reaction meanings" aria-expanded={showReactionHelp} onClick={() => setShowReactionHelp((visible) => !visible)}>i</button>
+          {showReactionHelp && <div className="public-reaction-legend" role="note"><strong>Reaction meanings</strong><ul>{reactions.map(([emoji, label]) => <li key={emoji}><span aria-hidden="true">{emoji}</span><span>{label}</span></li>)}</ul></div>}
+        </div>}
       </article>;
     })}</div>
     {error && <p className="form-error" role="status">{error}</p>}

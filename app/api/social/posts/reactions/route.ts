@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionAccountId, getSocialPost, listProfiles, listSocialPostReactionData } from "@/lib/social";
+import { getPublicSocialPost, getSessionAccountId, listProfiles, listSocialPostReactionData } from "@/lib/social";
 import { isPersistentStore } from "@/lib/debates";
 
 export const runtime = "nodejs";
@@ -18,8 +18,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Profile not found." }, { status: 404 });
   }
 
-  const publicPosts = (await Promise.all(postIds.map((id) => getSocialPost(id))))
-    .filter((post): post is NonNullable<typeof post> => Boolean(post && post.visibility === "public" && !post.circleId));
+  const publicPosts = (await Promise.all(postIds.map((id) => getPublicSocialPost(id))))
+    .filter((post): post is NonNullable<typeof post> => Boolean(post));
   const data = await listSocialPostReactionData(publicPosts.map((post) => post.id), profileId);
   const reactions = Object.fromEntries(publicPosts.map((post) => {
     const totals = { ...(post.reactions ?? {}) };
