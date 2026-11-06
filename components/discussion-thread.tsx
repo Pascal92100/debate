@@ -7,6 +7,7 @@ import { MediaGallery } from "@/components/media-gallery";
 import type { MediaAttachment } from "@/lib/media";
 import type { SimpleDiscussion } from "@/lib/discussions";
 import type { SocialProfile } from "@/lib/social";
+import { ContentFilterOption, contentFilters } from "@/components/profile-create-form";
 
 export function DiscussionThread({ initialDiscussion, profiles, authorProfileId }: { initialDiscussion: SimpleDiscussion; profiles: SocialProfile[]; authorProfileId: string }) {
   const [discussion, setDiscussion] = useState(initialDiscussion);
@@ -15,6 +16,8 @@ export function DiscussionThread({ initialDiscussion, profiles, authorProfileId 
   const [error, setError] = useState("");
   const [activeMessageId, setActiveMessageId] = useState("");
   const [media, setMedia] = useState<MediaAttachment[]>([]);
+  const [targetTags, setTargetTags] = useState<string[]>([]);
+  const [safetyTags, setSafetyTags] = useState<string[]>([]);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileId = profiles.some((profile) => profile.id === authorProfileId) ? authorProfileId : "";
   const ownedProfileIds = profiles.map((profile) => profile.id);
@@ -37,7 +40,7 @@ export function DiscussionThread({ initialDiscussion, profiles, authorProfileId 
     const response = await fetch(`/api/discussions/${encodeURIComponent(discussion.id)}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId, body, media, replyToId: replyTo?.id })
+      body: JSON.stringify({ profileId, body, media, replyToId: replyTo?.id, targetTags, safetyTags })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
@@ -48,6 +51,8 @@ export function DiscussionThread({ initialDiscussion, profiles, authorProfileId 
     setDiscussion((current) => ({ ...current, updatedAt: result.message.createdAt, messages: [...current.messages, result.message] }));
     setReplyTo(null);
     setMedia([]);
+    setTargetTags([]);
+    setSafetyTags([]);
     form.reset();
     setBusy(false);
   }
@@ -62,6 +67,6 @@ export function DiscussionThread({ initialDiscussion, profiles, authorProfileId 
     </article>)}</div>
     {!discussion.messages.length && <p className="account-empty">This discussion has no messages yet.</p>}
     {replyTo && <div className="discussion-reply-preview"><span><strong>Replying to {replyTo.author}</strong>{replyTo.body}</span><button className="text-action" type="button" onClick={() => setReplyTo(null)}>Cancel reply</button></div>}
-    <form className="discussion-composer" onSubmit={send}><label htmlFor="discussion-message">Message</label><textarea id="discussion-message" name="message" maxLength={5000} placeholder="Write a message…" /><MediaPicker profileId={profileId} media={media} onChange={setMedia} compact /><div><span>{error && <span className="form-error" role="alert">{error}</span>}</span><button className="button-primary" type="submit" disabled={busy || !profileId}>{busy ? "Sending…" : "Send message"}</button></div></form>
+    <form className="discussion-composer" onSubmit={send}><label htmlFor="discussion-message">Message</label><textarea id="discussion-message" name="message" maxLength={5000} placeholder="Write a message…" /><fieldset className="search-message-targets"><legend>Target</legend>{[["🔑", "useful", "Useful"], ["💡", "inspiring", "Inspiring"], ["🎓", "interesting", "Interesting"], ["☀️", "feelgood", "Feel-good"]].map(([emoji, id, label]) => <label key={id} title={label}><input type="checkbox" checked={targetTags.includes(id)} onChange={(event) => setTargetTags((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} /><span aria-hidden="true">{emoji}</span>{label}</label>)}</fieldset><fieldset className="publication-format-picker"><legend>Safety tags</legend><div className="content-filter-options">{contentFilters.map(([id, emoji, description]) => <ContentFilterOption key={id} id={`message-${id}`} emoji={emoji} text={description} selected={safetyTags.includes(id)} onToggle={(checked) => setSafetyTags((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset><MediaPicker profileId={profileId} media={media} onChange={setMedia} compact /><div><span>{error && <span className="form-error" role="alert">{error}</span>}</span><button className="button-primary" type="submit" disabled={busy || !profileId}>{busy ? "Sending…" : "Send message"}</button></div></form>
   </>;
 }

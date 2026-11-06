@@ -11,6 +11,8 @@ export type DiscussionMessage = {
   author: string;
   body: string;
   media: MediaAttachment[];
+  targetTags?: string[];
+  safetyTags?: string[];
   replyTo: { id: string; author: string; excerpt: string } | null;
   createdAt: string;
 };
@@ -20,6 +22,7 @@ export type SimpleDiscussion = {
   profileId: string;
   circleId: string | null;
   title: string;
+  theme?: string;
   createdAt: string;
   updatedAt: string;
   messages: DiscussionMessage[];
@@ -111,7 +114,7 @@ export async function getDiscussion(id: string): Promise<SimpleDiscussion | null
   return sortDiscussion({ ...row, createdAt: new Date(row.createdAt as string).toISOString(), updatedAt: new Date(row.updatedAt as string).toISOString(), messages: messages.map((message) => message.payload as DiscussionMessage) } as SimpleDiscussion);
 }
 
-export async function createDiscussion(input: { profileId: string; title: string; body: string; circleId?: string | null }) {
+export async function createDiscussion(input: { profileId: string; title: string; body: string; circleId?: string | null; theme?: string }) {
   const profiles = await listProfiles();
   const profile = profiles.find((item) => item.id === input.profileId);
   if (!profile) return null;
@@ -129,7 +132,7 @@ export async function createDiscussion(input: { profileId: string; title: string
     replyTo: null,
     createdAt: now
   };
-  const discussion: SimpleDiscussion = { id: discussionId, profileId: profile.id, circleId, title: input.title.trim(), createdAt: now, updatedAt: now, messages: [message] };
+  const discussion: SimpleDiscussion = { id: discussionId, profileId: profile.id, circleId, title: input.title.trim(), theme: input.theme || "lifestyle-ideas", createdAt: now, updatedAt: now, messages: [message] };
   const persistent = await isPersistentStore();
   const sql = persistent ? await ensureSchema() : null;
   if (sql) {
@@ -149,7 +152,7 @@ export async function createDiscussion(input: { profileId: string; title: string
   return discussion;
 }
 
-export async function addDiscussionMessage(discussionId: string, input: { profileId: string; body: string; media?: MediaAttachment[]; replyToId?: string }) {
+export async function addDiscussionMessage(discussionId: string, input: { profileId: string; body: string; media?: MediaAttachment[]; replyToId?: string; targetTags?: string[]; safetyTags?: string[] }) {
   const discussion = await getDiscussion(discussionId);
   const profiles = await listProfiles();
   const profile = profiles.find((item) => item.id === input.profileId);
@@ -164,6 +167,8 @@ export async function addDiscussionMessage(discussionId: string, input: { profil
     author: profile.name,
     body: input.body.trim(),
     media: input.media ?? [],
+    targetTags: input.targetTags ?? [],
+    safetyTags: input.safetyTags ?? [],
     replyTo: target ? { id: target.id, author: target.author, excerpt: target.body.slice(0, 180) } : null,
     createdAt: now
   };

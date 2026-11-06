@@ -23,7 +23,7 @@ export function ProfileDiscussions({ profile, initialDiscussions, debates, circl
     const response = await fetch("/api/discussions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId: profile.id, title: form.get("title"), body: form.get("body"), circleId: form.get("circleId") || null })
+      body: JSON.stringify({ profileId: profile.id, title: form.get("title"), body: form.get("body"), circleId: form.get("circleId") || null, theme: form.get("theme") })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
@@ -44,6 +44,7 @@ export function ProfileDiscussions({ profile, initialDiscussions, debates, circl
       <div className="account-section-heading"><div><p className="eyebrow">Simple conversations</p><h2>Discussions <span className="section-count">{discussions.length}</span></h2></div><button className="section-add-button" type="button" aria-label={creating ? "Cancel new discussion" : "New discussion"} title={creating ? "Cancel" : "New discussion"} onClick={() => setCreating((current) => !current)}>{creating ? "×" : "+"}</button></div>
       {creating && <form className="social-compose-form discussion-create-form" onSubmit={submit}>
       <label>Discussion title<input name="title" required minLength={2} maxLength={140} placeholder="What would you like to talk about?" /></label>
+      <label>Theme<select name="theme"><option value="politics-society">Politics / society</option><option value="culture-entertainment">Culture / entertainment</option><option value="sports">Sport</option><option value="science-health">Science / health</option><option value="economy-tech">Economy / work / tech</option><option value="lifestyle-ideas">Lifestyle / ideas</option><option value="other">Other</option></select></label>
       <label>Share with Circle<select name="circleId"><option value="">Only this profile</option>{circles.map((circle) => <option value={circle.id} key={circle.id}>{circle.name}</option>)}</select></label>
       <label>First message<textarea name="body" required minLength={1} maxLength={5000} placeholder="Write the opening message…" /></label>
       {error && <p className="form-error" role="alert">{error}</p>}

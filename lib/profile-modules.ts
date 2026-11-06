@@ -84,6 +84,14 @@ export async function listProfileSearches(profileId: string): Promise<SavedProfi
   return rows.map((row) => ({ ...row, updatedAt: new Date(row.updatedAt as string).toISOString() })) as SavedProfileSearch[];
 }
 
+export async function listPublicProfileSearches(profileId: string): Promise<SavedProfileSearch[]> {
+  const persistent = await isPersistentStore();
+  const sql = persistent ? await ensureModuleSchema() : null;
+  if (!sql) return structuredClone(demo.searches.filter((item) => item.profileId === profileId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+  const rows = await sql`SELECT id, profile_id AS "profileId", name, criteria, updated_at AS "updatedAt" FROM saved_searches WHERE profile_id = ${profileId} ORDER BY updated_at DESC LIMIT 50`;
+  return rows.map((row) => ({ ...row, updatedAt: new Date(row.updatedAt as string).toISOString() })) as SavedProfileSearch[];
+}
+
 export async function createProfileSearch(input: { profileId: string; name: string; criteria: Record<string, unknown> }) {
   if (!(await profileOwned(input.profileId))) return null;
   const search: SavedProfileSearch = { id: `search_${crypto.randomUUID()}`, profileId: input.profileId, name: input.name.trim(), criteria: input.criteria, updatedAt: new Date().toISOString() };

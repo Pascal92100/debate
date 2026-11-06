@@ -18,6 +18,8 @@ export type Debate = {
   icon?: string;
   intention?: string;
   theme?: string;
+  safetyTags?: string[];
+  targetTags?: string[];
   title: string;
   definitions?: Array<string | { id?: string; text: string }>;
   facts?: Array<string | { id?: string; text: string }>;
@@ -132,6 +134,16 @@ export async function listDebates() {
   return structuredClone(store.debates).sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
 }
 
+export async function listPublicDebates() {
+  if (!await isPersistentStore()) return structuredClone(store.debates.filter((debate) => !debate.circleId));
+  const sql = database();
+  if (!sql) return [];
+  const accountId = await getSessionAccountId();
+  if (!accountId) return [];
+  const rows = await sql`SELECT payload FROM debates WHERE visibility = 'public' AND circle_id IS NULL ORDER BY created_at DESC LIMIT 300`;
+  return rows.map((row) => row.payload as Debate);
+}
+
 export async function getDebate(id: string) {
   const persistent = await isPersistentStore();
   const sql = persistent ? database() : null;
@@ -160,6 +172,8 @@ export async function createDebate(input: Pick<Debate, "title" | "content"> & Pa
     antiReaction: Boolean(input.antiReaction),
     intention: input.intention || "explore",
     theme: input.theme || "lifestyle-ideas",
+    safetyTags: input.safetyTags ?? [],
+    targetTags: input.targetTags ?? [],
     title: input.title.trim(),
     definitions: input.definitions ?? [],
     facts: input.facts ?? [],

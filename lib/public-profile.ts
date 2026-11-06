@@ -1,15 +1,16 @@
 import "server-only";
 import { getSessionAccountId } from "@/lib/auth";
 import { database, isPersistentStore, type Debate } from "@/lib/debates";
-import { listDiscussions, type SimpleDiscussion } from "@/lib/discussions";
+import type { SimpleDiscussion } from "@/lib/discussions";
 import { listProfileSpaces, type ProfileSpace } from "@/lib/profile-spaces";
-import { listProfileEvents, type ProfileEvent } from "@/lib/profile-modules";
+import { listProfileEvents, listPublicProfileSearches, type ProfileEvent, type SavedProfileSearch } from "@/lib/profile-modules";
 import { listProfilesCached, type ProfileDescription, type SocialCircle, type SocialPost, type SocialProfile } from "@/lib/social";
 import type { MediaAttachment } from "@/lib/media";
 import { contactDistances } from "@/lib/meta-profile-invitations";
 
 export type VisibleDescription = {
   text: string;
+  audience: string[];
   identity: Array<{ label: string; value: string }>;
   themes: Array<{ label: string; description: string; fields: string[]; tags: string[] }>;
 };
@@ -20,7 +21,7 @@ export type VisibleMember = {
 };
 
 export type PublicProfileView = {
-  profile: Pick<SocialProfile, "id" | "name" | "avatar" | "category" | "kind" | "bio" | "visibility" | "relationship"> & { members: string[] };
+  profile: Pick<SocialProfile, "id" | "name" | "avatar" | "avatarUrl" | "category" | "kind" | "bio" | "visibility" | "relationship" | "createdAt" | "lastSeenAt"> & { members: string[] };
   description: VisibleDescription | null;
   members: VisibleMember[];
   relatedMetaProfiles: Array<Pick<SocialProfile, "id" | "name" | "avatar" | "category" | "kind" | "bio">>;
@@ -30,6 +31,9 @@ export type PublicProfileView = {
   circles: SocialCircle[];
   forums: ProfileSpace[];
   events: ProfileEvent[];
+  searches: Array<Pick<SavedProfileSearch, "id" | "name" | "criteria" | "updatedAt">>;
+  contacts: Array<Pick<SocialProfile, "id" | "name" | "avatar" | "category" | "kind">>;
+  signals: { toxic: number; shocking: number; feelGood: number; inspiring: number; useful: number; interesting: number };
 };
 
 const identityLabels: Record<string, string> = {
@@ -55,20 +59,24 @@ const themeLabels: Record<string, string> = {
   kinky: "Preferences and limits"
 };
 
+function isDescriptionItemActive(expiresAt?: string) {
+  return !expiresAt || Date.parse(expiresAt) > Date.now();
+}
+
 function visibleDescription(description: ProfileDescription | null | undefined): VisibleDescription | null {
   if (!description || description.visibility !== "other") return null;
   const identity = Object.entries(description.identity ?? {})
-    .filter(([key, field]) => field.enabled && String(field.value).trim() && identityLabels[key])
+    .filter(([key, field]) => field.enabled && isDescriptionItemActive(field.expiresAt) && String(field.value).trim() && identityLabels[key])
     .map(([key, field]) => ({ label: identityLabels[key], value: String(field.value) }));
-  const themes = Object.entries(description.themes ?? {}).filter(([, theme]) => theme.enabled).map(([id, theme]) => ({
+  const themes = Object.entries(description.themes ?? {}).filter(([, theme]) => theme.enabled && isDescriptionItemActive(theme.expiresAt)).map(([id, theme]) => ({
     label: themeLabels[id] ?? id,
     description: theme.description?.trim() ?? "",
-    fields: Object.entries(theme.fields ?? {}).filter(([key, value]) => theme.fieldStates?.[key] !== false && String(value).trim()).map(([key, value]) => `${key}: ${String(value)}`),
+    fields: Object.entries(theme.fields ?? {}).filter(([key, value]) => theme.fieldStates?.[key] !== false && isDescriptionItemActive(theme.fieldExpiresAt?.[key]) && String(value).trim()).map(([key, value]) => `${key}: ${String(value)}`),
     tags: theme.tags ?? []
   })).filter((theme) => theme.description || theme.fields.length || theme.tags.length);
-  const text = description.textEnabled ? description.text.trim() : "";
+  const text = description.textEnabled && isDescriptionItemActive(description.textExpiresAt) ? description.text.trim() : "";
   if (!text && identity.length === 0 && themes.length === 0) return null;
-  return { text, identity, themes };
+  return { text, audience: description.relationship.split("|").filter(Boolean), identity, themes };
 }
 
 function publicProfile(profile: SocialProfile) {
@@ -76,9 +84,12 @@ function publicProfile(profile: SocialProfile) {
     id: profile.id,
     name: profile.name,
     avatar: profile.avatar,
+    avatarUrl: profile.avatarUrl,
     category: profile.category,
     kind: profile.kind,
     bio: profile.bio,
+    createdAt: profile.createdAt,
+    lastSeenAt: profile.lastSeenAt,
     visibility: profile.visibility,
     relationship: profile.relationship,
     members: profile.members ?? []
@@ -120,15 +131,15 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
   else {
     const sql = database();
     if (!sql) return null;
-    const rows = await sql`SELECT p.payload,
+    const rows = await sql`SELECT p.payload, p.avatar_url AS "avatarUrl", p.created_at AS "createdAt", p.last_seen_at AS "lastSeenAt", COALESCE(pp.settings->>'contactsVisibility', 'none') AS "contactsVisibility", COALESCE(pp.settings->'contactCircleIds', '[]'::jsonb) AS "contactCircleIds",
       CASE WHEN p.kind <> 'meta' THEN p.visibility
         WHEN p.visibility = 'ghost' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'ghost') THEN 'ghost'
         WHEN p.visibility = 'relatives' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'relatives') THEN 'relatives'
         ELSE 'all' END AS "effectiveVisibility",
       CASE WHEN p.kind <> 'meta' THEN p.social_distance ELSE GREATEST(p.social_distance, COALESCE((SELECT MAX(member.social_distance) FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id), 0)) END AS "effectiveDistance"
-      FROM profiles p WHERE p.id = ${profileId} LIMIT 1`;
+      FROM profiles p LEFT JOIN profile_preferences pp ON pp.profile_id = p.id WHERE p.id = ${profileId} LIMIT 1`;
     const row = rows[0];
-    if (row) baseProfile = { ...(row.payload as SocialProfile), visibility: row.effectiveVisibility as string, socialDistance: Number(row.effectiveDistance) };
+    if (row) baseProfile = { ...(row.payload as SocialProfile), avatarUrl: row.avatarUrl as string | null, createdAt: new Date(row.createdAt as string).toISOString(), lastSeenAt: row.lastSeenAt ? new Date(row.lastSeenAt as string).toISOString() : null, visibility: row.effectiveVisibility as string, socialDistance: Number(row.effectiveDistance), contactsVisibility: row.contactsVisibility as SocialProfile["contactsVisibility"], contactCircleIds: row.contactCircleIds as string[] };
   }
   if (!baseProfile) return null;
   const isViewingOwnProfile = viewerProfileId === profileId && profiles.some((profile) => profile.id === profileId && profile.accountId === accountId);
@@ -144,11 +155,11 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
     && !(baseProfile.socialDistance >= 2 && isSecondDegreeContact);
   if (!allowJoinedMetaProfile && !isViewingOwnProfile && !privacyAllowsView && !relativesLinkAllowsView) return null;
 
-  const [storedDescription, forums, existingEvents] = await Promise.all([
+  const [storedDescription, forums, existingEvents, existingSearches] = await Promise.all([
     loadStoredDescription(profileId),
     listProfileSpaces(profileId, "forums"),
     listProfileEvents(profileId),
-    listDiscussions(profileId)
+    listPublicProfileSearches(profileId)
   ]);
   const description = visibleDescription(storedDescription);
   let visibleForums = forums;
@@ -160,6 +171,9 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
   let discussions: SimpleDiscussion[] = [];
   let circles: SocialCircle[] = [];
   let events: ProfileEvent[] = existingEvents;
+  let searches: PublicProfileView["searches"] = existingSearches;
+  let contacts: PublicProfileView["contacts"] = [];
+  const signals: PublicProfileView["signals"] = { toxic: 0, shocking: 0, feelGood: 0, inspiring: 0, useful: 0, interesting: 0 };
 
   if (!sql) {
     const globalSocial = globalThis as typeof globalThis & { __socialState?: { profiles: SocialProfile[]; posts: SocialPost[]; circles: SocialCircle[]; descriptions: ProfileDescription[] } };
@@ -170,24 +184,46 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
       } else {
         relatedMetaProfiles = profiles.filter((item) => item.kind === "meta" && item.visibility === "all" && item.socialDistance === 0 && item.members?.includes(profileId));
       }
-      circles = state.circles.filter((circle) => circle.visibility === "public" && circle.ownerProfileId === profileId);
-      const publicCircleIds = new Set(circles.map((circle) => circle.id));
-      posts = state.posts.filter((post) => post.profileId === profileId && (post.visibility === "public" || Boolean(post.circleId && publicCircleIds.has(post.circleId)))).map(({ id, title, body, author, createdAt, media, circleName }) => ({ id, title, body, author, createdAt, media, circleName }));
-      const globalModules = globalThis as typeof globalThis & { __profileModules?: { events?: ProfileEvent[] } };
+      circles = [];
+      if (baseProfile.contactsVisibility !== "none") {
+        const selectedCircleIds = baseProfile.contactsVisibility === "circles" ? new Set(baseProfile.contactCircleIds ?? []) : null;
+        const contactIds = new Set(state.circles.flatMap((circle) => {
+          if (selectedCircleIds && !selectedCircleIds.has(circle.id)) return [];
+          const memberIds = circle.memberProfileIds ?? [];
+          if (circle.ownerProfileId !== profileId && !memberIds.includes(profileId)) return [];
+          return [circle.ownerProfileId, ...memberIds].filter((id) => id !== profileId);
+        }));
+        contacts = [...contactIds].map((id) => state.profiles.find((item) => item.id === id)).filter((item): item is SocialProfile => Boolean(item && item.visibility === "all" && item.socialDistance === 0)).map(({ id, name, avatar, category, kind }) => ({ id, name, avatar, category, kind }));
+      }
+      const publicPosts = state.posts.filter((post) => post.profileId === profileId && post.visibility === "public" && !post.circleId);
+      for (const post of publicPosts) {
+        signals.toxic += post.reactions?.["❌"] ?? 0;
+        signals.shocking += post.reactions?.["⚠️"] ?? 0;
+        signals.feelGood += post.reactions?.["☀️"] ?? 0;
+        signals.inspiring += post.reactions?.["💡"] ?? 0;
+        signals.useful += post.reactions?.["🔑"] ?? 0;
+        signals.interesting += post.reactions?.["🎓"] ?? 0;
+      }
+      posts = publicPosts.map(({ id, title, body, author, createdAt, media, circleName }) => ({ id, title, body, author, createdAt, media, circleName }));
+      const globalModules = globalThis as typeof globalThis & { __profileModules?: { events?: ProfileEvent[]; searches?: SavedProfileSearch[] } };
       events = (globalModules.__profileModules?.events ?? []).filter((event) => event.profileId === profileId);
+      searches = (globalModules.__profileModules?.searches ?? []).filter((search) => search.profileId === profileId);
     }
     const debateStore = globalThis as typeof globalThis & { __debateStore?: { debates: Debate[] } };
-    debates = (debateStore.__debateStore?.debates ?? []).filter((debate) => debate.authorProfileId === profileId).map(({ id, title, content, from, timestamp, media }) => ({ id, title, content, from, timestamp, media }));
-    const discussionStore = globalThis as typeof globalThis & { __simpleDiscussions?: { discussions: SimpleDiscussion[] } };
-    const publicCircleIds = new Set(circles.map((circle) => circle.id));
-    discussions = (discussionStore.__simpleDiscussions?.discussions ?? []).filter((discussion) => discussion.profileId === profileId && Boolean(discussion.circleId && publicCircleIds.has(discussion.circleId)));
+    debates = (debateStore.__debateStore?.debates ?? []).filter((debate) => debate.authorProfileId === profileId && !debate.circleId).map(({ id, title, content, from, timestamp, media }) => ({ id, title, content, from, timestamp, media }));
   } else {
-    const publicCircles = await sql`SELECT c.id, c.owner_profile_id AS "ownerProfileId", c.name, c.kind, c.location_mode AS "locationMode", c.description, c.visibility, COUNT(cm.profile_id)::int AS "memberCount"
-      FROM circles c LEFT JOIN circle_members cm ON cm.circle_id = c.id
-      WHERE c.visibility = 'public' AND (c.owner_profile_id = ${profileId} OR EXISTS (SELECT 1 FROM circle_members own_member WHERE own_member.circle_id = c.id AND own_member.profile_id = ${profileId}))
-      GROUP BY c.id ORDER BY c.name`;
-    circles = publicCircles as SocialCircle[];
-    const circleIds = circles.map((circle) => circle.id);
+    if (baseProfile.contactsVisibility !== "none") {
+      const selectedCircleIds = baseProfile.contactsVisibility === "circles" ? baseProfile.contactCircleIds ?? [] : [];
+      const contactRows = await sql`WITH contact_ids AS (
+          SELECT followed_profile_id AS profile_id FROM profile_follows WHERE follower_profile_id = ${profileId} AND status = 'active' AND ${baseProfile.contactsVisibility} = 'all'
+          UNION SELECT follower_profile_id FROM profile_follows WHERE followed_profile_id = ${profileId} AND status = 'active' AND ${baseProfile.contactsVisibility} = 'all'
+          UNION SELECT other.profile_id FROM circle_members own JOIN circle_members other ON other.circle_id = own.circle_id WHERE own.profile_id = ${profileId} AND own.status = 'active' AND other.status = 'active' AND other.profile_id <> ${profileId} AND (${baseProfile.contactsVisibility} = 'all' OR own.circle_id = ANY(${selectedCircleIds}))
+          UNION SELECT c.owner_profile_id FROM circle_members own JOIN circles c ON c.id = own.circle_id WHERE own.profile_id = ${profileId} AND own.status = 'active' AND c.owner_profile_id <> ${profileId} AND (${baseProfile.contactsVisibility} = 'all' OR own.circle_id = ANY(${selectedCircleIds}))
+          UNION SELECT cm.profile_id FROM circles c JOIN circle_members cm ON cm.circle_id = c.id WHERE c.owner_profile_id = ${profileId} AND cm.profile_id <> ${profileId} AND cm.status = 'active' AND (${baseProfile.contactsVisibility} = 'all' OR c.id = ANY(${selectedCircleIds}))
+        ) SELECT DISTINCT p.id, p.name, p.avatar, p.category, p.kind FROM contact_ids ci JOIN profiles p ON p.id = ci.profile_id WHERE p.id <> ${profileId} AND p.visibility = 'all' AND p.social_distance = 0 ORDER BY p.name`;
+      contacts = contactRows as PublicProfileView["contacts"];
+    }
+    circles = [];
     if (baseProfile.kind === "meta") {
       const rows = await sql`SELECT p.payload FROM profiles p JOIN meta_profile_members mm ON mm.member_profile_id = p.id WHERE mm.meta_profile_id = ${profileId} AND (p.visibility = 'all' OR (${allowJoinedMetaProfile} AND p.id = ${viewerProfileId} AND p.account_id = ${accountId})) ORDER BY p.created_at`;
       memberProfiles = rows.map((row) => row.payload as SocialProfile);
@@ -200,26 +236,31 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
     }
     const forumRows = await sql`SELECT id, profile_id AS "profileId", kind, name, description, created_at AS "createdAt" FROM profile_spaces WHERE profile_id = ${profileId} AND kind = 'forums' ORDER BY created_at DESC LIMIT 50`;
     visibleForums = forumRows.map((row) => ({ ...row, createdAt: new Date(row.createdAt as string).toISOString() })) as ProfileSpace[];
-    const visiblePosts = await sql`SELECT payload FROM social_posts WHERE profile_id = ${profileId} AND (visibility = 'public' OR (circle_id IS NOT NULL AND circle_id = ANY(${circleIds}))) ORDER BY created_at DESC LIMIT 50`;
+    const visiblePosts = await sql`SELECT payload FROM social_posts WHERE profile_id = ${profileId} AND visibility = 'public' AND circle_id IS NULL ORDER BY created_at DESC LIMIT 50`;
     posts = visiblePosts.map((row) => {
       const post = row.payload as SocialPost;
+      signals.toxic += post.reactions?.["❌"] ?? 0;
+      signals.shocking += post.reactions?.["⚠️"] ?? 0;
+      signals.feelGood += post.reactions?.["☀️"] ?? 0;
+      signals.inspiring += post.reactions?.["💡"] ?? 0;
       return { id: post.id, title: post.title, body: post.body, author: post.author, createdAt: post.createdAt, media: post.media, circleName: post.circleName };
     });
-    const debateRows = await sql`SELECT payload FROM debates WHERE visibility = 'public' AND (author_profile_id = ${profileId} OR (circle_id IS NOT NULL AND circle_id = ANY(${circleIds}))) ORDER BY created_at DESC LIMIT 50`;
+    const reactionRows = await sql`SELECT reaction, COUNT(*)::int AS count FROM social_post_reactions r JOIN social_posts p ON p.id = r.post_id WHERE p.profile_id = ${profileId} AND p.visibility = 'public' AND p.circle_id IS NULL AND reaction = ANY(${["❌", "⚠️", "☀️", "💡"]}) GROUP BY reaction`;
+    for (const row of reactionRows) {
+      if (row.reaction === "❌") signals.toxic += Number(row.count);
+      if (row.reaction === "⚠️") signals.shocking += Number(row.count);
+      if (row.reaction === "☀️") signals.feelGood += Number(row.count);
+      if (row.reaction === "💡") signals.inspiring += Number(row.count);
+      if (row.reaction === "🔑") signals.useful += Number(row.count);
+      if (row.reaction === "🎓") signals.interesting += Number(row.count);
+    }
+    const debateRows = await sql`SELECT payload FROM debates WHERE visibility = 'public' AND author_profile_id = ${profileId} AND circle_id IS NULL ORDER BY created_at DESC LIMIT 50`;
     debates = debateRows.map((row) => {
       const debate = row.payload as Debate;
       return { id: debate.id, title: debate.title, content: debate.content, from: debate.from, timestamp: debate.timestamp, media: debate.media };
     });
-    if (circleIds.length) {
-      const rows = await sql`SELECT d.id, d.profile_id AS "profileId", d.circle_id AS "circleId", d.title, d.created_at AS "createdAt", d.updated_at AS "updatedAt"
-        FROM simple_discussions d WHERE d.profile_id = ${profileId} AND d.circle_id = ANY(${circleIds}) ORDER BY d.updated_at DESC LIMIT 50`;
-      for (const row of rows) {
-        const messages = await sql`SELECT payload FROM simple_discussion_messages WHERE discussion_id = ${row.id} ORDER BY created_at, id`;
-        discussions.push({ ...row, createdAt: new Date(row.createdAt as string).toISOString(), updatedAt: new Date(row.updatedAt as string).toISOString(), messages: messages.map((message) => message.payload as SimpleDiscussion["messages"][number]) } as SimpleDiscussion);
-      }
-    }
     const eventRows = await sql`SELECT id, created_by_profile_id AS "profileId", title, description, starts_at AS "startsAt", location, created_at AS "createdAt"
-      FROM social_events WHERE created_by_profile_id = ${profileId} AND (visibility = 'public' OR circle_id IS NULL OR circle_id = ANY(${circleIds})) ORDER BY starts_at NULLS LAST, created_at DESC LIMIT 50`;
+      FROM social_events WHERE created_by_profile_id = ${profileId} AND visibility = 'public' AND circle_id IS NULL ORDER BY starts_at NULLS LAST, created_at DESC LIMIT 50`;
     events = eventRows.map((row) => {
       const rawLocation = row.location;
       const location = typeof rawLocation === "string" ? rawLocation : String((rawLocation as { label?: string } | null)?.label ?? "");
@@ -245,7 +286,10 @@ export async function getPublicProfileView(profileId: string, allowJoinedMetaPro
     discussions,
     circles,
     forums: visibleForums,
-    events
+    events,
+    searches,
+    contacts,
+    signals
   };
 }
 

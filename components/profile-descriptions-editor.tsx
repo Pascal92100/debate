@@ -15,6 +15,7 @@ export type ThemeDefinition = {
 };
 
 export const relationshipStatusOptions = ["Single", "Married", "In relationship", "Open relationship", "Complicated"];
+const visibilityDurations = [["permanent", "Until switched off"], ["1h", "1 hour"], ["1d", "1 day"], ["1w", "1 week"]] as const;
 
 const identityFields: Array<[string, string, string]> = [
   ["firstName", "First name / pseudonym", "text"],
@@ -131,7 +132,9 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
     contentFilters: profile.contentFilters ?? [],
     locationLabel: profile.locationLabel ?? "",
     dynamicLocationEnabled: profile.dynamicLocationEnabled ?? false,
-    dynamicLocationCircleId: profile.dynamicLocationCircleId ?? ""
+    dynamicLocationCircleId: profile.dynamicLocationCircleId ?? "",
+    contactsVisibility: profile.contactsVisibility ?? "none",
+    contactCircleIds: profile.contactCircleIds ?? []
   });
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -191,7 +194,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
       </header>
 
       <section className="description-section">
-        <header className="description-section-header"><div><span className="description-section-icon">✎</span><div><h3>Text description</h3><p>General introduction for this profile</p></div></div><div className="description-activation"><label className="switch-control"><input type="checkbox" checked={document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, textEnabled: event.target.checked }))} /><span>{document.textEnabled ? "Enabled" : "Disabled"}</span></label></div></header>
+        <header className="description-section-header"><div><span className="description-section-icon">✎</span><div><h3>Text description</h3><p>General introduction for this profile</p></div></div><div className="description-activation"><label className="switch-control"><input type="checkbox" checked={document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, textEnabled: event.target.checked }))} /><span>{document.textEnabled ? "Enabled" : "Disabled"}</span></label><label className="description-duration-control">Visible for<select value={document.textDuration ?? "permanent"} disabled={!document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, textDuration: event.target.value }))}>{visibilityDurations.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label></div></header>
         <textarea className="description-textarea" value={document.text} disabled={!document.textEnabled} onChange={(event) => setDocument((current) => ({ ...current, text: event.target.value }))} placeholder="Write a description…" />
       </section>
 
@@ -208,6 +211,14 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
         <div className="profile-location-fields"><label className="field">Location<input value={profileSettings.locationLabel} onChange={(event) => setProfileSettings((current) => ({ ...current, locationLabel: event.target.value }))} placeholder="Your location" /></label><div className="field"><span className="field-label">Dynamic location</span><div className="dynamic-location-choice"><label><input type="radio" checked={!profileSettings.dynamicLocationEnabled} onChange={() => setProfileSettings((current) => ({ ...current, dynamicLocationEnabled: false, dynamicLocationCircleId: "" }))} /> No</label><label><input type="radio" checked={profileSettings.dynamicLocationEnabled} onChange={() => setProfileSettings((current) => ({ ...current, dynamicLocationEnabled: true }))} /> Yes</label></div>{profileSettings.dynamicLocationEnabled && <select required aria-label="Share location with Circle" value={profileSettings.dynamicLocationCircleId} onChange={(event) => setProfileSettings((current) => ({ ...current, dynamicLocationCircleId: event.target.value }))}><option value="">Select a Circle</option>{circles.map((circle) => <option value={circle.id} key={circle.id}>{circle.name}</option>)}</select>}</div></div>
       </section>
 
+      <section className="description-section">
+        <header className="description-section-header"><div><span className="description-section-icon" aria-hidden="true">👥</span><div><h3>Contacts visible on this profile</h3><p>Visitors never see which Circle a contact belongs to.</p></div></div></header>
+        <div className="profile-choice-row contact-visibility-options">
+          {[{ value: "none", label: "Nobody", detail: "Hide the contact list" }, { value: "all", label: "All contacts", detail: "Show public contacts" }, { value: "circles", label: "Selected Circles", detail: "Show contacts from chosen Circles" }].map((option) => <label key={option.value}><input type="radio" name="contacts-visibility" checked={profileSettings.contactsVisibility === option.value} onChange={() => setProfileSettings((current) => ({ ...current, contactsVisibility: option.value as "all" | "circles" | "none" }))} /><span><strong>{option.label}</strong><small>{option.detail}</small></span></label>)}
+        </div>
+        {profileSettings.contactsVisibility === "circles" && <div className="contact-circle-options" aria-label="Circles whose contacts may be shown">{circles.filter((circle) => circle.ownerProfileId === profile.id).length ? circles.filter((circle) => circle.ownerProfileId === profile.id).map((circle) => <label key={circle.id}><input type="checkbox" checked={profileSettings.contactCircleIds.includes(circle.id)} onChange={(event) => setProfileSettings((current) => ({ ...current, contactCircleIds: event.target.checked ? [...new Set([...current.contactCircleIds, circle.id])] : current.contactCircleIds.filter((circleId) => circleId !== circle.id) }))} />{circle.name}</label>) : <p className="account-empty">This profile has no Circles to select.</p>}</div>}
+      </section>
+
       {isIndividual && <section className="description-section">
         <header className="description-section-header"><div><span className="description-section-icon">◉</span><div><h3>Identity</h3><p>Individual profile · each field can be hidden</p></div></div></header>
         <div className="identity-fields">
@@ -218,6 +229,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
               <span>{label}</span>
               {selectOptions ? <select value={field.value} onChange={(event) => updateIdentity(key, { value: event.target.value })} disabled={!field.enabled}><option value="">Choose…</option>{selectOptions.map((option) => <option value={option} key={option}>{option}</option>)}</select> : <input type={type} value={field.value} onChange={(event) => updateIdentity(key, { value: event.target.value })} disabled={!field.enabled} />}
               <input className="field-visibility-toggle" type="checkbox" aria-label={`Show ${label}`} checked={field.enabled} onChange={(event) => updateIdentity(key, { enabled: event.target.checked })} />
+              <select aria-label={`${label} visibility duration`} value={field.duration ?? "permanent"} disabled={!field.enabled} onChange={(event) => updateIdentity(key, { duration: event.target.value })}>{visibilityDurations.map(([value, durationLabel]) => <option value={value} key={value}>{durationLabel}</option>)}</select>
             </label>;
           })}
         </div>
@@ -239,7 +251,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
           return <details className="description-theme" key={theme.id}>
             <summary><span className="theme-summary-title">{theme.label}</span><span className={`theme-switch-mark${data.enabled ? " enabled" : ""}`}>{data.enabled ? "On" : "Off"}</span></summary>
             <div className="description-theme-body">
-              <div className="description-activation"><label className="theme-enable-control"><input type="checkbox" checked={data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, enabled: event.target.checked }))} /> Use this theme in my profile description</label></div>
+              <div className="description-activation"><label className="theme-enable-control"><input type="checkbox" checked={data.enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, enabled: event.target.checked }))} /> Use this theme in my profile description</label>{data.enabled && <label className="description-duration-control">Visible for<select value={data.duration ?? "permanent"} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, duration: event.target.value }))}>{visibilityDurations.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>}</div>
               <label className="description-field-label">Description<textarea value={data.description} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, description: event.target.value }))} placeholder={`${theme.label} description…`} /></label>
               {theme.fields.length > 0 && <div className="theme-standard-fields">{theme.fields.map(([fieldKey, fieldLabel]) => {
                 const currentValue = data.fields[fieldKey];
@@ -251,6 +263,7 @@ export function ProfileDescriptionsEditor({ profile, initialDescription, account
                     <input type={isRange ? "range" : "text"} min={isRange ? 0 : undefined} max={isRange ? 10 : undefined} value={currentValue ?? (isRange ? 5 : "")} disabled={!enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fields: { ...current.fields, [fieldKey]: isRange ? Number(event.target.value) : event.target.value } }))} />
                     <input type="checkbox" aria-label={`Use ${fieldLabel}`} checked={enabled} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fieldStates: { ...current.fieldStates, [fieldKey]: event.target.checked } }))} />
                   </label>
+                  {enabled && <label className="description-duration-control">Visible for<select value={data.fieldDurations?.[fieldKey] ?? "permanent"} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, fieldDurations: { ...current.fieldDurations, [fieldKey]: event.target.value } }))}>{visibilityDurations.map(([value, durationLabel]) => <option value={value} key={value}>{durationLabel}</option>)}</select></label>}
                   {enabled && theme.fieldTags?.[fieldKey] && <fieldset className="description-tags culture-subtags"><legend>{fieldLabel} tags</legend><div>{theme.fieldTags[fieldKey].map((tag) => {
                     const storedTag = `culture:${fieldKey}:${tag}`;
                     return <label className={`description-tag${data.tags.includes(storedTag) ? " selected" : ""}`} key={tag}><input type="checkbox" checked={data.tags.includes(storedTag)} onChange={(event) => updateTheme(theme.id, (current) => ({ ...current, tags: event.target.checked ? [...new Set([...current.tags, storedTag])] : current.tags.filter((item) => item !== storedTag) }))} /><span>{tag}</span></label>;

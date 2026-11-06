@@ -11,7 +11,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Write a message or attach media before sending." }, { status: 400 });
   }
   if (body.media !== undefined && !validMediaAttachments(body.media)) return NextResponse.json({ error: "Invalid media attachments." }, { status: 400 });
-  const message = await addDiscussionMessage(id, { profileId: body.profileId, body: body.body, media: body.media ?? [], replyToId: body.replyToId });
+  const allowedTargets = ["useful", "inspiring", "interesting", "feelgood"];
+  if (body.targetTags !== undefined && (!Array.isArray(body.targetTags) || body.targetTags.some((tag: unknown) => typeof tag !== "string" || !allowedTargets.includes(tag)))) return NextResponse.json({ error: "Invalid message target tags." }, { status: 400 });
+  const allowedSafetyTags = ["forbidden", "commercial", "sexual", "shocking", "aggressive"];
+  if (body.safetyTags !== undefined && (!Array.isArray(body.safetyTags) || body.safetyTags.some((tag: unknown) => typeof tag !== "string" || !allowedSafetyTags.includes(tag)))) return NextResponse.json({ error: "Invalid message safety tags." }, { status: 400 });
+  const message = await addDiscussionMessage(id, { profileId: body.profileId, body: body.body, media: body.media ?? [], replyToId: body.replyToId, targetTags: body.targetTags ?? [], safetyTags: body.safetyTags ?? [] });
   if (!message) return NextResponse.json({ error: "Discussion, reply, or author profile is not available." }, { status: 404 });
   return NextResponse.json({ message }, { status: 201 });
 }

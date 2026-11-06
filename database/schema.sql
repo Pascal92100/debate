@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS profiles_account_id_idx ON profiles(account_id);
 CREATE INDEX IF NOT EXISTS profiles_visibility_idx ON profiles(visibility, social_distance);
@@ -163,6 +164,12 @@ CREATE TABLE IF NOT EXISTS social_posts (
   subtext TEXT NOT NULL DEFAULT '',
   kind TEXT NOT NULL DEFAULT 'publication',
   visibility TEXT NOT NULL DEFAULT 'circle',
+  formats JSONB NOT NULL DEFAULT '["text"]'::jsonb,
+  theme TEXT,
+  topic_tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  safety_tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  language_code TEXT,
+  location_label TEXT,
   payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -171,6 +178,12 @@ ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NUL
 CREATE INDEX IF NOT EXISTS social_posts_feed_idx ON social_posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS social_posts_circle_feed_idx ON social_posts(circle_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS social_posts_profile_feed_idx ON social_posts(profile_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS social_posts_public_search_idx ON social_posts(created_at DESC) WHERE visibility = 'public' AND circle_id IS NULL;
+CREATE INDEX IF NOT EXISTS social_posts_theme_idx ON social_posts(theme) WHERE theme IS NOT NULL;
+CREATE INDEX IF NOT EXISTS social_posts_language_idx ON social_posts(language_code) WHERE language_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS social_posts_topic_tags_gin_idx ON social_posts USING GIN (topic_tags);
+CREATE INDEX IF NOT EXISTS social_posts_safety_tags_gin_idx ON social_posts USING GIN (safety_tags);
+CREATE INDEX IF NOT EXISTS social_posts_formats_gin_idx ON social_posts USING GIN (formats);
 
 CREATE TABLE IF NOT EXISTS social_post_media (
   id TEXT PRIMARY KEY,

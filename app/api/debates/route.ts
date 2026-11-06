@@ -15,6 +15,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A title and an opening text or media attachment are required." }, { status: 400 });
   }
   if (body.media !== undefined && !validMediaAttachments(body.media)) return NextResponse.json({ error: "Invalid media attachments." }, { status: 400 });
+  const allowedSafetyTags = ["forbidden", "commercial", "sexual", "shocking", "aggressive"];
+  if (body.safetyTags !== undefined && (!Array.isArray(body.safetyTags) || body.safetyTags.some((tag: unknown) => typeof tag !== "string" || !allowedSafetyTags.includes(tag)))) return NextResponse.json({ error: "Invalid safety tags." }, { status: 400 });
+  const allowedTargets = ["useful", "inspiring", "interesting", "feelgood"];
+  if (body.targetTags !== undefined && (!Array.isArray(body.targetTags) || body.targetTags.some((tag: unknown) => typeof tag !== "string" || !allowedTargets.includes(tag)))) return NextResponse.json({ error: "Invalid target signals." }, { status: 400 });
   if (typeof body.authorProfileId !== "string") return NextResponse.json({ error: "Choose the profile that will own this debate." }, { status: 400 });
   const profiles = await listProfiles();
   const authorProfile = profiles.find((profile) => profile.id === body.authorProfileId);

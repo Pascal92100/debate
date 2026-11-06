@@ -6,7 +6,7 @@ import { ProfileContextBar } from "@/components/profile-context-bar";
 import { ProfileSpaces } from "@/components/profile-spaces";
 import { ProfileAlerts } from "@/components/profile-alerts";
 import { isPersistentStore, listDebates } from "@/lib/debates";
-import { listCircles, listProfilesCached, listSocialPosts } from "@/lib/social";
+import { listCircles, listProfilesCached, listSocialPosts, markProfileActive } from "@/lib/social";
 import { listProfileAlerts, listProfileEvents, listProfileSearches } from "@/lib/profile-modules";
 import { listIncomingMetaProfileInvitations } from "@/lib/meta-profile-invitations";
 import { listProfileSpaces, type ProfileSpaceKind } from "@/lib/profile-spaces";
@@ -35,6 +35,7 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
     ]);
     const profile = profiles.find((item) => item.id === id);
     if (!profile) notFound();
+    await markProfileActive(profile.id);
     const title = section === "searches" ? "Edit Searches" : "Your Events";
     return <main className="social-shell social-directory-shell">
       <div className="social-page-heading"><div><p className="eyebrow">{profile.name} · Profile space</p><h1>{title}</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← {profile.name}</Link></div>
@@ -47,6 +48,7 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
     const [profiles, spaces] = await Promise.all([listProfilesCached(), listProfileSpaces(id, section as ProfileSpaceKind)]);
     const profile = profiles.find((item) => item.id === id);
     if (!profile) notFound();
+    await markProfileActive(profile.id);
     const titles = { communities: "Communities", groups: "Groups", forums: "Your Forums" };
     return <main className="social-shell social-directory-shell">
       <div className="social-page-heading"><div><p className="eyebrow">{profile.name} · Profile space</p><h1>{titles[section]}</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← {profile.name}</Link></div>
@@ -58,6 +60,7 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
     const [profiles, alerts, invitations] = await Promise.all([listProfilesCached(), listProfileAlerts(id), listIncomingMetaProfileInvitations(id)]);
     const profile = profiles.find((item) => item.id === id);
     if (!profile) notFound();
+    await markProfileActive(profile.id);
     return <main className="social-shell social-directory-shell">
       <div className="social-page-heading"><div><p className="eyebrow">{profile.name} · Profile space</p><h1>Alerts</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← {profile.name}</Link></div>
       <ProfileContextBar profile={profile} profiles={profiles} />
@@ -73,6 +76,7 @@ export default async function ProfileSectionPage({ params }: { params: Promise<{
   ]);
   const profile = profiles.find((item) => item.id === id);
   if (!profile) notFound();
+  await markProfileActive(profile.id);
   const basePath = `/circle/profiles/${encodeURIComponent(profile.id)}`;
   const backLink = <Link className="back-link" href={basePath}>← {profile.name}</Link>;
 

@@ -17,7 +17,7 @@ export type MetaProfileInvitation = {
   createdAt: string;
 };
 
-export type InviteSearchResult = Pick<SocialProfile, "id" | "name" | "category" | "avatar">;
+export type InviteSearchResult = Pick<SocialProfile, "id" | "name" | "category" | "avatar"> & { visibility?: string; socialDistance?: number };
 export type MetaProfileMember = InviteSearchResult & { isOwn: boolean };
 
 type DemoInvitationState = { invitations: MetaProfileInvitation[] };
@@ -165,7 +165,7 @@ export async function searchDiscoverableProfiles(query: string, scope: "individu
     const globalSocial = globalThis as typeof globalThis & { __socialState?: { profiles: SocialProfile[] } };
     const memberAccountIds = (profile.members ?? []).map((memberId) => globalSocial.__socialState?.profiles.find((member) => member.id === memberId)?.accountId).filter((value): value is string => Boolean(value));
     return correctKind && isAllowedForViewer({ ...profile, memberAccountIds }) && matchesText;
-  }).slice(0, 50).map(({ id, name, category, avatar }) => ({ id, name, category, avatar }));
+  }).slice(0, 50).map(({ id, name, category, avatar, visibility, socialDistance }) => ({ id, name, category, avatar, visibility, socialDistance }));
   const accountId = await currentAccountId();
   if (!accountId) return [];
   const kind = scope === "meta" ? "meta" : "individual";
@@ -184,7 +184,7 @@ export async function searchDiscoverableProfiles(query: string, scope: "individu
     WHERE (${scope === "all"} OR kind = ${kind})
       AND (${normalized} = '' OR POSITION(LOWER(${normalized}) IN LOWER(name || ' ' || bio)) > 0)
     ORDER BY LOWER(name), id LIMIT 50`;
-  return (rows as Array<InviteSearchResult & { accountId: string; kind: string; members: string[]; memberAccountIds: string[]; visibility: string; socialDistance: number }>).filter(isAllowedForViewer).map(({ id, name, category, avatar }) => ({ id, name, category, avatar }));
+  return (rows as Array<InviteSearchResult & { accountId: string; kind: string; members: string[]; memberAccountIds: string[]; visibility: string; socialDistance: number }>).filter(isAllowedForViewer).map(({ id, name, category, avatar, visibility, socialDistance }) => ({ id, name, category, avatar, visibility, socialDistance }));
 }
 
 export async function createMetaProfileInvitation(metaProfileId: string, inviterProfileId: string, invitedProfileId?: string | null) {

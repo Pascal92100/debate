@@ -8,7 +8,7 @@ import { getSessionAccountId } from "@/lib/auth";
 import { listMetaProfileMembers, listMetaProfilesForMember } from "@/lib/meta-profile-invitations";
 import { getUnreadProfileAlertCount } from "@/lib/profile-modules";
 import { getPublicProfileView } from "@/lib/public-profile";
-import { listProfilesCached } from "@/lib/social";
+import { listProfilesCached, markProfileActive } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +42,7 @@ export default async function CircleProfilePage({ params, searchParams }: { para
     return <PublicProfileView view={publicView} returnTo={returnTo} currentUrl={currentUrl} viewerProfileId={viewerProfileId} isMemberOfMetaProfile={joinedMetaProfile} />;
   }
   if (!profile) notFound();
+  if (isOwner && !publicPreview) await markProfileActive(profile.id);
   const [metaMembers, unreadAlerts] = await Promise.all([
     profile.kind !== "individual" ? listMetaProfileMembers(profile.id) : Promise.resolve([]),
     getUnreadProfileAlertCount(profile.id)

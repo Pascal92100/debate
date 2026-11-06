@@ -7,6 +7,7 @@ import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { MediaPicker } from "@/components/media-picker";
 import { MediaGallery } from "@/components/media-gallery";
 import { SocialPostDiscussion } from "@/components/social-post-discussion";
+import { ContentFilterOption, contentFilters } from "@/components/profile-create-form";
 import type { MediaAttachment } from "@/lib/media";
 import type { SocialCircle, SocialPost, SocialProfile } from "@/lib/social";
 
@@ -18,6 +19,7 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
   const [postKind, setPostKind] = useState<"publication" | "debate">("publication");
   const [formats, setFormats] = useState<string[]>(["text"]);
   const [media, setMedia] = useState<MediaAttachment[]>([]);
+  const [safetyTags, setSafetyTags] = useState<string[]>([]);
   const [composerTitle, setComposerTitle] = useState("");
   const [profileId, setProfileId] = useState(initialProfileId || profiles[0]?.id || "");
   const [wall, setWall] = useState(false);
@@ -40,10 +42,14 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
         body: form.get("body"),
         circleId: form.get("circleId") || null,
         profileId,
-        theme: form.get("theme"),
+        theme: form.get(postKind === "debate" ? "theme" : "postTheme"),
+        topicTags: form.get("topicTags"),
+        languageCode: form.get("languageCode"),
+        locationLabel: form.get("locationLabel"),
         startDebate: postKind === "debate",
         formats,
         media,
+        safetyTags,
         target: form.get("target"),
         duration: form.get("duration"),
         event: formats.includes("event") ? { title: composerTitle, startsAt: form.get("eventStartsAt") ? new Date(String(form.get("eventStartsAt"))).toISOString() : null, location: form.get("eventLocation") } : null
@@ -61,6 +67,7 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
     setPostKind("publication");
     setFormats(["text"]);
     setMedia([]);
+    setSafetyTags([]);
     setComposerTitle("");
     if (result.debate?.id) router.push(`/debates/${encodeURIComponent(result.debate.id)}`);
   }
@@ -111,11 +118,14 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
         <form className="social-compose-form" onSubmit={submit}>
           {postKind === "debate" && <div className="social-form-row"><label>Debate title<input name="title" required minLength={4} maxLength={140} placeholder="The question to discuss" /></label><label>Theme<select name="theme"><option value="lifestyle-ideas">Ideas / society</option><option value="politics-society">Politics / society</option><option value="culture-entertainment">Culture</option><option value="science-health">Science / health</option><option value="economy-tech">Economy / work / tech</option><option value="sports">Sports</option></select></label></div>}
           {postKind === "publication" && <fieldset className="publication-format-picker"><legend>Format</legend>{[["text", "Text"], ["image", "Photo"], ["video", "Video"], ["reel", "Reel"], ["event", "Event"], ["alert", "Alert"]].map(([value, label]) => <label className={`goal-option${formats.includes(value) ? " selected" : ""}`} key={value}><input type="checkbox" checked={formats.includes(value)} onChange={() => toggleFormat(value)} /><span>{label}</span></label>)}</fieldset>}
+          {postKind === "publication" && <div className="social-form-row"><label>Theme<select name="postTheme"><option value="">No specific theme</option><option value="politics-society">Politics / society</option><option value="culture-entertainment">Culture / entertainment</option><option value="sports">Sport</option><option value="science-health">Science / health</option><option value="economy-tech">Economy / work / tech</option><option value="lifestyle-ideas">Lifestyle / ideas</option><option value="other">Other</option></select></label><label>Language<input name="languageCode" maxLength={40} placeholder="e.g. French" /></label></div>}
+          {postKind === "publication" && <div className="social-form-row"><label>Tags<input name="topicTags" maxLength={600} placeholder="Comma-separated topics" /></label><label>Location<input name="locationLabel" maxLength={120} placeholder="Optional place name" /></label></div>}
           {postKind === "publication" && formats.includes("event") && <label>Event title<input name="eventTitle" required minLength={2} placeholder="Event name" value={composerTitle} onChange={(event) => setComposerTitle(event.target.value)} /></label>}
           <label className="social-body-label" htmlFor="social-body">{postKind === "debate" ? "Opening argument" : formats.includes("alert") ? "Alert message" : formats.includes("event") ? "Event description" : "What's new?"}</label>
           <textarea id="social-body" name="body" required={!media.length && !formats.includes("event") && !formats.includes("alert")} minLength={postKind === "debate" ? 8 : 0} maxLength={5000} placeholder={postKind === "debate" ? "Set the context and make your first argument. Each line will become a separate argument." : "Share an idea, link, or update…"} />
           {postKind === "publication" && formats.includes("event") && <div className="social-form-row"><label>Event date and time<input name="eventStartsAt" type="datetime-local" required /></label><label>Event location<input name="eventLocation" placeholder="Online or a place" required /></label></div>}
           {postKind === "publication" && formats.includes("alert") && <div className="social-form-row"><label>Target<select name="target"><option value="feed">Publication feed</option><option value="story">Story</option></select></label><label>Duration<select name="duration"><option value="permanent">Permanent</option><option value="1h">1 hour</option><option value="1d">1 day</option><option value="1w">1 week</option></select></label></div>}
+          {postKind === "publication" && <fieldset className="publication-format-picker"><legend>Safety tags</legend><div className="content-filter-options">{contentFilters.map(([id, emoji, description]) => <ContentFilterOption key={id} id={`post-${id}`} emoji={emoji} text={description} selected={safetyTags.includes(id)} onToggle={(checked) => setSafetyTags((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset>}
           {(postKind === "debate" || formats.some((format) => ["image", "video", "reel"].includes(format))) && <MediaPicker profileId={profileId} media={media} onChange={setMedia} compact />}
           <div className="social-compose-footer"><div className="social-compose-selects"><label>Author profile<select value={profileId} onChange={(event) => setProfileId(event.target.value)}>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.category}</option>)}</select></label><label>Post to<select name="circleId"><option value="">Public feed</option>{circles.map((circle) => <option value={circle.id} key={circle.id}>{circle.name}</option>)}</select></label></div><button className="button-primary" type="submit" disabled={busy}>{busy ? "Posting…" : postKind === "debate" ? "Post and open debate" : "Post"}</button></div>
           {error && <p className="form-error" role="alert">{error}</p>}
@@ -126,7 +136,7 @@ export function SocialFeed({ initialPosts, circles, profiles, persistent, initia
       {notice && <p className="form-error" role="status">{notice}</p>}
       <div className={wall ? "social-post-grid" : "social-post-list"}>
         {filteredPosts.map((post) => <article className="social-post" id={post.id} key={post.id}>
-          <header className="social-post-header"><span className="social-avatar">{post.avatar}</span><div className="social-post-author"><strong>{post.author}</strong><span>{post.circleName || "Public feed"} · {new Date(post.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span></div><span className={`post-kind-label ${post.kind}`}>{post.kind === "debate" ? "Debate" : post.kind === "event" ? "Event" : post.kind === "alert" ? "Alert" : "Post"}</span></header>
+          <header className="social-post-header"><span className="social-avatar">{post.avatar}</span><div className="social-post-author"><strong>{post.author}</strong><span>{post.circleName || (post.circleId ? "Shared with this profile" : "Public feed")} · {new Date(post.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span></div><span className={`post-kind-label ${post.kind}`}>{post.kind === "debate" ? "Debate" : post.kind === "event" ? "Event" : post.kind === "alert" ? "Alert" : "Post"}</span></header>
           <div className="social-post-copy">{post.title !== "Post" && <h2>{post.title}</h2>}{post.body && <p>{post.body}</p>}</div>
           <MediaGallery media={post.media} />
           {post.kind === "event" && post.metadata?.startsAt && <p className="social-post-meta-detail">Event · {new Date(post.metadata.startsAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}{post.metadata.location && ` · ${post.metadata.location}`}</p>}

@@ -16,7 +16,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A title and opening message are required." }, { status: 400 });
   }
   if (body.circleId !== undefined && body.circleId !== null && typeof body.circleId !== "string") return NextResponse.json({ error: "Choose a valid Circle." }, { status: 400 });
-  const discussion = await createDiscussion({ profileId: body.profileId, title: body.title, body: body.body, circleId: typeof body.circleId === "string" ? body.circleId : null });
+  const allowedThemes = ["politics-society", "culture-entertainment", "sports", "science-health", "economy-tech", "lifestyle-ideas", "other"];
+  if (body.theme !== undefined && (typeof body.theme !== "string" || !allowedThemes.includes(body.theme))) return NextResponse.json({ error: "Choose a valid discussion theme." }, { status: 400 });
+  const discussion = await createDiscussion({ profileId: body.profileId, title: body.title, body: body.body, circleId: typeof body.circleId === "string" ? body.circleId : null, theme: body.theme });
   if (!discussion) return NextResponse.json({ error: "Profile not found or not owned by this account." }, { status: 404 });
   return NextResponse.json({ discussion }, { status: 201 });
 }

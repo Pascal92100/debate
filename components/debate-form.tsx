@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import type { SocialProfile } from "@/lib/social";
 import { MediaPicker } from "@/components/media-picker";
 import type { MediaAttachment } from "@/lib/media";
+import { ContentFilterOption, contentFilters } from "@/components/profile-create-form";
 
 export function DebateForm({ profiles, initialProfileId }: { profiles: SocialProfile[]; initialProfileId?: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [media, setMedia] = useState<MediaAttachment[]>([]);
+  const [safetyTags, setSafetyTags] = useState<string[]>([]);
+  const [targetTags, setTargetTags] = useState<string[]>([]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,7 +30,9 @@ export function DebateForm({ profiles, initialProfileId }: { profiles: SocialPro
         start: form.get("start"),
         theme: form.get("theme"),
         content: String(form.get("content") ?? "").trim() ? [form.get("content")] : [],
-        media
+        media,
+        safetyTags,
+        targetTags
       })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
@@ -50,6 +55,8 @@ export function DebateForm({ profiles, initialProfileId }: { profiles: SocialPro
       <div className="field"><label htmlFor="start">Starting point</label><select id="start" name="start"><option value="question">Question</option><option value="statement">Statement</option><option value="topic">Topic</option><option value="dilemma">Dilemma</option><option value="hypothesis">Hypothesis</option></select></div>
       <div className="field"><label htmlFor="content">Your introduction</label><textarea id="content" name="content" maxLength={5000} placeholder="Share your point of view and why you want to open this discussion…" /><span className="field-hint">One paragraph is enough to start. You can add replies later.</span></div>
       <MediaPicker profileId={profiles.some((profile) => profile.id === initialProfileId) ? initialProfileId! : profiles[0]?.id ?? "profile-john"} media={media} onChange={setMedia} />
+      <fieldset className="publication-format-picker"><legend>Target signals</legend><div className="search-check-grid">{[["🔑", "useful", "Useful"], ["💡", "inspiring", "Inspiring"], ["🎓", "interesting", "Interesting"], ["☀️", "feelgood", "Feel-good"]].map(([emoji, id, label]) => <label key={id} title={label}><input type="checkbox" checked={targetTags.includes(id)} onChange={(event) => setTargetTags((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} /><span aria-hidden="true">{emoji}</span>{label}</label>)}</div></fieldset>
+      <fieldset className="publication-format-picker"><legend>Safety tags</legend><div className="content-filter-options">{contentFilters.map(([id, emoji, description]) => <ContentFilterOption key={id} id={`debate-${id}`} emoji={emoji} text={description} selected={safetyTags.includes(id)} onToggle={(checked) => setSafetyTags((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset>
       <div className="form-actions"><button className="button-primary" type="submit" disabled={saving}>{saving ? "Publishing…" : "Publish debate"}</button>{error && <span className="form-error" role="alert">{error}</span>}</div>
     </form>
   );

@@ -15,6 +15,7 @@ export type SocialProfile = {
   kind: string;
   category: string;
   avatar: string;
+  avatarUrl?: string | null;
   bio: string;
   visibility: string;
   socialDistance: number;
@@ -23,6 +24,8 @@ export type SocialProfile = {
   locationLabel?: string;
   dynamicLocationEnabled?: boolean;
   dynamicLocationCircleId?: string;
+  contactsVisibility?: "all" | "circles" | "none";
+  contactCircleIds?: string[];
   members?: string[];
   includesLabel?: string;
   memberRoles?: Record<string, string>;
@@ -36,10 +39,12 @@ export type SocialProfile = {
   relationshipStatus?: string;
   languages?: string[];
   location?: string;
+  createdAt?: string;
+  lastSeenAt?: string | null;
 };
 
 export type DescriptionField = { value: string; enabled: boolean; duration?: string; expiresAt?: string };
-export type DescriptionTheme = { enabled: boolean; duration?: string; expiresAt?: string; description: string; fields: Record<string, string | number>; fieldStates?: Record<string, boolean>; tags: string[] };
+export type DescriptionTheme = { enabled: boolean; duration?: string; expiresAt?: string; description: string; fields: Record<string, string | number>; fieldStates?: Record<string, boolean>; fieldDurations?: Record<string, string>; fieldExpiresAt?: Record<string, string>; tags: string[] };
 export type ProfileDescription = {
   profileId: string;
   visibility: "ghost" | "relatives" | "other";
@@ -61,6 +66,7 @@ export type SocialCircle = {
   description: string;
   visibility: string;
   memberCount: number;
+  memberProfileIds?: string[];
 };
 
 export type SocialAccount = {
@@ -121,7 +127,7 @@ export type SocialPost = {
   commentsCount: number;
   media?: MediaAttachment[];
   formats?: string[];
-  metadata?: { startsAt?: string; location?: string; duration?: string; target?: string };
+  metadata?: { startsAt?: string; location?: string; duration?: string; target?: string; theme?: string; tags?: string[]; language?: string; safetyTags?: string[] };
 };
 
 type SocialState = {
@@ -188,6 +194,8 @@ async function useDatabase() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
   await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
+  await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT`;
+  await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`;
   await sql`CREATE TABLE IF NOT EXISTS meta_profile_members (
     meta_profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     member_profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -238,9 +246,27 @@ async function useDatabase() {
     subtext TEXT NOT NULL DEFAULT '',
     kind TEXT NOT NULL DEFAULT 'publication',
     visibility TEXT NOT NULL DEFAULT 'circle',
+    formats JSONB NOT NULL DEFAULT '["text"]'::jsonb,
+    theme TEXT,
+    topic_tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    safety_tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    language_code TEXT,
+    location_label TEXT,
     payload JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS formats JSONB NOT NULL DEFAULT '["text"]'::jsonb`;
+  await sql`ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS theme TEXT`;
+  await sql`ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS topic_tags JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS safety_tags JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS language_code TEXT`;
+  await sql`ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS location_label TEXT`;
+  await sql`CREATE INDEX IF NOT EXISTS social_posts_public_search_idx ON social_posts (created_at DESC) WHERE visibility = 'public' AND circle_id IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS social_posts_theme_idx ON social_posts (theme) WHERE theme IS NOT NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS social_posts_language_idx ON social_posts (language_code) WHERE language_code IS NOT NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS social_posts_topic_tags_gin_idx ON social_posts USING GIN (topic_tags)`;
+  await sql`CREATE INDEX IF NOT EXISTS social_posts_safety_tags_gin_idx ON social_posts USING GIN (safety_tags)`;
+  await sql`CREATE INDEX IF NOT EXISTS social_posts_formats_gin_idx ON social_posts USING GIN (formats)`;
   await sql`CREATE TABLE IF NOT EXISTS social_post_reactions (
     post_id TEXT NOT NULL REFERENCES social_posts(id) ON DELETE CASCADE,
     profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -280,6 +306,18 @@ export async function ensureSocialSchema() {
   await useDatabase();
 }
 
+export async function markProfileActive(profileId: string) {
+  const sql = await useDatabase();
+  if (!sql) {
+    state.profiles = state.profiles.map((profile) => profile.id === profileId && profile.accountId === "account-demo" ? { ...profile, lastSeenAt: new Date().toISOString() } : profile);
+    return true;
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId) return false;
+  const rows = await sql`UPDATE profiles SET last_seen_at = NOW() WHERE id = ${profileId} AND account_id = ${accountId} RETURNING id`;
+  return rows.length > 0;
+}
+
 export const listProfilesCached = cache(() => listProfiles());
 
 export async function listProfiles() {
@@ -296,18 +334,21 @@ export async function listProfiles() {
   }
   const accountId = await getSessionAccountId();
   if (!accountId) return [];
-  const rows = await sql`SELECT p.payload, p.account_id = ${accountId} AS "isOwner",
+  const rows = await sql`SELECT p.payload, p.avatar_url AS "avatarUrl", p.created_at AS "createdAt", p.last_seen_at AS "lastSeenAt", p.account_id = ${accountId} AS "isOwner",
     COALESCE((SELECT jsonb_agg(m.member_profile_id) FROM meta_profile_members m JOIN profiles represented ON represented.id = m.member_profile_id WHERE m.meta_profile_id = p.id AND represented.account_id = ${accountId}), '[]'::jsonb) AS "ownMembers",
     CASE WHEN p.kind <> 'meta' THEN p.visibility
       WHEN p.visibility = 'ghost' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'ghost') THEN 'ghost'
       WHEN p.visibility = 'relatives' OR EXISTS (SELECT 1 FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id AND member.visibility = 'relatives') THEN 'relatives'
       ELSE 'all' END AS "effectiveVisibility",
     CASE WHEN p.kind <> 'meta' THEN p.social_distance ELSE GREATEST(p.social_distance, COALESCE((SELECT MAX(member.social_distance) FROM meta_profile_members mm JOIN profiles member ON member.id = mm.member_profile_id WHERE mm.meta_profile_id = p.id), 0)) END AS "effectiveSocialDistance",
-    fp.content_filters, fp.location_label, fp.dynamic_location_enabled, fp.dynamic_location_circle_id
+    fp.content_filters, fp.location_label, fp.dynamic_location_enabled, fp.dynamic_location_circle_id, fp.settings
     FROM profiles p LEFT JOIN profile_preferences fp ON fp.profile_id = p.id
     WHERE p.account_id = ${accountId} OR EXISTS (SELECT 1 FROM meta_profile_members m JOIN profiles represented ON represented.id = m.member_profile_id WHERE m.meta_profile_id = p.id AND represented.account_id = ${accountId}) ORDER BY p.created_at`;
   return rows.map((row) => ({
     ...(row.payload as SocialProfile),
+    avatarUrl: row.avatarUrl as string | null,
+    createdAt: new Date(row.createdAt as string).toISOString(),
+    lastSeenAt: row.lastSeenAt ? new Date(row.lastSeenAt as string).toISOString() : null,
     visibility: row.effectiveVisibility as string,
     socialDistance: Number(row.effectiveSocialDistance),
     ownMembers: (row.ownMembers as string[]) ?? [],
@@ -315,13 +356,17 @@ export async function listProfiles() {
     contentFilters: (row.content_filters as string[] | null) ?? [],
     locationLabel: row.location_label as string | null ?? undefined,
     dynamicLocationEnabled: Boolean(row.dynamic_location_enabled),
-    dynamicLocationCircleId: row.dynamic_location_circle_id as string | null ?? undefined
+    dynamicLocationCircleId: row.dynamic_location_circle_id as string | null ?? undefined,
+    contactsVisibility: ((row.settings as Record<string, unknown> | null)?.contactsVisibility as SocialProfile["contactsVisibility"]) ?? "none",
+    contactCircleIds: ((row.settings as Record<string, unknown> | null)?.contactCircleIds as string[] | undefined) ?? []
   }));
 }
 
-export async function saveProfilePreferences(profileId: string, preferences: { visibility: string; socialDistance: number; anonymous: boolean; contentFilters: string[]; locationLabel: string; dynamicLocationEnabled: boolean; dynamicLocationCircleId: string }) {
+export async function saveProfilePreferences(profileId: string, preferences: { visibility: string; socialDistance: number; anonymous: boolean; contentFilters: string[]; locationLabel: string; dynamicLocationEnabled: boolean; dynamicLocationCircleId: string; contactsVisibility?: "all" | "circles" | "none"; contactCircleIds?: string[] }) {
   const sql = await useDatabase();
   if (!sql) {
+    const selectedCircleIds = [...new Set(preferences.contactCircleIds ?? [])];
+    if (selectedCircleIds.some((circleId) => !state.circles.some((circle) => circle.id === circleId && circle.ownerProfileId === profileId))) return false;
     state.profiles = state.profiles.map((profile) => profile.id === profileId ? {
       ...profile,
       visibility: preferences.visibility,
@@ -330,7 +375,9 @@ export async function saveProfilePreferences(profileId: string, preferences: { v
       contentFilters: preferences.contentFilters,
       locationLabel: preferences.locationLabel,
       dynamicLocationEnabled: preferences.dynamicLocationEnabled,
-      dynamicLocationCircleId: preferences.dynamicLocationCircleId
+      dynamicLocationCircleId: preferences.dynamicLocationCircleId,
+      contactsVisibility: preferences.contactsVisibility ?? "none",
+      contactCircleIds: preferences.contactCircleIds ?? []
     } : profile);
     return true;
   }
@@ -343,8 +390,13 @@ export async function saveProfilePreferences(profileId: string, preferences: { v
     const circle = await sql`SELECT id FROM circles WHERE id = ${preferences.dynamicLocationCircleId} AND (owner_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId}) OR EXISTS (SELECT 1 FROM circle_members cm JOIN profiles p ON p.id = cm.profile_id WHERE cm.circle_id = circles.id AND p.account_id = ${accountId})) LIMIT 1`;
     if (!circle.length) return false;
   }
+  const contactCircleIds = [...new Set(preferences.contactsVisibility === "circles" ? preferences.contactCircleIds ?? [] : [])];
+  if (contactCircleIds.length) {
+    const circles = await sql`SELECT id FROM circles WHERE owner_profile_id = ${profileId} AND id = ANY(${contactCircleIds})`;
+    if (circles.length !== contactCircleIds.length) return false;
+  }
   await sql`INSERT INTO profile_preferences (profile_id, anonymous_navigation, content_filters, location_label, dynamic_location_enabled, dynamic_location_circle_id, settings, updated_at)
-    VALUES (${profileId}, ${preferences.anonymous}, ${JSON.stringify(preferences.contentFilters)}::jsonb, NULLIF(${preferences.locationLabel}, ''), ${preferences.dynamicLocationEnabled}, ${preferences.dynamicLocationEnabled ? preferences.dynamicLocationCircleId || null : null}, ${JSON.stringify({ visibility: preferences.visibility, socialDistance: preferences.socialDistance })}::jsonb, NOW())
+    VALUES (${profileId}, ${preferences.anonymous}, ${JSON.stringify(preferences.contentFilters)}::jsonb, NULLIF(${preferences.locationLabel}, ''), ${preferences.dynamicLocationEnabled}, ${preferences.dynamicLocationEnabled ? preferences.dynamicLocationCircleId || null : null}, ${JSON.stringify({ visibility: preferences.visibility, socialDistance: preferences.socialDistance, contactsVisibility: preferences.contactsVisibility ?? "none", contactCircleIds })}::jsonb, NOW())
     ON CONFLICT (profile_id) DO UPDATE SET anonymous_navigation = EXCLUDED.anonymous_navigation, content_filters = EXCLUDED.content_filters, location_label = EXCLUDED.location_label, dynamic_location_enabled = EXCLUDED.dynamic_location_enabled, dynamic_location_circle_id = EXCLUDED.dynamic_location_circle_id, settings = EXCLUDED.settings, updated_at = NOW()`;
   await sql`UPDATE profiles SET visibility = ${preferences.visibility}, social_distance = ${preferences.socialDistance}, anonymous = ${preferences.anonymous}, payload = jsonb_set(jsonb_set(jsonb_set(payload, '{visibility}', to_jsonb(${preferences.visibility}::text)), '{socialDistance}', to_jsonb(${preferences.socialDistance}::int)), '{anonymous}', to_jsonb(${preferences.anonymous}::boolean)), updated_at = NOW() WHERE id = ${profileId} AND account_id = ${accountId}`;
   return true;
@@ -633,13 +685,12 @@ export async function saveProfileDescription(description: ProfileDescription) {
 
 export async function listCircles() {
   const sql = await useDatabase();
-  if (!sql) return structuredClone(state.circles);
+  if (!sql) return structuredClone(state.circles).filter((circle) => state.profiles.some((profile) => profile.id === circle.ownerProfileId && profile.accountId === "account-demo"));
   const accountId = await getSessionAccountId();
   if (!accountId) return [];
   const rows = await sql`SELECT c.id, c.owner_profile_id AS "ownerProfileId", c.name, c.kind, c.location_mode AS "locationMode", c.description, c.visibility, COUNT(m.profile_id)::int AS "memberCount"
     FROM circles c LEFT JOIN circle_members m ON m.circle_id = c.id
     WHERE c.owner_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId})
-      OR EXISTS (SELECT 1 FROM circle_members own_m JOIN profiles own_p ON own_p.id = own_m.profile_id WHERE own_m.circle_id = c.id AND own_p.account_id = ${accountId})
     GROUP BY c.id ORDER BY c.name`;
   return rows as SocialCircle[];
 }
@@ -658,12 +709,80 @@ export async function listSocialPosts(circleId?: string | null) {
   const rows = circleId
     ? await sql`SELECT p.payload, COALESCE(r.counts, '{}'::jsonb) AS reaction_counts FROM social_posts p LEFT JOIN (SELECT post_id, jsonb_object_agg(reaction, count) AS counts FROM (SELECT post_id, reaction, COUNT(*)::int AS count FROM social_post_reactions GROUP BY post_id, reaction) totals GROUP BY post_id) r ON r.post_id = p.id WHERE p.circle_id = ${circleId} AND (p.profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId}) OR EXISTS (SELECT 1 FROM circle_members cm JOIN profiles cp ON cp.id = cm.profile_id WHERE cm.circle_id = p.circle_id AND cp.account_id = ${accountId})) ORDER BY p.created_at DESC`
     : await sql`SELECT p.payload, COALESCE(r.counts, '{}'::jsonb) AS reaction_counts FROM social_posts p LEFT JOIN (SELECT post_id, jsonb_object_agg(reaction, count) AS counts FROM (SELECT post_id, reaction, COUNT(*)::int AS count FROM social_post_reactions GROUP BY post_id, reaction) totals GROUP BY post_id) r ON r.post_id = p.id WHERE p.profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId}) OR EXISTS (SELECT 1 FROM circle_members cm JOIN profiles cp ON cp.id = cm.profile_id WHERE cm.circle_id = p.circle_id AND cp.account_id = ${accountId}) ORDER BY p.created_at DESC`;
+  const ownedCircleRows = await sql`SELECT id FROM circles WHERE owner_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId})`;
+  const ownedCircleIds = new Set(ownedCircleRows.map((row) => row.id as string));
   return rows.map((row) => {
     const post = row.payload as SocialPost;
     const storedReactions = row.reaction_counts as Record<string, number>;
     const reactions = { ...post.reactions };
     for (const [reaction, count] of Object.entries(storedReactions)) reactions[reaction] = (reactions[reaction] ?? 0) + count;
-    return { ...post, reactions };
+    return { ...post, circleName: post.circleId && !ownedCircleIds.has(post.circleId) ? null : post.circleName, reactions };
+  });
+}
+
+export async function listPublicSocialPosts(criteria: { keywords?: string; themes?: string[]; formats?: string[]; tags?: string[]; tagMatch?: "one" | "all"; safetyFilters?: string[]; language?: string; location?: string } = {}) {
+  const sql = await useDatabase();
+  if (!sql) {
+    const keywords = criteria.keywords?.trim().toLocaleLowerCase() ?? "";
+    const themes = criteria.themes ?? [];
+    const formats = criteria.formats ?? [];
+    const tags = (criteria.tags ?? []).map((tag) => tag.toLocaleLowerCase());
+    const safetyFilters = criteria.safetyFilters ?? [];
+    const language = criteria.language?.trim().toLocaleLowerCase() ?? "";
+    const location = criteria.location?.trim().toLocaleLowerCase() ?? "";
+    return structuredClone(state.posts).filter((post) => {
+      if (post.visibility !== "public" || post.circleId) return false;
+      const metadata = post.metadata ?? {};
+      const postTags = (metadata.tags ?? []).map((tag) => tag.toLocaleLowerCase());
+      const text = `${post.title} ${post.body} ${post.author}`.toLocaleLowerCase();
+      return (!keywords || text.includes(keywords))
+        && (!themes.length || themes.includes(metadata.theme ?? ""))
+        && (!formats.length || formats.some((format) => post.formats?.includes(format)))
+        && (!tags.length || (criteria.tagMatch === "all" ? tags.every((tag) => postTags.includes(tag)) : tags.some((tag) => postTags.includes(tag))))
+        && !safetyFilters.some((tag) => metadata.safetyTags?.includes(tag))
+        && (!language || (metadata.language ?? "").toLocaleLowerCase().includes(language))
+        && (!location || (metadata.location ?? "").toLocaleLowerCase().includes(location));
+    });
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId) return [];
+  const keywords = criteria.keywords?.trim() ?? "";
+  const themes = criteria.themes ?? [];
+  const formats = criteria.formats ?? [];
+  const tags = (criteria.tags ?? []).map((tag) => tag.toLocaleLowerCase());
+  const safetyFilters = criteria.safetyFilters ?? [];
+  const language = criteria.language?.trim() ?? "";
+  const location = criteria.location?.trim() ?? "";
+  const rows = await sql`SELECT p.payload, p.formats AS normalized_formats, p.theme AS normalized_theme, p.topic_tags AS normalized_tags, p.safety_tags AS normalized_safety_tags, p.language_code AS normalized_language, p.location_label AS normalized_location, COALESCE(r.counts, '{}'::jsonb) AS reaction_counts FROM social_posts p LEFT JOIN (
+      SELECT post_id, jsonb_object_agg(reaction, count) AS counts FROM (
+        SELECT post_id, reaction, COUNT(*)::int AS count FROM social_post_reactions GROUP BY post_id, reaction
+      ) totals GROUP BY post_id
+    ) r ON r.post_id = p.id WHERE p.visibility = 'public' AND p.circle_id IS NULL
+      AND (${keywords} = '' OR p.title ILIKE ${`%${keywords}%`} OR p.body ILIKE ${`%${keywords}%`} OR p.payload->>'author' ILIKE ${`%${keywords}%`})
+      AND (cardinality(${themes}::text[]) = 0 OR p.theme = ANY(${themes}::text[]))
+      AND (cardinality(${formats}::text[]) = 0 OR p.formats ?| ${formats}::text[])
+      AND (cardinality(${tags}::text[]) = 0 OR CASE WHEN ${criteria.tagMatch === "all"} THEN p.topic_tags ?& ${tags}::text[] ELSE p.topic_tags ?| ${tags}::text[] END)
+      AND (cardinality(${safetyFilters}::text[]) = 0 OR NOT (p.safety_tags ?| ${safetyFilters}::text[]))
+      AND (${language} = '' OR p.language_code ILIKE ${`%${language}%`})
+      AND (${location} = '' OR p.location_label ILIKE ${`%${location}%`})
+    ORDER BY p.created_at DESC`;
+  return rows.map((row) => {
+    const post = row.payload as SocialPost;
+    const reactions = { ...post.reactions };
+    for (const [reaction, count] of Object.entries(row.reaction_counts as Record<string, number>)) reactions[reaction] = (reactions[reaction] ?? 0) + count;
+    return {
+      ...post,
+      formats: row.normalized_formats as string[] ?? post.formats,
+      metadata: {
+        ...post.metadata,
+        theme: row.normalized_theme as string | null ?? post.metadata?.theme,
+        tags: row.normalized_tags as string[] ?? post.metadata?.tags,
+        safetyTags: row.normalized_safety_tags as string[] ?? post.metadata?.safetyTags,
+        language: row.normalized_language as string | null ?? post.metadata?.language,
+        location: row.normalized_location as string | null ?? post.metadata?.location
+      },
+      reactions
+    };
   });
 }
 
@@ -705,8 +824,8 @@ export async function createSocialPost(input: { title: string; body: string; cir
   };
   const sql = await useDatabase();
   if (sql) {
-    await sql`INSERT INTO social_posts (id, profile_id, circle_id, debate_id, title, body, subtext, kind, visibility, payload, created_at)
-      VALUES (${post.id}, ${post.profileId}, ${post.circleId}, NULL, ${post.title}, ${post.body}, ${post.subtext}, ${post.kind}, ${post.visibility}, ${JSON.stringify(post)}::jsonb, ${post.createdAt})`;
+    await sql`INSERT INTO social_posts (id, profile_id, circle_id, debate_id, title, body, subtext, kind, visibility, formats, theme, topic_tags, safety_tags, language_code, location_label, payload, created_at)
+      VALUES (${post.id}, ${post.profileId}, ${post.circleId}, NULL, ${post.title}, ${post.body}, ${post.subtext}, ${post.kind}, ${post.visibility}, ${JSON.stringify(post.formats)}::jsonb, NULLIF(${post.metadata?.theme ?? ""}, ''), ${JSON.stringify(post.metadata?.tags ?? [])}::jsonb, ${JSON.stringify(post.metadata?.safetyTags ?? [])}::jsonb, NULLIF(${post.metadata?.language ?? ""}, ''), NULLIF(${post.metadata?.location ?? ""}, ''), ${JSON.stringify(post)}::jsonb, ${post.createdAt})`;
   } else {
     state.posts.unshift(post);
   }
@@ -793,7 +912,8 @@ export async function createCircle(input: { name: string; kind: string; descript
     locationMode: "Online",
     description: input.description.trim(),
     visibility: input.visibility || "private",
-    memberCount: 1
+    memberCount: 1,
+    memberProfileIds: [profile.id]
   };
   if (sql) {
     await sql`INSERT INTO circles (id, owner_profile_id, name, kind, location_mode, description, visibility) VALUES (${circle.id}, ${circle.ownerProfileId}, ${circle.name}, ${circle.kind}, ${circle.locationMode}, ${circle.description}, ${circle.visibility})`;
@@ -802,6 +922,71 @@ export async function createCircle(input: { name: string; kind: string; descript
     state.circles.push(circle);
   }
   return circle;
+}
+
+export async function listOwnCircleMembers(circleId: string) {
+  const sql = await useDatabase();
+  if (!sql) {
+    const circle = state.circles.find((item) => item.id === circleId);
+    if (!circle || !state.profiles.some((profile) => profile.id === circle.ownerProfileId && profile.accountId === "account-demo")) return null;
+    return (circle.memberProfileIds ?? [circle.ownerProfileId]).map((id) => state.profiles.find((profile) => profile.id === id)).filter((profile): profile is SocialProfile => Boolean(profile)).map(({ id, name, avatar, category }) => ({ id, name, avatar, category }));
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId) return null;
+  const rows = await sql`SELECT p.id, p.name, p.avatar, p.category FROM circles c JOIN profiles owner ON owner.id = c.owner_profile_id AND owner.account_id = ${accountId} JOIN circle_members cm ON cm.circle_id = c.id AND cm.status = 'active' JOIN profiles p ON p.id = cm.profile_id WHERE c.id = ${circleId} ORDER BY (cm.role = 'owner') DESC, LOWER(p.name)`;
+  if (!rows.length) {
+    const ownsCircle = await sql`SELECT 1 FROM circles c JOIN profiles owner ON owner.id = c.owner_profile_id WHERE c.id = ${circleId} AND owner.account_id = ${accountId} LIMIT 1`;
+    return ownsCircle.length ? [] : null;
+  }
+  return rows;
+}
+
+export async function addOwnCircleMember(circleId: string, profileId: string) {
+  const sql = await useDatabase();
+  if (!sql) {
+    const circle = state.circles.find((item) => item.id === circleId);
+    const target = state.profiles.find((profile) => profile.id === profileId);
+    const owner = circle && state.profiles.find((profile) => profile.id === circle.ownerProfileId);
+    if (!circle || !owner || owner.accountId !== "account-demo" || !target) return false;
+    const existing = new Set(circle.memberProfileIds ?? [circle.ownerProfileId]);
+    const direct = owner.accountId === target.accountId || state.circles.some((item) => item.memberProfileIds?.includes(owner.id) && item.memberProfileIds.includes(target.id));
+    if (!direct) return false;
+    existing.add(target.id);
+    circle.memberProfileIds = [...existing];
+    circle.memberCount = existing.size;
+    return true;
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId) return false;
+  const rows = await sql`INSERT INTO circle_members (circle_id, profile_id, role, status)
+    SELECT c.id, target.id, 'member', 'active' FROM circles c
+    JOIN profiles owner ON owner.id = c.owner_profile_id AND owner.account_id = ${accountId}
+    JOIN profiles target ON target.id = ${profileId}
+    WHERE c.id = ${circleId} AND target.id <> owner.id AND (
+      target.account_id = ${accountId}
+      OR EXISTS (SELECT 1 FROM profile_follows f WHERE f.status = 'active' AND ((f.follower_profile_id = owner.id AND f.followed_profile_id = target.id) OR (f.follower_profile_id = target.id AND f.followed_profile_id = owner.id)))
+      OR EXISTS (SELECT 1 FROM circle_members mine JOIN circle_members theirs ON theirs.circle_id = mine.circle_id WHERE mine.profile_id = owner.id AND theirs.profile_id = target.id AND mine.status = 'active' AND theirs.status = 'active')
+      OR EXISTS (SELECT 1 FROM meta_profile_members mine JOIN meta_profile_members theirs ON theirs.meta_profile_id = mine.meta_profile_id WHERE mine.member_profile_id = owner.id AND theirs.member_profile_id = target.id)
+    ) ON CONFLICT (circle_id, profile_id) DO UPDATE SET status = 'active' RETURNING profile_id`;
+  return rows.length > 0;
+}
+
+export async function removeOwnCircleMember(circleId: string, profileId: string) {
+  const sql = await useDatabase();
+  if (!sql) {
+    const circle = state.circles.find((item) => item.id === circleId);
+    const owner = circle && state.profiles.find((profile) => profile.id === circle.ownerProfileId);
+    if (!circle || !owner || owner.accountId !== "account-demo" || profileId === owner.id) return false;
+    circle.memberProfileIds = (circle.memberProfileIds ?? [owner.id]).filter((id) => id !== profileId);
+    circle.memberCount = circle.memberProfileIds.length;
+    return true;
+  }
+  const accountId = await getSessionAccountId();
+  if (!accountId) return false;
+  const rows = await sql`DELETE FROM circle_members cm USING circles c, profiles owner
+    WHERE cm.circle_id = c.id AND owner.id = c.owner_profile_id AND owner.account_id = ${accountId}
+      AND c.id = ${circleId} AND cm.profile_id = ${profileId} AND cm.role <> 'owner' RETURNING cm.profile_id`;
+  return rows.length > 0;
 }
 
 export async function toggleSocialReaction(postId: string, reaction: string, profileId = demoProfileId) {

@@ -15,6 +15,13 @@ export async function POST(request: Request) {
   if (!body || typeof body.body !== "string") return NextResponse.json({ error: "Invalid post content." }, { status: 400 });
   const allowedFormats = ["text", "image", "video", "reel", "event", "alert"];
   if (body.formats !== undefined && (!Array.isArray(body.formats) || body.formats.some((format: unknown) => typeof format !== "string" || !allowedFormats.includes(format)))) return NextResponse.json({ error: "Invalid publication format." }, { status: 400 });
+  const allowedSafetyTags = ["forbidden", "commercial", "sexual", "shocking", "aggressive"];
+  if (body.safetyTags !== undefined && (!Array.isArray(body.safetyTags) || body.safetyTags.some((tag: unknown) => typeof tag !== "string" || !allowedSafetyTags.includes(tag)))) return NextResponse.json({ error: "Invalid safety tags." }, { status: 400 });
+  const allowedThemes = ["politics-society", "culture-entertainment", "sports", "science-health", "economy-tech", "lifestyle-ideas", "other"];
+  if (body.theme !== undefined && body.theme !== null && body.theme !== "" && (typeof body.theme !== "string" || !allowedThemes.includes(body.theme))) return NextResponse.json({ error: "Invalid publication theme." }, { status: 400 });
+  if (body.topicTags !== undefined && (typeof body.topicTags !== "string" || body.topicTags.length > 600)) return NextResponse.json({ error: "Topic tags are too long." }, { status: 400 });
+  if (body.languageCode !== undefined && (typeof body.languageCode !== "string" || body.languageCode.length > 40)) return NextResponse.json({ error: "Language is too long." }, { status: 400 });
+  if (body.locationLabel !== undefined && (typeof body.locationLabel !== "string" || body.locationLabel.length > 120)) return NextResponse.json({ error: "Location is too long." }, { status: 400 });
   if (body.media !== undefined && !validMediaAttachments(body.media)) return NextResponse.json({ error: "Invalid media attachments." }, { status: 400 });
   const formats: string[] = body.formats ?? ["text"];
   const media = body.media ?? [];
@@ -30,7 +37,15 @@ export async function POST(request: Request) {
   if (isAlert && (!body.body.trim() && media.length === 0 || !["feed", "story"].includes(body.target) || !["permanent", "1h", "1d", "1w"].includes(body.duration))) return NextResponse.json({ error: "An alert needs a message or media, a target, and a valid duration." }, { status: 400 });
   if (formats.includes("image") && !media.some((item: { contentType: string }) => item.contentType.startsWith("image/")) || (formats.includes("video") || formats.includes("reel")) && !media.some((item: { contentType: string }) => item.contentType.startsWith("video/"))) return NextResponse.json({ error: "Attach media matching the selected format." }, { status: 400 });
   const kind = body.startDebate ? "debate" : isEvent ? "event" : isAlert ? "alert" : "publication";
+  const rawTopicTags: string = typeof body.topicTags === "string" ? body.topicTags : "";
+  const topicTags = Array.from(new Set<string>(rawTopicTags.split(",").map((tag) => tag.trim().toLocaleLowerCase()).filter(Boolean))).slice(0, 30);
+  const safetyTags: string[] = Array.isArray(body.safetyTags) ? body.safetyTags as string[] : [];
   const metadata = {
+    safetyTags,
+    ...(typeof body.theme === "string" && body.theme ? { theme: body.theme } : {}),
+    tags: topicTags,
+    ...(typeof body.languageCode === "string" && body.languageCode.trim() ? { language: body.languageCode.trim() } : {}),
+    ...(typeof body.locationLabel === "string" && body.locationLabel.trim() ? { location: body.locationLabel.trim() } : {}),
     ...(event ? { startsAt: event.startsAt || undefined, location: event.location } : {}),
     ...(typeof body.duration === "string" ? { duration: body.duration } : {}),
     ...(typeof body.target === "string" ? { target: body.target } : {})
@@ -60,7 +75,9 @@ export async function POST(request: Request) {
     theme: typeof body.theme === "string" ? body.theme : "lifestyle-ideas",
     start: "question",
     confidence: 50,
-    media: body.media ?? []
+    media: body.media ?? [],
+    safetyTags: body.safetyTags ?? [],
+    targetTags: body.targetTags ?? []
   });
   await linkSocialPostToDebate(post.id, debate.id);
   return NextResponse.json({ post: { ...post, kind: "debate", debateId: debate.id }, debate }, { status: 201 });

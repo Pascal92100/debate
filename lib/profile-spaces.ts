@@ -42,6 +42,16 @@ export async function listProfileSpaces(profileId: string, kind: ProfileSpaceKin
   return rows.map((row) => ({ ...row, createdAt: new Date(row.createdAt as string).toISOString() })) as ProfileSpace[];
 }
 
+export async function listProfileSpacesForProfiles(profileIds: string[], kind: ProfileSpaceKind): Promise<ProfileSpace[]> {
+  if (!profileIds.length) return [];
+  const persistent = await isPersistentStore();
+  const sql = persistent ? await ensureSchema() : null;
+  if (!sql) return structuredClone(demo.items.filter((item) => item.kind === kind && profileIds.includes(item.profileId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  const rows = await sql`SELECT s.id, s.profile_id AS "profileId", s.kind, s.name, s.description, s.created_at AS "createdAt"
+    FROM profile_spaces s WHERE s.profile_id = ANY(${profileIds}) AND s.kind = ${kind} ORDER BY s.created_at DESC LIMIT 300`;
+  return rows.map((row) => ({ ...row, createdAt: new Date(row.createdAt as string).toISOString() })) as ProfileSpace[];
+}
+
 export async function createProfileSpace(input: { profileId: string; kind: ProfileSpaceKind; name: string; description: string }) {
   const profiles = await listProfiles();
   if (!profiles.some((profile) => profile.id === input.profileId)) return null;
