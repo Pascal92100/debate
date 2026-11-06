@@ -876,12 +876,10 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .search-check-grid input, .search-mode input { flex: none; accent-color: var(--green); }
 .search-emoji-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
 .search-emoji-choice { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 24px; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 5px 2px; border: 0; border-bottom: 1px solid var(--line); background: transparent; touch-action: manipulation; }
-.search-emoji-choice.selected { border-color: var(--green); background: var(--pale-green); }
-.search-emoji-choice > label { display: grid; grid-template-columns: 16px 25px minmax(0, 1fr); align-items: center; gap: 7px; min-width: 0; cursor: pointer; }
-.search-emoji-choice > label input { accent-color: var(--green); }
-.search-emoji-choice > label > span { width: 25px; font-size: 18px; text-align: center; }
-.search-emoji-choice > label > strong { overflow-wrap: anywhere; font-size: 10px; font-weight: 500; }
-.search-emoji-choice.selected > label > strong { color: var(--green); font-weight: 700; }
+.search-emoji-choice > label.description-tag { display: inline-flex; align-items: center; gap: 5px; justify-self: start; max-width: 100%; min-height: 32px; padding: 5px 8px; }
+.search-emoji-choice > label.description-tag > span { font-size: 16px; }
+.search-emoji-choice > label.description-tag > strong { overflow-wrap: anywhere; font-size: 9px; font-weight: 500; }
+.search-emoji-choice > label.description-tag.selected { border-color: var(--green); background: var(--green); color: white; }
 .search-emoji-info { display: grid; width: 22px; height: 22px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: white; color: var(--green); font: 700 10px/1 "DM Sans", sans-serif; cursor: pointer; }
 .search-emoji-tooltip { position: absolute; z-index: 20; top: calc(100% + 5px); left: 0; width: min(250px, calc(100vw - 54px)); padding: 8px 10px; border: 1px solid var(--line); background: white; box-shadow: 0 5px 18px #17251d24; color: var(--ink); font-size: 9px; font-weight: 400; line-height: 1.4; }
 .search-builder-accordion { min-width: 0; border: 1px solid var(--line); background: var(--surface); }
@@ -927,7 +925,8 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
   .profile-search-builder input:not([type="checkbox"]):not([type="radio"]), .profile-search-builder select { min-height: 40px; font-size: 11px; }
   .search-check-grid > label { min-height: 38px; font-size: 11px; }
   .search-emoji-choice { min-height: 46px; }
-  .search-emoji-choice > label > strong { font-size: 11px; }
+  .search-emoji-choice > label.description-tag { min-height: 36px; }
+  .search-emoji-choice > label.description-tag > strong { font-size: 10px; }
   .search-emoji-info { width: 23px; height: 23px; }
   .search-builder-section { padding: 9px; }
   .search-builder-section legend { font-size: 11px; }

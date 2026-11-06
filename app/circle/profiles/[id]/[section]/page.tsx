@@ -6,8 +6,9 @@ import { ProfileContextBar } from "@/components/profile-context-bar";
 import { ProfileSpaces } from "@/components/profile-spaces";
 import { ProfileAlerts } from "@/components/profile-alerts";
 import { isPersistentStore, listDebates } from "@/lib/debates";
-import { listCircles, listProfilesCached, listSocialPosts, markProfileActive } from "@/lib/social";
+import { getProfileDescription, listCircles, listProfilesCached, listSocialPosts, markProfileActive } from "@/lib/social";
 import { listProfileAlerts, listProfileEvents, listProfileSearches } from "@/lib/profile-modules";
+import { availableDescriptionThemeIds } from "@/lib/profile-description-taxonomy";
 import { listIncomingMetaProfileInvitations } from "@/lib/meta-profile-invitations";
 import { listProfileSpaces, type ProfileSpaceKind } from "@/lib/profile-spaces";
 
@@ -27,21 +28,24 @@ const profileSections: Record<string, { title: string; icon: string; description
 export default async function ProfileSectionPage({ params }: { params: Promise<{ id: string; section: string }> }) {
   const { id, section } = await params;
   if (section === "searches" || section === "events") {
-    const [profiles, persistent, searches, events] = await Promise.all([
+    const [profiles, persistent, searches, events, description] = await Promise.all([
       listProfilesCached(),
       isPersistentStore(),
       section === "searches" ? listProfileSearches(id) : Promise.resolve([]),
-      section === "events" ? listProfileEvents(id) : Promise.resolve([])
+      section === "events" ? listProfileEvents(id) : Promise.resolve([]),
+      section === "searches" ? getProfileDescription(id) : Promise.resolve(null)
     ]);
     const profile = profiles.find((item) => item.id === id);
     if (!profile) notFound();
     await markProfileActive(profile.id);
     const title = section === "searches" ? "Edit Searches" : "Your Events";
+    const descriptionGoals = (description?.relationship || profile.relationship || "friends").split("|").filter(Boolean);
+    const availableThemeIds = availableDescriptionThemeIds(descriptionGoals, profile.category, profile.kind !== "individual");
     return <main className="social-shell social-directory-shell">
       <div className="social-page-heading"><div><p className="eyebrow">{profile.name} · Profile space</p><h1>{title}</h1></div><Link className="back-link" href={`/circle/profiles/${encodeURIComponent(id)}`}>← {profile.name}</Link></div>
       <ProfileContextBar profile={profile} profiles={profiles} />
       {!persistent && <p className="notice social-notice">Changes are temporary without DATABASE_URL.</p>}
-      <ProfileModuleLists profile={profile} kind={section} initialSearches={searches} initialEvents={events} />
+      <ProfileModuleLists profile={profile} kind={section} initialSearches={searches} initialEvents={events} descriptionGoals={descriptionGoals} availableThemeIds={availableThemeIds} />
     </main>;
   }
   if (section === "communities" || section === "groups" || section === "forums") {

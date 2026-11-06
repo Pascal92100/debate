@@ -2,7 +2,7 @@
 
 import { FormEvent, useRef, useState } from "react";
 import type { SavedProfileSearch } from "@/lib/profile-modules";
-import { descriptionRelationships, descriptionThemeAccess, descriptionThemes } from "@/lib/profile-description-taxonomy";
+import { descriptionRelationships, descriptionThemes } from "@/lib/profile-description-taxonomy";
 
 const themes = [
   ["politics-society", "Politics / society"], ["culture-entertainment", "Culture / entertainment"], ["sports", "Sport"], ["science-health", "Science / health"], ["economy-tech", "Economy / work / tech"], ["lifestyle-ideas", "Lifestyle / ideas"], ["other", "Other"]
@@ -24,19 +24,18 @@ function EmojiChoice({ emoji, id, label, description, checked, onChange }: { emo
     timer.current = null;
   }
   return <div className={`search-emoji-choice${checked ? " selected" : ""}${showHelp ? " help-visible" : ""}`} title={description} onPointerDown={startPress} onPointerUp={endPress} onPointerCancel={endPress} onPointerLeave={endPress} onContextMenu={(event) => { event.preventDefault(); longPress.current = true; setShowHelp(true); }} onClickCapture={(event) => { if (longPress.current) { event.preventDefault(); event.stopPropagation(); longPress.current = false; } }}>
-    <label><input type="checkbox" name={id} value={id} checked={checked} onChange={(event) => onChange(event.target.checked)} /><span aria-hidden="true">{emoji}</span><strong>{label}</strong></label>
+    <label className={`description-tag${checked ? " selected" : ""}`}><input type="checkbox" name={id} value={id} checked={checked} onChange={(event) => onChange(event.target.checked)} /><span aria-hidden="true">{emoji}</span><strong>{label}</strong></label>
     <button type="button" className="search-emoji-info" aria-label={`Explain ${label}`} aria-expanded={showHelp} onClick={() => { if (longPress.current) longPress.current = false; else setShowHelp((visible) => !visible); }}>i</button>
     {showHelp && <span className="search-emoji-tooltip" role="tooltip">{description}</span>}
   </div>;
 }
 
-export function ProfileSearchBuilder({ profileId, onSaved }: { profileId: string; onSaved: (search: SavedProfileSearch) => void }) {
+export function ProfileSearchBuilder({ profileId, descriptionGoals, availableThemeIds, onSaved }: { profileId: string; descriptionGoals: string[]; availableThemeIds: string[]; onSaved: (search: SavedProfileSearch) => void }) {
   const [what, setWhat] = useState("Profiles");
   const [targetValues, setTargetValues] = useState<string[]>([]);
   const [filterValues, setFilterValues] = useState<string[]>([]);
   const [formatValues, setFormatValues] = useState<string[]>([]);
   const [themeValues, setThemeValues] = useState<string[]>([]);
-  const [descriptionGoal, setDescriptionGoal] = useState("friends");
   const [descriptionThemeValues, setDescriptionThemeValues] = useState<string[]>([]);
   const [descriptionTagValues, setDescriptionTagValues] = useState<string[]>([]);
   const [tagText, setTagText] = useState("");
@@ -61,7 +60,7 @@ export function ProfileSearchBuilder({ profileId, onSaved }: { profileId: string
       tagMatch: String(data.get("tagMatch") ?? "one"),
       tags: String(data.get("tags") ?? "").split(",").map((tag) => tag.trim()).filter(Boolean),
       visibility: String(data.get("visibility") ?? "any"),
-      descriptionGoal: String(data.get("descriptionGoal") ?? "friends"),
+      descriptionGoals,
       descriptionThemes: array("descriptionTheme"),
       descriptionTags: array("descriptionTag"),
       scope: String(data.get("scope") ?? "world"),
@@ -118,12 +117,9 @@ export function ProfileSearchBuilder({ profileId, onSaved }: { profileId: string
     {what !== "Forums" && <details className="search-builder-accordion"><summary><span>Qualitative filtering</span><small>{targetValues.length ? `${targetValues.length} selected` : "Optional"}</small></summary><fieldset className="search-builder-section"><legend>Choose desired qualities</legend><div className="search-emoji-grid">{targets.map(([emoji, id, description]) => <EmojiChoice key={id} emoji={emoji} id="target" label={id === "feelgood" ? "Feel-good" : id[0].toUpperCase() + id.slice(1)} description={description} checked={targetValues.includes(id)} onChange={(checked) => setTargetValues((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset></details>}
     {what !== "Profiles" && what !== "Forums" && <details className="search-builder-accordion"><summary><span>Safety filters</span><small>{filterValues.length ? `${filterValues.length} selected` : "No exclusions"}</small></summary><fieldset className="search-builder-section"><legend>Hide content tagged as</legend><div className="search-emoji-grid">{safetyFilters.map(([emoji, id, description]) => <EmojiChoice key={id} emoji={emoji} id="filter" label={id[0].toUpperCase() + id.slice(1)} description={description} checked={filterValues.includes(id)} onChange={(checked) => setFilterValues((current) => checked ? [...current, id] : current.filter((value) => value !== id))} />)}</div></fieldset></details>}
     {what === "Publications" && <fieldset className="search-builder-section"><legend>Format</legend><div className="search-check-grid">{formats.map(([id, label]) => <label key={id}><input type="checkbox" name="format" value={id} checked={formatValues.includes(id)} onChange={(event) => setFormatValues((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />{label}</label>)}</div></fieldset>}
-    {what === "Profiles" && <details className="search-builder-accordion profile-description-search" open>
-      <summary><span>Profile description</span><small>{descriptionGoal ? String(descriptionRelationships.find(([id]) => id === descriptionGoal)?.[1] ?? "") : "Choose a goal"}{descriptionTagValues.length ? ` · ${descriptionTagValues.length} tags` : ""}</small></summary>
-      <fieldset className="search-builder-section"><legend>Presentation goal</legend><select name="descriptionGoal" value={descriptionGoal} onChange={(event) => { setDescriptionGoal(event.target.value); setDescriptionThemeValues([]); setDescriptionTagValues([]); }}>
-        {descriptionRelationships.map(([id, label]) => <option value={id} key={id}>{label}</option>)}
-      </select></fieldset>
-      <div className="description-search-theme-list">{(descriptionThemeAccess[descriptionGoal] ?? []).map((themeId) => {
+    {what === "Profiles" && availableThemeIds.length > 0 && <details className="search-builder-accordion profile-description-search" open>
+      <summary><span>Thematic filtering</span><small>{descriptionGoals.map((goal) => descriptionRelationships.find(([id]) => id === goal)?.[1] ?? goal).join(" · ")}{descriptionTagValues.length ? ` · ${descriptionTagValues.length} tags` : ""}</small></summary>
+      <div className="description-search-theme-list">{availableThemeIds.map((themeId) => {
         const theme = descriptionThemes.find((item) => item.id === themeId);
         if (!theme) return null;
         const themeSelected = descriptionThemeValues.includes(theme.id);
@@ -138,7 +134,6 @@ export function ProfileSearchBuilder({ profileId, onSaved }: { profileId: string
           {Object.entries(theme.fieldTags ?? {}).map(([field, tags]) => <details className="description-search-subtheme" key={field}><summary><span>{theme.fields.find(([key]) => key === field)?.[1] ?? field}</span><small>{tags.filter((tag) => descriptionTagValues.includes(`${theme.id}:${field}:${tag}`)).length || "Tags"}</small></summary>{renderTags(field, tags)}</details>)}
         </section>;
       })}</div>
-      {(descriptionGoal === "friends" || !(descriptionThemeAccess[descriptionGoal] ?? []).length) && <p className="search-hint">This goal searches the general profile description only.</p>}
     </details>}
     <details className="search-builder-accordion"><summary><span>Tags</span><small>{tagText.trim() ? `${tagText.split(",").filter((tag) => tag.trim()).length} tags · ${tagMatchValue === "all" ? "all" : "any"}` : "Optional"}</small></summary><fieldset className="search-builder-section search-tags-section"><legend>Tag matching</legend><div className="search-mode"><span>Match</span><div className="search-mode-options"><label className={tagMatchValue === "one" ? "selected" : ""}><input type="radio" name="tagMatch" value="one" checked={tagMatchValue === "one"} onChange={() => setTagMatchValue("one")} /><span>Any selected tag</span></label><label className={tagMatchValue === "all" ? "selected" : ""}><input type="radio" name="tagMatch" value="all" checked={tagMatchValue === "all"} onChange={() => setTagMatchValue("all")} /><span>All selected tags</span></label></div></div><input name="tags" value={tagText} onChange={(event) => setTagText(event.target.value)} placeholder="Comma-separated tags" /></fieldset></details>
     {what !== "Messages" && <details className="search-builder-accordion"><summary><span>Scope</span><small>{scopeValue === "world" ? "World" : scopeValue[0].toUpperCase() + scopeValue.slice(1)}{region ? ` · ${region}` : ""}</small></summary><fieldset className="search-builder-section"><legend>Where should results come from?</legend><div className="search-builder-grid"><label>Area<select name="scope" value={scopeValue} onChange={(event) => setScopeValue(event.target.value)}><option value="world">World</option><option value="continent">Continent</option><option value="country">Country</option><option value="region">Region</option><option value="radius">Distance around me</option></select></label><label>Region, country or city<input name="region" value={region} onChange={(event) => setRegion(event.target.value)} placeholder="Optional place" /></label><label>Distance in km<input name="radius" type="number" min="1" max="20000" placeholder="e.g. 50" /></label><label>Language<input name="language" placeholder="e.g. French" /></label></div></fieldset></details>}

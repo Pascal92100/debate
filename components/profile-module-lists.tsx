@@ -5,7 +5,7 @@ import Link from "next/link";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { ProfileSearchBuilder } from "@/components/profile-search-builder";
 import type { ProfileEvent, SavedProfileSearch } from "@/lib/profile-modules";
-import { descriptionRelationships, descriptionThemes } from "@/lib/profile-description-taxonomy";
+import { descriptionThemes } from "@/lib/profile-description-taxonomy";
 import type { SocialProfile } from "@/lib/social";
 
 function searchDescription(search: SavedProfileSearch) {
@@ -13,8 +13,8 @@ function searchDescription(search: SavedProfileSearch) {
   const what = String(criteria.what ?? "Profiles");
   const parts = [what];
   if (what === "Profiles") {
-    const goal = String(criteria.descriptionGoal ?? "friends");
-    parts.push(String(descriptionRelationships.find(([id]) => id === goal)?.[1] ?? "Friends"));
+    const goals = Array.isArray(criteria.descriptionGoals) ? criteria.descriptionGoals.map(String) : [];
+    if (goals.length) parts.push(goals.join(", "));
     const descriptionThemes = Array.isArray(criteria.descriptionThemes) ? criteria.descriptionThemes.map(String) : [];
     const descriptionTags = Array.isArray(criteria.descriptionTags) ? criteria.descriptionTags.map(String) : [];
     if (descriptionThemes.length) parts.push(descriptionThemes.map((id) => descriptionThemesCatalogLabel(id)).join(", "));
@@ -39,7 +39,7 @@ function descriptionTagLabel(value: string) {
   return parts[0] ?? value;
 }
 
-export function ProfileModuleLists({ profile, kind, initialSearches = [], initialEvents = [] }: { profile: SocialProfile; kind: "searches" | "events"; initialSearches?: SavedProfileSearch[]; initialEvents?: ProfileEvent[] }) {
+export function ProfileModuleLists({ profile, kind, initialSearches = [], initialEvents = [], descriptionGoals = ["friends"], availableThemeIds = [] }: { profile: SocialProfile; kind: "searches" | "events"; initialSearches?: SavedProfileSearch[]; initialEvents?: ProfileEvent[]; descriptionGoals?: string[]; availableThemeIds?: string[] }) {
   const [searches, setSearches] = useState(initialSearches);
   const [events, setEvents] = useState(initialEvents);
   const [creating, setCreating] = useState(false);
@@ -87,7 +87,7 @@ export function ProfileModuleLists({ profile, kind, initialSearches = [], initia
 
   return <>
     <div className="profile-section-toolbar"><p>{isSearch ? "Save the filters you use to find profiles and content." : "Upcoming and past events created by this profile."}</p><button className="button-primary" type="button" onClick={() => setCreating((current) => !current)}>{creating ? "Cancel" : isSearch ? "+ New search" : "+ Create event"}</button></div>
-    {creating && isSearch && <ProfileSearchBuilder profileId={profile.id} onSaved={(search) => { setSearches((current) => [search, ...current]); setCreating(false); }} />}
+    {creating && isSearch && <ProfileSearchBuilder profileId={profile.id} descriptionGoals={descriptionGoals} availableThemeIds={availableThemeIds} onSaved={(search) => { setSearches((current) => [search, ...current]); setCreating(false); }} />}
     {creating && !isSearch && <form className="social-compose-form profile-module-form" onSubmit={submit}><label>Event title<input name="title" required minLength={2} placeholder="Event name" /></label><div className="social-form-row"><label>Date and time<input name="startsAt" type="datetime-local" /></label><label>Location<input name="location" placeholder="Online or a place" /></label></div><label>Description<textarea name="description" placeholder="What is happening?" /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button-primary" disabled={busy}>{busy ? "Saving…" : "Create event"}</button></form>}
     {isSearch && error && !creating && <p className="form-error" role="alert">{error}</p>}
     {isSearch ? searches.length ? <div className="profile-post-list">{searches.map((search) => <article className="profile-activity-item saved-search-item" key={search.id}><strong>{search.name}</strong><p>{searchDescription(search)}</p><small>Saved {new Date(search.updatedAt).toLocaleDateString("en-US")}</small><div className="saved-search-actions"><Link className="button-secondary" href={`/circle/profiles/${encodeURIComponent(profile.id)}/searches/${encodeURIComponent(search.id)}`}>View results</Link><button className="button-icon-danger" type="button" aria-label={`Delete search ${search.name}`} title="Delete search" disabled={Boolean(deletingSearchId)} onClick={() => void deleteSearch(search)}>{deletingSearchId === search.id ? "…" : "🗑"}</button></div></article>)}</div> : <p className="account-empty">No saved searches for this profile yet.</p>

@@ -57,3 +57,10 @@ export const contextThemeAccess: Record<string, string[]> = {
   Political: ["political", "culture", "professional", "psycho"],
   Dating: ["physical", "culture", "spirituality", "psycho", "sexo", "kinky"]
 };
+
+export function availableDescriptionThemeIds(goals: string[], profileContext: string, isMetaProfile = false) {
+  const contextThemes = new Set(isMetaProfile
+    ? descriptionThemes.filter((theme) => !["sexo", "kinky"].includes(theme.id)).map((theme) => theme.id)
+    : contextThemeAccess[profileContext] ?? []);
+  return [...new Set(goals.flatMap((goal) => descriptionThemeAccess[goal] ?? []))].filter((themeId) => contextThemes.has(themeId));
+}

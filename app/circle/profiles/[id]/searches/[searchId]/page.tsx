@@ -34,7 +34,9 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
   const savedKeywords = typeof criteria.keywords === "string" ? criteria.keywords.trim() : "";
   const query = savedKeywords || (searchId !== "results" && !Array.isArray(criteria.themes) ? searchName : "");
   const selectedThemes = values("theme");
-  const descriptionGoal = String(criteria.descriptionGoal ?? values("audience")[0] ?? "friends");
+  const descriptionGoals = Array.isArray(criteria.descriptionGoals)
+    ? criteria.descriptionGoals.map(String)
+    : typeof criteria.descriptionGoal === "string" ? [criteria.descriptionGoal] : values("audience").length ? values("audience") : ["friends"];
   const selectedDescriptionThemes = values("descriptionThemes");
   const selectedDescriptionTags = values("descriptionTags");
   const selectedTargets = values("targets");
@@ -45,8 +47,8 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
   const visibility = String(criteria.visibility ?? "any");
   const region = typeof criteria.region === "string" ? criteria.region.trim().toLocaleLowerCase() : "";
   const language = typeof criteria.language === "string" ? criteria.language.trim().toLocaleLowerCase() : "";
-  const descriptionGoalLabel = String(descriptionRelationships.find(([goal]) => goal === descriptionGoal)?.[1] ?? descriptionGoal);
-  const selectedSummary = [...selectedThemes, ...(what === "Profiles" ? [descriptionGoalLabel, ...selectedDescriptionThemes.map((themeId) => descriptionThemeCatalog.find((theme) => theme.id === themeId)?.label ?? themeId), ...(selectedDescriptionTags.length ? [`${selectedDescriptionTags.length} description tags`] : [])] : []), ...selectedTargets, ...selectedFormats];
+  const descriptionGoalLabels = descriptionGoals.map((goal) => String(descriptionRelationships.find(([id]) => id === goal)?.[1] ?? goal));
+  const selectedSummary = [...selectedThemes, ...(what === "Profiles" ? [...descriptionGoalLabels, ...selectedDescriptionThemes.map((themeId) => descriptionThemeCatalog.find((theme) => theme.id === themeId)?.label ?? themeId), ...(selectedDescriptionTags.length ? [`${selectedDescriptionTags.length} description tags`] : [])] : []), ...selectedTargets, ...selectedFormats];
   const returnHref = searchId === "results"
     ? `/circle/profiles/${encodeURIComponent(id)}/searches`
     : `/circle/profiles/${encodeURIComponent(id)}/searches`;
@@ -60,7 +62,7 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
   };
   const themeMatches = (theme: string) => !selectedThemes.length || selectedThemes.includes(theme) || selectedThemes.some((selected) => selected.includes(theme) || theme.includes(selected));
   const descriptionMatches = (description: import("@/lib/public-profile").VisibleDescription | null) => {
-    if (descriptionGoal !== "friends" && !description?.audience.includes(descriptionGoal)) return false;
+    if (descriptionGoals.some((goal) => goal !== "friends") && !description?.audience.some((audience) => descriptionGoals.includes(audience))) return false;
     if (selectedDescriptionThemes.length && !description?.themes.some((theme) => selectedDescriptionThemes.includes(theme.id))) return false;
     if (!selectedDescriptionTags.length) return true;
     const hasTag = (selection: string) => {
