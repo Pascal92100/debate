@@ -19,6 +19,9 @@ const reportReasons = [
   { icon: "❌", label: "Aggressive" }
 ];
 
+const argumentEvaluations = [["👍🏻", "Agree"], ["👎🏻", "Disagree"], ["🔑", "Useful"], ["💡", "Inspiring"], ["🎓", "Interesting"], ["☀️", "Feel-good"]] as const;
+type EvaluationState = Record<string, { counts: Record<string, number>; viewerEvaluation: string | null }>;
+
 function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { debateId: string; id: string; author: string; confidence: number | string; replyTo?: string; text: string }) {
   const [open, setOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -69,7 +72,7 @@ function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { deba
   );
 }
 
-function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProfileId, depth = 0, compact = false, evaluation }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; authorProfileId: string; depth?: number; compact?: boolean; evaluation?: string }) {
+function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0, compact = false, evaluation }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number; compact?: boolean; evaluation?: string }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
@@ -138,9 +141,11 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProf
   return <div className="argument-wrap">
     {(reportOpen || contextOpen) && <button className="report-dismiss" type="button" aria-label="Close menu" onClick={() => { setReportOpen(false); setContextOpen(false); }} />}
     <div className={`argument-line${touchActionsOpen ? " touch-actions-open" : ""}`} data-argument-id={id} onContextMenu={(event) => { event.preventDefault(); setContextOpen(true); }} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerCancel={clearLongPress}>
+      <span className="argument-reply-count" title={`${replies.length} ${replies.length === 1 ? "reply" : "replies"}`} aria-label={`${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}>↳ {replies.length}</span>
       <button className={`argument-text${compact ? " argument-text-compact" : ""}`} type="button" aria-expanded={replies.length > 0 ? repliesOpen : undefined} onClick={() => { if (longPressTriggered.current) { longPressTriggered.current = false; return; } if (replies.length > 0) setRepliesOpen(!repliesOpen); }} title={replies.length > 0 ? "Show or hide replies to this argument" : "No replies to this argument"}>{text}</button>
       {evaluation && <span className="evaluation-badge argument-evaluation-badge" title="Reply evaluation">{evaluation}</span>}
       {reportBadge && <span className="report-badge" title="Report sent">{reportBadge}</span>}
+      <div className="argument-positive-evaluations" role="group" aria-label="Evaluate the argument">{argumentEvaluations.map(([icon, label]) => <button type="button" key={icon} title={label} aria-label={`${label}: ${evaluationState[id]?.counts[icon] ?? 0}`} aria-pressed={evaluationState[id]?.viewerEvaluation === icon} onClick={() => onEvaluate(id, icon)}>{icon}{evaluationState[id]?.counts[icon] ? <small>{evaluationState[id].counts[icon]}</small> : null}</button>)}</div>
       <button className="argument-touch-toggle" type="button" aria-expanded={touchActionsOpen} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setTouchActionsOpen((open) => !open); }}>{touchActionsOpen ? "Close" : "Actions"}</button>
       <div className="argument-actions">
         <button className="argument-action reply-icon" type="button" title="Reply to this line" aria-label="Reply to this argument" onClick={() => document.getElementById(`reply-${id}`)?.click()}><span className="action-glyph" aria-hidden="true">↩</span><span className="touch-action-label">Reply</span></button>
@@ -161,33 +166,35 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProf
     {infoOpen && <div className="argument-info"><span>Argument <code>{id}</code></span><button className="text-action" type="button" onClick={() => navigator.clipboard.writeText(text).then(() => setFeedback("Text copied.")).catch(() => setFeedback("Copy unavailable."))}>Copy</button></div>}
     <CommentForm key={id} debateId={debateId} replyTo={id} controlId={`reply-${id}`} profileId={authorProfileId} />
     {feedback && <span className="action-feedback argument-feedback" role="status">{feedback}</span>}
-    {repliesOpen && <div className="argument-replies">{replies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth + 1} />)}</div>}
+    {repliesOpen && <div className="argument-replies">{replies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}</div>}
   </div>;
 }
 
-function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileIds, authorProfileId, depth = 0, compact = false, rootAliases = [], titleEvaluation }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; authorProfileId: string; depth?: number; compact?: boolean; rootAliases?: string[]; titleEvaluation?: string }) {
-  return <div className="argument-list">{paragraphs.map((paragraph, index) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth} compact={compact} evaluation={index === 0 ? titleEvaluation : undefined} />)}
-    {children.filter((child) => child.replyTo === parentId || rootAliases.includes(child.replyTo)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth + 1} />)}
+function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0, compact = false, rootAliases = [], titleEvaluation }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number; compact?: boolean; rootAliases?: string[]; titleEvaluation?: string }) {
+  return <div className="argument-list">{paragraphs.map((paragraph, index) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact={compact} evaluation={index === 0 ? titleEvaluation : undefined} />)}
+    {children.filter((child) => child.replyTo === parentId || rootAliases.includes(child.replyTo)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}
   </div>;
 }
 
-function CommentCard({ debateId, node, ownedProfileIds, authorProfileId, depth = 0 }: { debateId: string; node: Comment; ownedProfileIds: string[]; authorProfileId: string; depth?: number }) {
+function CommentCard({ debateId, node, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0 }: { debateId: string; node: Comment; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number }) {
+  const [globalRepliesOpen, setGlobalRepliesOpen] = useState(false);
   const paragraphs = node.paragraphs ?? [];
   const text = paragraphs.map((paragraph) => paragraph.text).join(" ");
-  const firstParagraph = paragraphs[0]?.text ?? "";
-  const titleDuplicatesFirstParagraph = firstParagraph === node.title || (node.title.length === 72 && firstParagraph.startsWith(node.title));
+  const globalReplies = (node.children ?? []).filter((reply) => reply.replyTo === node.id);
+  const paragraphReplies = (node.children ?? []).filter((reply) => reply.replyTo !== node.id);
 
   return <article className="thread-message" style={{ "--depth": Math.min(depth, 4) } as React.CSSProperties}>
     <header className="thread-message-header"><span><strong>{node.author}</strong></span><span className="thread-message-tools"><span className="message-confidence" title="Confidence">💪 {node.confidence}%</span>{node.authorProfileId && ownedProfileIds.includes(node.authorProfileId) && <DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debateId)}/comments/${encodeURIComponent(node.id)}`} label="Delete my reply" confirmation="Delete this reply and all replies below it? This cannot be undone." iconOnly />}</span></header>
     {node.definitions?.length ? <details className="data-accordion"><summary>Definitions <span>{node.definitions.length}</span></summary><div>{node.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
     {node.facts?.length ? <details className="data-accordion"><summary>Facts and references <span>{node.facts.length}</span></summary><div>{node.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
-    {!titleDuplicatesFirstParagraph && <div className="thread-message-title-row"><h3 className="thread-message-title">{node.title}</h3>{node.evaluation && <span className="evaluation-badge" title="Reply evaluation">{node.evaluation}</span>}</div>}
-    <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={node.children ?? []} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth} compact titleEvaluation={titleDuplicatesFirstParagraph ? node.evaluation : undefined} />
-    {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={node.title} replies={node.children ?? []} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} depth={depth} compact evaluation={node.evaluation} />}
+    <div className="thread-message-title-row"><button className="thread-message-title thread-title-toggle" type="button" aria-expanded={globalRepliesOpen} disabled={globalReplies.length === 0} onClick={() => setGlobalRepliesOpen((open) => !open)}>{node.title}<span className="global-reply-count">↳ {globalReplies.length}</span></button>{node.evaluation && <span className="evaluation-badge" title="Reply evaluation">{node.evaluation}</span>}</div>
+    <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={paragraphReplies} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact titleEvaluation={node.evaluation} />
+    {paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={text || node.title} replies={paragraphReplies} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact evaluation={node.evaluation} />}
+    {globalRepliesOpen && globalReplies.length > 0 && <div className="global-replies-accordion" aria-label="Global replies">{globalReplies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}</div>}
     <MediaGallery media={node.media} compact />
     <div className="message-control-row">
       <MessageInfo debateId={debateId} id={node.id} author={node.author} confidence={node.confidence} replyTo={node.replyTo} text={`${node.title}\n${text}`} />
-      <CommentForm debateId={debateId} replyTo={node.id} />
+      <CommentForm debateId={debateId} replyTo={node.id} profileId={authorProfileId} />
     </div>
   </article>;
 }
@@ -202,8 +209,10 @@ function rootPostId(debate: Debate) {
   return targets.some((target) => target === "p1" || target.startsWith("p1-")) ? "p1" : debate.id;
 }
 
-export function ThreadView({ debate, comments, ownedProfileIds = [] }: { debate: Debate; comments: Comment[]; ownedProfileIds?: string[] }) {
-  const authorProfileId = ownedProfileIds[0] ?? "profile-john";
+export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorProfileId, initialEvaluations = {} }: { debate: Debate; comments: Comment[]; ownedProfileIds?: string[]; evaluatorProfileId?: string; initialEvaluations?: EvaluationState }) {
+  const authorProfileId = evaluatorProfileId ?? ownedProfileIds.find((profileId) => profileId !== "") ?? "profile-john";
+  const [evaluationState, setEvaluationState] = useState(initialEvaluations);
+  const [evaluationError, setEvaluationError] = useState("");
   const rootId = rootPostId(debate);
   const paragraphs = debate.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean)).map((text, index) => ({
     id: rootId === "p1" ? `p1-${index + 1}` : `${rootId}-p-${index + 1}`,
@@ -212,11 +221,27 @@ export function ThreadView({ debate, comments, ownedProfileIds = [] }: { debate:
 
   const rootComments = comments;
 
+  async function evaluateArgument(argumentId: string, value: string) {
+    setEvaluationError("");
+    const response = await fetch(`/api/debates/${encodeURIComponent(debate.id)}/evaluations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ argumentId, evaluation: value })
+    }).catch(() => null);
+    const result = await response?.json().catch(() => null);
+    if (!response?.ok) {
+      setEvaluationError(result?.error || "The evaluation could not be saved.");
+      return;
+    }
+    setEvaluationState((current) => ({ ...current, [argumentId]: result }));
+  }
+
   return <section className="thread-view" aria-label="Debate thread">
+    {evaluationError && <p className="form-error" role="alert">{evaluationError}</p>}
     <article className="thread-message thread-root">
       {debate.definitions?.length ? <details className="data-accordion" open><summary>Definitions <span>{debate.definitions.length}</span></summary><div>{debate.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
       {debate.facts?.length ? <details className="data-accordion" open><summary>Facts and references <span>{debate.facts.length}</span></summary><div>{debate.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
-      <ArgumentLines debateId={debate.id} parentId={rootId} paragraphs={paragraphs} children={rootComments} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} rootAliases={[debate.id]} compact />
+      <ArgumentLines debateId={debate.id} parentId={rootId} paragraphs={paragraphs} children={rootComments} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={evaluateArgument} rootAliases={[debate.id]} compact />
       <MediaGallery media={debate.media} />
       <div className="message-control-row thread-root-actions"><MessageInfo debateId={debate.id} id={debate.id} author={debate.from || "Participant"} confidence={debate.confidence ?? 0} text={`${debate.title}\n${debate.content.join("\n")}`} /><CommentForm debateId={debate.id} replyTo={debate.id} /></div>
     </article>

@@ -7,8 +7,8 @@ export const runtime = "nodejs";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await request.json().catch(() => null);
-  if (!body || typeof body.replyTo !== "string" || typeof body.text !== "string" || (body.text.trim().length < 2 && !validMediaAttachments(body.media))) {
-    return NextResponse.json({ error: "Write a reply or attach media." }, { status: 400 });
+  if (!body || typeof body.replyTo !== "string" || typeof body.title !== "string" || body.title.trim().length < 2 || body.title.trim().length > 140 || typeof body.text !== "string" || (body.text.trim().length < 2 && !validMediaAttachments(body.media))) {
+    return NextResponse.json({ error: "Add a title and write a reply or attach media." }, { status: 400 });
   }
   if (body.media !== undefined && !validMediaAttachments(body.media)) return NextResponse.json({ error: "Invalid media attachments." }, { status: 400 });
   const comment = await createComment(id, {

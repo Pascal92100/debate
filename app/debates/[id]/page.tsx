@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDebate, isPersistentStore } from "@/lib/debates";
+import { getDebate, isPersistentStore, listArgumentEvaluations } from "@/lib/debates";
 import { ThreadView } from "@/components/thread-view";
 import { DebateControls } from "@/components/debate-controls";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
@@ -14,6 +14,8 @@ export default async function DebatePage({ params }: { params: Promise<{ id: str
   if (!debate) notFound();
 
   const comments = debate.children ?? [];
+  const evaluatorProfile = profiles.find((profile) => profile.kind === "individual");
+  const evaluations = await listArgumentEvaluations(debate.id, evaluatorProfile?.id);
   const ownedAuthor = profiles.find((profile) => profile.id === debate.authorProfileId);
   return (
     <main className="debate-shell">
@@ -33,7 +35,7 @@ export default async function DebatePage({ params }: { params: Promise<{ id: str
         {debate.sourcePostId && <Link className="source-post-link" href={`/social#${encodeURIComponent(debate.sourcePostId)}`}>View original post in Circles →</Link>}
       </header>
       <DebateControls />
-      <ThreadView debate={debate} comments={comments} ownedProfileIds={profiles.map((profile) => profile.id)} />
+      <ThreadView debate={debate} comments={comments} ownedProfileIds={profiles.map((profile) => profile.id)} evaluatorProfileId={evaluatorProfile?.id} initialEvaluations={evaluations} />
       {debate.authorProfileId && profiles.some((profile) => profile.id === debate.authorProfileId) && <DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debate.id)}`} label="Delete debate" confirmation="Permanently delete this debate and all of its replies? This cannot be undone." redirectTo="/debates" />}
     </main>
   );

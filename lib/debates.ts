@@ -44,14 +44,19 @@ export type Comment = {
   media?: MediaAttachment[];
 };
 
-type StoreState = { debates: Debate[]; reports: Array<{ id: string; debateId: string; messageId: string; reason: string }>; ready: boolean; persistent: boolean };
+export const argumentEvaluations = ["👍🏻", "👎🏻", "🔑", "💡", "🎓", "☀️"] as const;
+export type ArgumentEvaluation = typeof argumentEvaluations[number];
+
+type StoreState = { debates: Debate[]; reports: Array<{ id: string; debateId: string; messageId: string; reason: string }>; evaluations: Array<{ debateId: string; argumentId: string; profileId: string; evaluation: ArgumentEvaluation }>; ready: boolean; persistent: boolean };
 const globalStore = globalThis as typeof globalThis & { __debateStore?: StoreState };
 const store = globalStore.__debateStore ??= {
   debates: structuredClone(fixture.debates) as Debate[],
   reports: [],
+  evaluations: [],
   ready: false,
   persistent: false
 };
+store.evaluations ??= [];
 
 export function database() {
   const url = process.env.DATABASE_URL;
@@ -86,6 +91,16 @@ async function initializeDatabase() {
   )`;
   await sql`ALTER TABLE debate_comments ADD COLUMN IF NOT EXISTS author_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL`;
   await sql`CREATE INDEX IF NOT EXISTS debate_comments_debate_id_idx ON debate_comments (debate_id, created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS debate_comments_reply_to_idx ON debate_comments (debate_id, reply_to)`;
+  await sql`CREATE TABLE IF NOT EXISTS debate_argument_evaluations (
+    debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
+    argument_id TEXT NOT NULL,
+    profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    evaluation TEXT NOT NULL CHECK (evaluation IN ('👍🏻', '👎🏻', '🔑', '💡', '🎓', '☀️')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (debate_id, argument_id, profile_id)
+  )`;
+  await sql`CREATE INDEX IF NOT EXISTS debate_argument_evaluations_count_idx ON debate_argument_evaluations(debate_id, argument_id, evaluation)`;
   await sql`CREATE TABLE IF NOT EXISTS debate_reports (
     id TEXT PRIMARY KEY,
     debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
@@ -138,8 +153,6 @@ export async function listPublicDebates() {
   if (!await isPersistentStore()) return structuredClone(store.debates.filter((debate) => !debate.circleId));
   const sql = database();
   if (!sql) return [];
-  const accountId = await getSessionAccountId();
-  if (!accountId) return [];
   const rows = await sql`SELECT payload FROM debates WHERE visibility = 'public' AND circle_id IS NULL ORDER BY created_at DESC LIMIT 300`;
   return rows.map((row) => row.payload as Debate);
 }
@@ -149,10 +162,11 @@ export async function getDebate(id: string) {
   const sql = persistent ? database() : null;
   if (sql) {
     const accountId = await getSessionAccountId();
-    if (!accountId) return null;
     const rows = await sql`SELECT payload FROM debates d WHERE d.id = ${id} AND (
-      d.author_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId})
-      OR d.circle_id IN (SELECT cm.circle_id FROM circle_members cm JOIN profiles p ON p.id = cm.profile_id WHERE p.account_id = ${accountId})
+      (d.visibility = 'public' AND d.circle_id IS NULL)
+      OR
+      (${accountId ?? ""} <> '' AND d.author_profile_id IN (SELECT id FROM profiles WHERE account_id = ${accountId ?? ""}))
+      OR (${accountId ?? ""} <> '' AND d.circle_id IN (SELECT cm.circle_id FROM circle_members cm JOIN profiles p ON p.id = cm.profile_id WHERE p.account_id = ${accountId ?? ""}))
     ) LIMIT 1`;
     const debate = rows[0]?.payload as Debate | undefined;
     return debate ? addStoredComments(debate) : null;
@@ -281,6 +295,71 @@ export async function createComment(debateId: string, input: { replyTo: string; 
     if (index >= 0) store.debates[index] = debate;
   }
   return comment;
+}
+
+function debateArgumentIds(debate: Debate) {
+  const rootId = (debate.children ?? []).some((child) => child.replyTo === "p1" || child.replyTo?.startsWith("p1-")) ? "p1" : debate.id;
+  const ids = new Set([debate.id]);
+  const rootParagraphs = debate.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean));
+  rootParagraphs.forEach((_, index) => ids.add(rootId === "p1" ? `p1-${index + 1}` : `${rootId}-p-${index + 1}`));
+  const visit = (comments: Comment[] = []) => comments.forEach((comment) => {
+    ids.add(comment.id);
+    comment.paragraphs?.forEach((paragraph) => ids.add(paragraph.id));
+    visit(comment.children);
+  });
+  visit(debate.children);
+  return ids;
+}
+
+export async function listArgumentEvaluations(debateId: string, profileId?: string) {
+  const result: Record<string, { counts: Record<string, number>; viewerEvaluation: string | null }> = {};
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (sql) {
+    const [countRows, viewerRows] = await Promise.all([
+      sql`SELECT argument_id AS "argumentId", evaluation, COUNT(*)::int AS count FROM debate_argument_evaluations WHERE debate_id = ${debateId} GROUP BY argument_id, evaluation`,
+      profileId ? sql`SELECT argument_id AS "argumentId", evaluation FROM debate_argument_evaluations WHERE debate_id = ${debateId} AND profile_id = ${profileId}` : Promise.resolve([])
+    ]);
+    for (const row of countRows) {
+      const argumentId = row.argumentId as string;
+      result[argumentId] ??= { counts: {}, viewerEvaluation: null };
+      result[argumentId].counts[row.evaluation as string] = Number(row.count);
+    }
+    for (const row of viewerRows) {
+      const argumentId = row.argumentId as string;
+      result[argumentId] ??= { counts: {}, viewerEvaluation: null };
+      result[argumentId].viewerEvaluation = row.evaluation as string;
+    }
+    return result;
+  }
+  for (const item of store.evaluations.filter((evaluation) => evaluation.debateId === debateId)) {
+    result[item.argumentId] ??= { counts: {}, viewerEvaluation: null };
+    result[item.argumentId].counts[item.evaluation] = (result[item.argumentId].counts[item.evaluation] ?? 0) + 1;
+    if (item.profileId === profileId) result[item.argumentId].viewerEvaluation = item.evaluation;
+  }
+  return result;
+}
+
+export async function toggleArgumentEvaluation(debateId: string, argumentId: string, profileId: string, evaluation: string) {
+  if (!argumentEvaluations.includes(evaluation as ArgumentEvaluation)) throw new Error("Unknown evaluation");
+  const debate = await getDebate(debateId);
+  if (!debate || !debateArgumentIds(debate).has(argumentId)) return null;
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (sql) {
+    const rows = await sql`SELECT evaluation FROM debate_argument_evaluations WHERE debate_id = ${debateId} AND argument_id = ${argumentId} AND profile_id = ${profileId} LIMIT 1`;
+    if (rows[0]?.evaluation === evaluation) {
+      await sql`DELETE FROM debate_argument_evaluations WHERE debate_id = ${debateId} AND argument_id = ${argumentId} AND profile_id = ${profileId}`;
+    } else {
+      await sql`INSERT INTO debate_argument_evaluations (debate_id, argument_id, profile_id, evaluation) VALUES (${debateId}, ${argumentId}, ${profileId}, ${evaluation}) ON CONFLICT (debate_id, argument_id, profile_id) DO UPDATE SET evaluation = EXCLUDED.evaluation, created_at = NOW()`;
+    }
+  } else {
+    const index = store.evaluations.findIndex((item) => item.debateId === debateId && item.argumentId === argumentId && item.profileId === profileId);
+    if (index >= 0 && store.evaluations[index].evaluation === evaluation) store.evaluations.splice(index, 1);
+    else if (index >= 0) store.evaluations[index].evaluation = evaluation as ArgumentEvaluation;
+    else store.evaluations.push({ debateId, argumentId, profileId, evaluation: evaluation as ArgumentEvaluation });
+  }
+  return (await listArgumentEvaluations(debateId, profileId))[argumentId] ?? { counts: {}, viewerEvaluation: null };
 }
 
 export async function deleteOwnComment(debateId: string, commentId: string) {

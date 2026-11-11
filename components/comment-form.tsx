@@ -65,7 +65,7 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
     const response = await fetch(`/api/debates/${encodeURIComponent(debateId)}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ replyTo, text, evaluation: form.get("evaluation"), media })
+      body: JSON.stringify({ replyTo, title: form.get("title"), text, evaluation: form.get("evaluation"), media })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
@@ -87,6 +87,7 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
       </button>
       {isOpen && <form className="comment-form" onSubmit={submit}>
         <div className="comment-form-heading"><h3>Your reply</h3><button className="text-action" type="button" onClick={() => setIsOpen(false)}>Close</button></div>
+        <label className="reply-title-field">Reply title<input name="title" required minLength={2} maxLength={140} placeholder="Summarize your reply" /></label>
         <textarea name="text" maxLength={3000} aria-label="Your reply" placeholder="Write your reply…" />
         <MediaPicker profileId={profileId} media={media} onChange={setMedia} compact />
         <fieldset className="evaluation-picker">

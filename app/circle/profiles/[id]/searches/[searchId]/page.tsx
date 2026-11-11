@@ -96,7 +96,7 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
   });
   const allowedMessage = (message: { body: string; safetyTags?: string[]; targetTags?: string[] }) => !selectedFilters.some((filter) => message.safetyTags?.includes(filter)) && (!selectedTargets.length || (tagMatch === "all" ? selectedTargets.every((target) => message.targetTags?.includes(target)) : selectedTargets.some((target) => message.targetTags?.includes(target))));
   let profileResults: Awaited<ReturnType<typeof searchDiscoverableProfiles>> = [];
-  let contentResults: Array<{ id: string; title: string; detail: string; href: string }> = [];
+  let contentResults: Array<{ id: string; title: string; detail: string; href: string; authorName?: string; authorHref?: string }> = [];
   let unsupported = false;
   let locationNotice = "";
   if (what === "Profiles") {
@@ -132,7 +132,19 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
     contentResults = spaces.filter((space) => isIncluded(`${space.name} ${space.description}`, "text") && themeMatches(`${space.name} ${space.description}`.toLocaleLowerCase()) && matchTags(`${space.name} ${space.description}`.toLocaleLowerCase()) && (!language || `${space.name} ${space.description}`.toLocaleLowerCase().includes(language))).map((space) => ({ id: space.id, title: space.name, detail: space.description, href: `/circle/profiles/${encodeURIComponent(space.profileId)}/forums` }));
   } else if (what === "Debates / discussions") {
     const debates = await listPublicDebates();
-    const debateResults = debates.filter((debate) => isIncluded(`${debate.title} ${debate.content.join(" ")} ${debate.theme ?? ""}`, "text", debate.safetyTags ?? []) && themeMatches(debate.theme ?? "") && (!selectedTargets.length || selectedTargets.some((target) => debate.targetTags?.includes(target))) && matchTags(`${debate.title} ${debate.content.join(" ")} ${debate.theme ?? ""}`.toLocaleLowerCase())).map((debate) => ({ id: debate.id, title: debate.title, detail: debate.content[0] ?? "", href: `/debates/${encodeURIComponent(debate.id)}` }));
+    const matchingDebates = debates.filter((debate) => isIncluded(`${debate.title} ${debate.content.join(" ")} ${debate.theme ?? ""}`, "text", debate.safetyTags ?? []) && themeMatches(debate.theme ?? "") && (!selectedTargets.length || selectedTargets.some((target) => debate.targetTags?.includes(target))) && matchTags(`${debate.title} ${debate.content.join(" ")} ${debate.theme ?? ""}`.toLocaleLowerCase()));
+    const publicAuthors = new Map((await searchDiscoverableProfiles("", "all", id)).filter((author) => author.visibility === "all" && author.socialDistance === 0).map((author) => [author.id, author]));
+    const debateResults = matchingDebates.map((debate) => {
+      const authorProfile = debate.authorProfileId ? publicAuthors.get(debate.authorProfileId) : undefined;
+      return {
+        id: debate.id,
+        title: debate.title,
+        detail: debate.content[0] ?? "",
+        href: `/debates/${encodeURIComponent(debate.id)}`,
+        authorName: debate.from || "Participant",
+        authorHref: authorProfile ? `/circle/profiles/${encodeURIComponent(authorProfile.id)}?view=public&from=${encodeURIComponent(id)}&returnTo=${encodeURIComponent(returnHref)}` : ""
+      };
+    });
     const simpleDiscussions = (await Promise.all(profiles.map((item) => listDiscussions(item.id)))).flat();
     const discussionResults = simpleDiscussions.filter((discussion, index, all) => {
       const visibleMessages = discussion.messages.filter(allowedMessage);
@@ -159,6 +171,6 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
     <p className="profile-search-summary">{what}{query && ` matching “${query}”`}{selectedSummary.length > 0 && ` · ${selectedSummary.join(" · ")}`}{region && ` · ${region}`}{language && ` · ${language}`}</p>
     {locationNotice && <p className="notice social-notice">{locationNotice}</p>}
     {unsupported && what === "Messages" && <p className="notice social-notice">Only messages in discussions accessible to this profile are searched; private one-to-one messages are not indexed yet.</p>}
-    {profileResults.length ? <div className="social-profile-directory">{profileResults.map((result) => <Link className="social-profile-card" href={`/circle/profiles/${encodeURIComponent(result.id)}?view=public&from=${encodeURIComponent(id)}&returnTo=${encodeURIComponent(searchId === "results" ? returnHref : `/circle/profiles/${id}/searches/${searchId}`)}`} key={result.id}><span className="social-avatar social-avatar-large">{result.avatar}</span><span className="social-profile-result-copy"><strong>{result.name}</strong><small>{result.category}{result.visibility ? ` · ${result.visibility}` : ""}</small></span><span className="account-profile-row-arrow" aria-hidden="true">→</span></Link>)}</div> : contentResults.length ? <div className="profile-post-list">{contentResults.map((result) => <Link className="profile-activity-item profile-search-result" href={result.href} key={result.id}><strong>{result.title}</strong><p>{result.detail}</p></Link>)}</div> : <p className="account-empty">No results match this search.</p>}
+    {profileResults.length ? <div className="social-profile-directory">{profileResults.map((result) => <Link className="social-profile-card" href={`/circle/profiles/${encodeURIComponent(result.id)}?view=public&from=${encodeURIComponent(id)}&returnTo=${encodeURIComponent(searchId === "results" ? returnHref : `/circle/profiles/${id}/searches/${searchId}`)}`} key={result.id}><span className="social-avatar social-avatar-large">{result.avatar}</span><span className="social-profile-result-copy"><strong>{result.name}</strong><small>{result.category}{result.visibility ? ` · ${result.visibility}` : ""}</small></span><span className="account-profile-row-arrow" aria-hidden="true">→</span></Link>)}</div> : contentResults.length ? <div className="profile-post-list">{contentResults.map((result) => <article className="profile-activity-item profile-search-result" key={result.id}><Link className="profile-search-result-main" href={result.href}><strong>{result.title}</strong><p>{result.detail}</p></Link>{"authorName" in result && (result.authorHref ? <p className="profile-search-result-author">By <Link href={result.authorHref}>{result.authorName}</Link></p> : <p className="profile-search-result-author">By {result.authorName}</p>)}</article>)}</div> : <p className="account-empty">No results match this search.</p>}
   </main>;
 }

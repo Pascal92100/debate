@@ -258,6 +258,16 @@ ALTER TABLE debate_comments ADD COLUMN IF NOT EXISTS author_profile_id TEXT REFE
 CREATE INDEX IF NOT EXISTS debate_comments_debate_id_idx ON debate_comments(debate_id, created_at);
 CREATE INDEX IF NOT EXISTS debate_comments_reply_to_idx ON debate_comments(debate_id, reply_to);
 
+CREATE TABLE IF NOT EXISTS debate_argument_evaluations (
+  debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
+  argument_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  evaluation TEXT NOT NULL CHECK (evaluation IN ('👍🏻', '👎🏻', '🔑', '💡', '🎓', '☀️')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (debate_id, argument_id, profile_id)
+);
+CREATE INDEX IF NOT EXISTS debate_argument_evaluations_count_idx ON debate_argument_evaluations(debate_id, argument_id, evaluation);
+
 CREATE TABLE IF NOT EXISTS debate_reports (
   id TEXT PRIMARY KEY,
   debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,

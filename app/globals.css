@@ -674,10 +674,17 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .report-dismiss { position: fixed; z-index: 5; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
 .argument-line { position: relative; display: flex; min-height: 28px; align-items: flex-start; gap: 6px; padding: 3px 4px; border-left: 2px solid #dfe4dc; }
 .argument-line:hover, .argument-line:focus-within { border-left-color: var(--green); background: #f5f7f1; }
+.argument-reply-count { flex: none; padding-top: 1px; color: var(--green); font-size: 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .argument-text { flex: 1; padding: 0; border: 0; background: transparent; color: #56625e; text-align: left; cursor: pointer; font-size: 11px; line-height: 1.45; }
+.argument-text { min-width: 90px; }
 .argument-text-compact { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .argument-actions { display: inline-flex; flex: none; align-items: center; gap: 2px; opacity: .7; }
 .argument-touch-toggle, .touch-action-label { display: none; }
+.argument-positive-evaluations { display: inline-flex; flex: none; align-items: center; gap: 1px; }
+.argument-positive-evaluations button { position: relative; display: inline-flex; min-width: 21px; height: 23px; align-items: center; justify-content: center; gap: 1px; padding: 1px 2px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 11px; }
+.argument-positive-evaluations button:hover, .argument-positive-evaluations button[aria-pressed="true"] { border-color: var(--line); background: var(--surface); }
+.argument-positive-evaluations button[aria-pressed="true"]::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--green); content: ""; }
+.argument-positive-evaluations small { color: var(--muted); font: 8px/1 "DM Sans", sans-serif; }
 .argument-wrap > .reply-action > .reply-trigger { display: none; }
 .argument-context-menu { position: absolute; z-index: 8; display: grid; min-width: 130px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 5px 16px #202b2a1c; }
 .argument-context-menu button { padding: 8px 11px; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; font-size: 11px; }
@@ -694,6 +701,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .argument-info code { color: var(--ink); }
 .argument-feedback { padding-left: 7px; }
 .argument-replies { display: grid; gap: 5px; margin: 4px 0 5px 9px; padding-left: 8px; border-left: 1px solid var(--line); }
+.global-replies-accordion { display: grid; gap: 5px; margin: 6px 0 5px 12px; padding-left: 9px; border-left: 2px solid var(--pale-green); }
 .title-toggle { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 10px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .title-toggle-icon { flex: none; color: var(--green); font-family: "DM Sans", sans-serif; font-size: 14px; }
 .collapsed-reply-count, .collapse-children { padding: 3px 0 0; border: 0; background: transparent; color: var(--green); cursor: pointer; font-size: 9px; }
@@ -724,6 +732,9 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .thread-root .thread-message-title { font-size: 19px; }
 .thread-message-title-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .thread-message-title-row .thread-message-title { min-width: 0; }
+.thread-title-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 3px 0; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.thread-title-toggle:hover { color: var(--green); }
+.global-reply-count { flex: none; color: var(--green); font: 700 9px/1 "DM Sans", sans-serif; white-space: nowrap; }
 .argument-evaluation-badge { flex: none; align-self: flex-start; margin: 0; padding: 0 3px; background: transparent; font-size: 12px; line-height: 1.35; }
 .message-preview, .message-body p { margin: 0; color: #56625e; font-size: 12px; line-height: 1.5; }
 .message-preview { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
@@ -733,6 +744,13 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .text-action:hover, .reply-trigger:hover, .branch-toggle:hover { color: var(--coral); }
 .reply-trigger { white-space: nowrap; }
 .reply-action { display: contents; }
+.reply-title-field { display: grid; gap: 4px; color: var(--muted); font-size: 10px; font-weight: 700; }
+.reply-title-field input { min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); background: white; color: var(--ink); font: inherit; font-weight: 400; }
+.profile-search-result-main { display: grid; gap: 4px; color: inherit; text-decoration: none; }
+.profile-search-result-main:hover strong { color: var(--green); }
+.profile-search-result-author { margin: 2px 0 0; color: var(--muted); font-size: 10px; }
+.profile-search-result-author a { color: var(--green); font-weight: 700; text-decoration: none; }
+.profile-search-result-author a:hover { text-decoration: underline; }
 .comment-form { display: grid; width: 100%; gap: 6px; margin: 4px 0 0; padding: 8px; border: 1px solid var(--line); background: #f2f4ed; }
 .comment-form-heading { display: flex; justify-content: space-between; align-items: center; }
 .comment-form h3 { margin: 0; font-family: "Newsreader", Georgia, serif; font-size: 17px; font-weight: 500; }
