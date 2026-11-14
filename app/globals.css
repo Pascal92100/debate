@@ -696,6 +696,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .report-palette button { display: flex; align-items: center; gap: 6px; padding: 6px; border: 0; background: transparent; text-align: left; cursor: pointer; font-size: 13px; }
 .report-palette button span { color: var(--muted); font-size: 9px; }
 .report-palette button:hover { background: var(--pale-green); }
+.report-palette button[aria-pressed="true"], .report-menu button[aria-pressed="true"] { background: var(--pale-green); outline: 1px solid var(--green); }
 .report-badge { flex: none; font-size: 13px; }
 .argument-info { display: flex; align-items: center; gap: 10px; padding: 4px 7px; color: var(--muted); font-size: 9px; }
 .argument-info code { color: var(--ink); }

@@ -47,7 +47,7 @@ export type Comment = {
 export const argumentEvaluations = ["👍🏻", "👎🏻", "🔑", "💡", "🎓", "☀️"] as const;
 export type ArgumentEvaluation = typeof argumentEvaluations[number];
 
-type StoreState = { debates: Debate[]; reports: Array<{ id: string; debateId: string; messageId: string; reason: string }>; evaluations: Array<{ debateId: string; argumentId: string; profileId: string; evaluation: ArgumentEvaluation }>; ready: boolean; persistent: boolean };
+type StoreState = { debates: Debate[]; reports: Array<{ id: string; debateId: string; messageId: string; reason: string; profileId?: string }>; evaluations: Array<{ debateId: string; argumentId: string; profileId: string; evaluation: ArgumentEvaluation }>; ready: boolean; persistent: boolean };
 const globalStore = globalThis as typeof globalThis & { __debateStore?: StoreState };
 const store = globalStore.__debateStore ??= {
   debates: structuredClone(fixture.debates) as Debate[],
@@ -109,6 +109,15 @@ async function initializeDatabase() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
   await sql`CREATE INDEX IF NOT EXISTS debate_reports_debate_id_idx ON debate_reports (debate_id, created_at)`;
+  await sql`CREATE TABLE IF NOT EXISTS debate_argument_reports (
+    debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
+    message_id TEXT NOT NULL,
+    profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (debate_id, message_id, profile_id, reason)
+  )`;
+  await sql`CREATE INDEX IF NOT EXISTS debate_argument_reports_count_idx ON debate_argument_reports (debate_id, message_id, reason)`;
 
   store.ready = true;
   store.persistent = true;
@@ -259,7 +268,7 @@ function attachComment(debate: Debate, comment: Comment) {
   }
 }
 
-export async function createComment(debateId: string, input: { replyTo: string; text: string; title?: string; author?: string; evaluation?: string; media?: MediaAttachment[] }) {
+export async function createComment(debateId: string, input: { replyTo: string; text: string; title?: string; author?: string; profileId?: string; evaluation?: string; media?: MediaAttachment[] }) {
   const debate = await getDebate(debateId);
   if (!debate) return null;
   const paragraphTexts = input.text.replace(/\r\n?/g, "\n").split("\n").map((text) => text.trim()).filter(Boolean);
@@ -270,11 +279,17 @@ export async function createComment(debateId: string, input: { replyTo: string; 
   if (sql) {
     const accountId = await getSessionAccountId();
     if (!accountId) return null;
-    const profiles = await sql`SELECT id, name FROM profiles WHERE account_id = ${accountId} ORDER BY created_at LIMIT 1`;
+    const profiles = await sql`SELECT id, name FROM profiles WHERE account_id = ${accountId} AND kind = 'individual' AND (${input.profileId ?? ""} = '' OR id = ${input.profileId ?? ""}) ORDER BY created_at LIMIT 1`;
     if (!profiles.length) return null;
     authorProfileId = profiles[0].id as string;
     author = profiles[0].name as string;
-  } else authorProfileId = "profile-john";
+  } else {
+    const social = globalThis as typeof globalThis & { __socialState?: { profiles: Array<{ id: string; accountId: string; kind: string; name: string }> } };
+    const profile = social.__socialState?.profiles.find((item) => item.accountId === "account-demo" && item.kind === "individual" && (!input.profileId || item.id === input.profileId));
+    if (!profile) return null;
+    authorProfileId = profile.id;
+    author = profile.name;
+  }
   const comment: Comment = {
     id: `post_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
     author,
@@ -415,4 +430,55 @@ export async function createReport(debateId: string, messageId: string, reason: 
     store.reports.push(report);
   }
   return report;
+}
+
+export type DebateReportState = Record<string, { counts: Record<string, number>; selected: string[] }>;
+
+export async function listDebateReports(debateId: string, profileId?: string): Promise<DebateReportState> {
+  const result: DebateReportState = {};
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (sql) {
+    const [counts, selected] = await Promise.all([
+      sql`SELECT message_id, reason, COUNT(*)::int AS count FROM (
+        SELECT message_id, reason FROM debate_argument_reports WHERE debate_id = ${debateId}
+        UNION ALL SELECT message_id, reason FROM debate_reports WHERE debate_id = ${debateId}
+      ) reports GROUP BY message_id, reason`,
+      profileId ? sql`SELECT message_id, reason FROM debate_argument_reports WHERE debate_id = ${debateId} AND profile_id = ${profileId}` : Promise.resolve([])
+    ]);
+    for (const row of counts) {
+      const messageId = row.message_id as string;
+      result[messageId] ??= { counts: {}, selected: [] };
+      result[messageId].counts[row.reason as string] = Number(row.count);
+    }
+    for (const row of selected) {
+      const messageId = row.message_id as string;
+      result[messageId] ??= { counts: {}, selected: [] };
+      result[messageId].selected.push(row.reason as string);
+    }
+    return result;
+  }
+  for (const report of store.reports.filter((item) => item.debateId === debateId)) {
+    result[report.messageId] ??= { counts: {}, selected: [] };
+    result[report.messageId].counts[report.reason] = (result[report.messageId].counts[report.reason] ?? 0) + 1;
+    if (profileId && report.profileId === profileId) result[report.messageId].selected.push(report.reason);
+  }
+  return result;
+}
+
+export async function toggleDebateReport(debateId: string, messageId: string, reason: string, profileId: string) {
+  const debate = await getDebate(debateId);
+  if (!debate || !debateArgumentIds(debate).has(messageId)) return null;
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (sql) {
+    const inserted = await sql`INSERT INTO debate_argument_reports (debate_id, message_id, profile_id, reason)
+      VALUES (${debateId}, ${messageId}, ${profileId}, ${reason}) ON CONFLICT DO NOTHING RETURNING profile_id`;
+    if (!inserted.length) await sql`DELETE FROM debate_argument_reports WHERE debate_id = ${debateId} AND message_id = ${messageId} AND profile_id = ${profileId} AND reason = ${reason}`;
+  } else {
+    const index = store.reports.findIndex((report) => report.debateId === debateId && report.messageId === messageId && report.reason === reason && report.profileId === profileId);
+    if (index >= 0) store.reports.splice(index, 1);
+    else store.reports.push({ id: `report_${crypto.randomUUID()}`, debateId, messageId, reason, profileId });
+  }
+  return (await listDebateReports(debateId, profileId))[messageId] ?? { counts: {}, selected: [] };
 }

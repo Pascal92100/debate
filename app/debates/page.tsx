@@ -37,7 +37,7 @@ export default async function DebatesPage({ searchParams }: { searchParams: Prom
           <section className="debate-list" aria-label="Debate list">
           {debates.map((debate) => (
             <article className="debate-list-item" key={debate.id}>
-              <Link href={`/debates/${encodeURIComponent(debate.id)}`} className="debate-card">
+              <Link href={`/debates/${encodeURIComponent(debate.id)}${profile ? `?profileId=${encodeURIComponent(profile.id)}` : ""}`} className="debate-card">
                 <div className="card-meta"><span className="theme-label">{themes[debate.theme ?? ""] ?? "Discussion"}</span><span>{debate.from || "Participant"}</span></div>
                 <h3>{debate.title}</h3>
                 <p>{debate.content?.[0] ?? "Open this conversation."}</p>

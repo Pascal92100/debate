@@ -14,7 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const persistent = await isPersistentStore();
   const accountId = persistent ? await getSessionAccountId() : "account-demo";
   if (persistent && !accountId) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-  const profile = (await listProfiles()).find((item) => item.kind === "individual" && item.accountId === accountId);
+  const profile = (await listProfiles()).find((item) => item.kind === "individual" && item.accountId === accountId && (typeof body.profileId === "string" ? item.id === body.profileId : true));
   if (!profile) return NextResponse.json({ error: "Create an individual profile before evaluating a paragraph." }, { status: 400 });
   try {
     const result = await toggleArgumentEvaluation(id, body.argumentId, profile.id, body.evaluation);

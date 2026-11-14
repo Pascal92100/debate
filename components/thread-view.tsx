@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { createContext, useContext, useRef, useState } from "react";
 import type { Comment, Debate } from "@/lib/debates";
+import { filterDebateComments, type DebateFilter, type DebateReportState } from "@/lib/debate-filters";
 import { CommentForm } from "@/components/comment-form";
+import { DebateControls } from "@/components/debate-controls";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { MediaGallery } from "@/components/media-gallery";
 
@@ -21,10 +23,12 @@ const reportReasons = [
 
 const argumentEvaluations = [["👍🏻", "Agree"], ["👎🏻", "Disagree"], ["🔑", "Useful"], ["💡", "Inspiring"], ["🎓", "Interesting"], ["☀️", "Feel-good"]] as const;
 type EvaluationState = Record<string, { counts: Record<string, number>; viewerEvaluation: string | null }>;
+const ReportContext = createContext<{ reports: DebateReportState; toggle: (messageId: string, reason: string) => void; filtering: boolean }>({ reports: {}, toggle: () => {}, filtering: false });
 
 function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { debateId: string; id: string; author: string; confidence: number | string; replyTo?: string; text: string }) {
   const [open, setOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const { reports, toggle } = useContext(ReportContext);
 
   async function copyText() {
     try {
@@ -46,25 +50,20 @@ function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { deba
     }
   }
 
-  async function reportMessage(icon: string, label: string) {
-    const reason = `${icon} ${label}`;
-    const response = await fetch(`/api/debates/${encodeURIComponent(debateId)}/reports`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messageId: id, reason })
-    }).catch(() => null);
-    setFeedback(response?.ok ? `Report ${reason} sent.` : "The report could not be sent.");
-  }
-
   return (
     <div className="message-tools">
       <button className="text-action" type="button" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Hide message info" : "Message info"}</button>
+      <div className="argument-positive-evaluations" role="group" aria-label="Message reports">{reportReasons.map(({ icon, label }) => {
+        const reason = `${icon} ${label}`;
+        const count = reports[id]?.counts[reason] ?? 0;
+        return count > 0 ? <button type="button" key={reason} title={label} aria-label={`${label}: ${count}`} aria-pressed={reports[id]?.selected.includes(reason) ?? false} onClick={() => toggle(id, reason)}>{icon}<small>{count}</small></button> : null;
+      })}</div>
       {open && <div className="message-info-panel">
         <dl><div><dt>Author</dt><dd>{author}</dd></div><div><dt>Confidence</dt><dd>{confidence}%</dd></div><div><dt>ID</dt><dd>{id}</dd></div>{replyTo && <div><dt>Reply to</dt><dd>{replyTo}</dd></div>}</dl>
         <div className="message-actions">
           <button className="text-action" type="button" onClick={copyText}>Copy</button>
           <button className="text-action" type="button" onClick={shareMessage}>Share</button>
-          <details className="report-menu"><summary>Report</summary><div>{reportReasons.map(({ icon, label }) => <button type="button" key={label} onClick={() => reportMessage(icon, label)}>{icon} {label}</button>)}</div></details>
+          <details className="report-menu"><summary>Report</summary><div>{reportReasons.map(({ icon, label }) => <button type="button" key={label} aria-pressed={reports[id]?.selected.includes(`${icon} ${label}`) ?? false} onClick={() => toggle(id, `${icon} ${label}`)}>{icon} {label}</button>)}</div></details>
         </div>
         {feedback && <span className="action-feedback" role="status">{feedback}</span>}
       </div>}
@@ -73,28 +72,18 @@ function MessageInfo({ debateId, id, author, confidence, replyTo, text }: { deba
 }
 
 function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0, compact = false, evaluation }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number; compact?: boolean; evaluation?: string }) {
+  const { reports, toggle, filtering } = useContext(ReportContext);
   const [reportOpen, setReportOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const [touchActionsOpen, setTouchActionsOpen] = useState(false);
-  const [repliesOpen, setRepliesOpen] = useState(false);
-  const [reportBadge, setReportBadge] = useState("");
+  const [repliesOpen, setRepliesOpen] = useState(filtering);
   const [feedback, setFeedback] = useState("");
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
 
-  async function report(icon: string, label: string) {
-    const response = await fetch(`/api/debates/${encodeURIComponent(debateId)}/reports`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messageId: id, reason: `${icon} ${label}` })
-    }).catch(() => null);
-    if (response?.ok) {
-      setReportBadge(icon);
-      setFeedback(`Report ${icon} ${label} sent.`);
-    } else {
-      setFeedback("The report could not be sent.");
-    }
+  function report(icon: string, label: string) {
+    toggle(id, `${icon} ${label}`);
     setReportOpen(false);
   }
 
@@ -144,8 +133,12 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProf
       <span className="argument-reply-count" title={`${replies.length} ${replies.length === 1 ? "reply" : "replies"}`} aria-label={`${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}>↳ {replies.length}</span>
       <button className={`argument-text${compact ? " argument-text-compact" : ""}`} type="button" aria-expanded={replies.length > 0 ? repliesOpen : undefined} onClick={() => { if (longPressTriggered.current) { longPressTriggered.current = false; return; } if (replies.length > 0) setRepliesOpen(!repliesOpen); }} title={replies.length > 0 ? "Show or hide replies to this argument" : "No replies to this argument"}>{text}</button>
       {evaluation && <span className="evaluation-badge argument-evaluation-badge" title="Reply evaluation">{evaluation}</span>}
-      {reportBadge && <span className="report-badge" title="Report sent">{reportBadge}</span>}
       <div className="argument-positive-evaluations" role="group" aria-label="Evaluate the argument">{argumentEvaluations.map(([icon, label]) => <button type="button" key={icon} title={label} aria-label={`${label}: ${evaluationState[id]?.counts[icon] ?? 0}`} aria-pressed={evaluationState[id]?.viewerEvaluation === icon} onClick={() => onEvaluate(id, icon)}>{icon}{evaluationState[id]?.counts[icon] ? <small>{evaluationState[id].counts[icon]}</small> : null}</button>)}</div>
+      {reportReasons.some(({ icon, label }) => reports[id]?.counts[`${icon} ${label}`] > 0) && <div className="argument-positive-evaluations" role="group" aria-label="Reports">{reportReasons.map(({ icon, label }) => {
+        const reason = `${icon} ${label}`;
+        const count = reports[id]?.counts[reason] ?? 0;
+        return count > 0 ? <button type="button" key={reason} title={label} aria-label={`${label}: ${count}`} aria-pressed={reports[id]?.selected.includes(reason) ?? false} onClick={() => report(icon, label)}>{icon}<small>{count}</small></button> : null;
+      })}</div>}
       <button className="argument-touch-toggle" type="button" aria-expanded={touchActionsOpen} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setTouchActionsOpen((open) => !open); }}>{touchActionsOpen ? "Close" : "Actions"}</button>
       <div className="argument-actions">
         <button className="argument-action reply-icon" type="button" title="Reply to this line" aria-label="Reply to this argument" onClick={() => document.getElementById(`reply-${id}`)?.click()}><span className="action-glyph" aria-hidden="true">↩</span><span className="touch-action-label">Reply</span></button>
@@ -153,7 +146,7 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProf
         <button className="argument-action share-icon" type="button" title="Share this line" aria-label="Share this argument" onClick={shareArgument}><span className="action-glyph" aria-hidden="true">↗</span><span className="touch-action-label">Share</span></button>
         <div className="argument-report" onMouseEnter={() => setReportOpen(true)} onMouseLeave={() => setReportOpen(false)}>
           <button className="argument-action" type="button" title="Report this line" aria-label="Report this argument" aria-expanded={reportOpen} onClick={toggleReportMenu}><span className="action-glyph" aria-hidden="true">⚑</span><span className="touch-action-label">Report</span></button>
-          {reportOpen && <div className="report-palette">{reportReasons.map(({ icon, label }) => <button type="button" key={label} title={label} aria-label={`${icon} ${label}`} onClick={() => report(icon, label)}>{icon}<span>{label}</span></button>)}</div>}
+          {reportOpen && <div className="report-palette">{reportReasons.map(({ icon, label }) => <button type="button" key={label} title={label} aria-label={`${icon} ${label}`} aria-pressed={reports[id]?.selected.includes(`${icon} ${label}`) ?? false} onClick={() => report(icon, label)}>{icon}<span>{label}</span></button>)}</div>}
         </div>
       </div>
     </div>
@@ -177,7 +170,8 @@ function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileI
 }
 
 function CommentCard({ debateId, node, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0 }: { debateId: string; node: Comment; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number }) {
-  const [globalRepliesOpen, setGlobalRepliesOpen] = useState(false);
+  const { filtering } = useContext(ReportContext);
+  const [globalRepliesOpen, setGlobalRepliesOpen] = useState(filtering);
   const paragraphs = node.paragraphs ?? [];
   const text = paragraphs.map((paragraph) => paragraph.text).join(" ");
   const globalReplies = (node.children ?? []).filter((reply) => reply.replyTo === node.id);
@@ -209,24 +203,35 @@ function rootPostId(debate: Debate) {
   return targets.some((target) => target === "p1" || target.startsWith("p1-")) ? "p1" : debate.id;
 }
 
-export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorProfileId, initialEvaluations = {} }: { debate: Debate; comments: Comment[]; ownedProfileIds?: string[]; evaluatorProfileId?: string; initialEvaluations?: EvaluationState }) {
+export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorProfileId, initialEvaluations = {}, initialReports = {} }: { debate: Debate; comments: Comment[]; ownedProfileIds?: string[]; evaluatorProfileId?: string; initialEvaluations?: EvaluationState; initialReports?: DebateReportState }) {
   const authorProfileId = evaluatorProfileId ?? ownedProfileIds.find((profileId) => profileId !== "") ?? "profile-john";
   const [evaluationState, setEvaluationState] = useState(initialEvaluations);
   const [evaluationError, setEvaluationError] = useState("");
+  const [reports, setReports] = useState(initialReports);
+  const [safe, setSafe] = useState(false);
+  const [mode, setMode] = useState<DebateFilter>(null);
   const rootId = rootPostId(debate);
   const paragraphs = debate.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean)).map((text, index) => ({
     id: rootId === "p1" ? `p1-${index + 1}` : `${rootId}-p-${index + 1}`,
     text
   }));
 
-  const rootComments = comments;
+  const rootComments = filterDebateComments(comments, evaluatorProfileId, safe, mode, reports, evaluationState);
+
+  async function toggleReport(messageId: string, reason: string) {
+    setEvaluationError("");
+    const response = await fetch(`/api/debates/${encodeURIComponent(debate.id)}/reports`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId, reason, profileId: evaluatorProfileId }) }).catch(() => null);
+    const result = await response?.json().catch(() => null);
+    if (!response?.ok) { setEvaluationError(result?.error || "The report could not be updated."); return; }
+    setReports((current) => ({ ...current, [messageId]: result }));
+  }
 
   async function evaluateArgument(argumentId: string, value: string) {
     setEvaluationError("");
     const response = await fetch(`/api/debates/${encodeURIComponent(debate.id)}/evaluations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ argumentId, evaluation: value })
+      body: JSON.stringify({ argumentId, evaluation: value, profileId: evaluatorProfileId })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
@@ -236,14 +241,14 @@ export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorPr
     setEvaluationState((current) => ({ ...current, [argumentId]: result }));
   }
 
-  return <section className="thread-view" aria-label="Debate thread">
+  return <ReportContext.Provider value={{ reports, toggle: toggleReport, filtering: safe || mode !== null }}><DebateControls safe={safe} onSafeChange={setSafe} mode={mode} onModeChange={setMode} /><section className="thread-view" aria-label="Debate thread">
     {evaluationError && <p className="form-error" role="alert">{evaluationError}</p>}
-    <article className="thread-message thread-root">
+    <article className="thread-message thread-root" key={`${safe}-${mode ?? "all"}`}>
       {debate.definitions?.length ? <details className="data-accordion" open><summary>Definitions <span>{debate.definitions.length}</span></summary><div>{debate.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
       {debate.facts?.length ? <details className="data-accordion" open><summary>Facts and references <span>{debate.facts.length}</span></summary><div>{debate.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
       <ArgumentLines debateId={debate.id} parentId={rootId} paragraphs={paragraphs} children={rootComments} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={evaluateArgument} rootAliases={[debate.id]} compact />
       <MediaGallery media={debate.media} />
-      <div className="message-control-row thread-root-actions"><MessageInfo debateId={debate.id} id={debate.id} author={debate.from || "Participant"} confidence={debate.confidence ?? 0} text={`${debate.title}\n${debate.content.join("\n")}`} /><CommentForm debateId={debate.id} replyTo={debate.id} /></div>
+      <div className="message-control-row thread-root-actions"><MessageInfo debateId={debate.id} id={debate.id} author={debate.from || "Participant"} confidence={debate.confidence ?? 0} text={`${debate.title}\n${debate.content.join("\n")}`} /><CommentForm debateId={debate.id} replyTo={debate.id} profileId={authorProfileId} /></div>
     </article>
-  </section>;
+  </section></ReportContext.Provider>;
 }

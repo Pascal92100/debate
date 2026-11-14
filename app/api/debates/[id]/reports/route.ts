@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { createReport, getDebate } from "@/lib/debates";
+import { getSessionAccountId } from "@/lib/auth";
+import { isPersistentStore, toggleDebateReport } from "@/lib/debates";
+import { listProfiles } from "@/lib/social";
 
 export const runtime = "nodejs";
 
@@ -22,7 +24,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!body || typeof body.messageId !== "string" || typeof body.reason !== "string" || !reasons.has(body.reason)) {
     return NextResponse.json({ error: "Invalid message or report reason." }, { status: 400 });
   }
-  if (!await getDebate(id)) return NextResponse.json({ error: "Debate not found." }, { status: 404 });
-  const report = await createReport(id, body.messageId, body.reason);
-  return NextResponse.json({ report }, { status: 201 });
+  const persistent = await isPersistentStore();
+  const accountId = persistent ? await getSessionAccountId() : "account-demo";
+  if (!accountId) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  const profiles = await listProfiles();
+  const profile = profiles.find((item) => item.kind === "individual" && item.accountId === accountId && (typeof body.profileId === "string" ? item.id === body.profileId : true));
+  if (!profile) return NextResponse.json({ error: "Create a profile before reporting." }, { status: 400 });
+  const report = await toggleDebateReport(id, body.messageId, body.reason, profile.id);
+  if (!report) return NextResponse.json({ error: "Debate message not found." }, { status: 404 });
+  return NextResponse.json(report);
 }

@@ -15,6 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     replyTo: body.replyTo,
     text: body.text,
     title: typeof body.title === "string" ? body.title : undefined,
+    profileId: typeof body.profileId === "string" ? body.profileId : undefined,
     evaluation: typeof body.evaluation === "string" ? body.evaluation : undefined,
     media: body.media ?? []
   });

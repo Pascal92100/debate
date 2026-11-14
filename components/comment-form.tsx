@@ -65,7 +65,7 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
     const response = await fetch(`/api/debates/${encodeURIComponent(debateId)}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ replyTo, title: form.get("title"), text, evaluation: form.get("evaluation"), media })
+      body: JSON.stringify({ replyTo, title: form.get("title"), text, evaluation: form.get("evaluation"), media, profileId })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {

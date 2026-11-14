@@ -279,6 +279,16 @@ CREATE TABLE IF NOT EXISTS debate_reports (
 ALTER TABLE debate_reports ADD COLUMN IF NOT EXISTS reporter_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS debate_reports_debate_id_idx ON debate_reports(debate_id, created_at);
 
+CREATE TABLE IF NOT EXISTS debate_argument_reports (
+  debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
+  message_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (debate_id, message_id, profile_id, reason)
+);
+CREATE INDEX IF NOT EXISTS debate_argument_reports_count_idx ON debate_argument_reports(debate_id, message_id, reason);
+
 CREATE TABLE IF NOT EXISTS simple_discussions (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,

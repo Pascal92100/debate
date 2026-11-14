@@ -140,7 +140,7 @@ export default async function SavedSearchResultsPage({ params, searchParams }: {
         id: debate.id,
         title: debate.title,
         detail: debate.content[0] ?? "",
-        href: `/debates/${encodeURIComponent(debate.id)}`,
+        href: `/debates/${encodeURIComponent(debate.id)}?profileId=${encodeURIComponent(id)}`,
         authorName: debate.from || "Participant",
         authorHref: authorProfile ? `/circle/profiles/${encodeURIComponent(authorProfile.id)}?view=public&from=${encodeURIComponent(id)}&returnTo=${encodeURIComponent(returnHref)}` : ""
       };
