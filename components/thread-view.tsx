@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Comment, Debate } from "@/lib/debates";
 import { filterDebateComments, type DebateFilter, type DebateReportState } from "@/lib/debate-filters";
 import { CommentForm } from "@/components/comment-form";
@@ -22,7 +22,7 @@ const reportReasons = [
 ];
 
 const argumentEvaluations = [["👍🏻", "Agree"], ["👎🏻", "Disagree"], ["🔑", "Useful"], ["💡", "Inspiring"], ["🎓", "Interesting"], ["☀️", "Feel-good"]] as const;
-const argumentStatuses = [["🛑", "Stop"], ["🆕", "New topic"], ["✏️", "Rewrite"], ["⏳", "On hold"], ["☑️", "End agreed"], ["🚧", "End disagree"]] as const;
+const argumentStatuses = [["🛑", "Stop"], ["🆕", "New topic"], ["✏️", "Rewriting needed"], ["⏳", "On hold"], ["☑️", "End agreed"], ["🚧", "End disagree"]] as const;
 const unsafeReportReasons = new Set(["🚫 Prohibited", "🔞 Sexual", "⚠️ Disturbing", "❌ Aggressive"]);
 type EvaluationState = Record<string, { counts: Record<string, number>; viewerEvaluation: string | null }>;
 type StatusState = Record<string, { counts: Record<string, number>; selected: string[]; locked: boolean; editable: boolean; forkDebateId?: string }>;
@@ -33,17 +33,39 @@ function ArgumentMenus({ id, text, locked = false, onReply, onEdit, onFork }: { 
   const [activeMenu, setActiveMenu] = useState<"reactions" | "status" | "actions" | null>(null);
   const [showReports, setShowReports] = useState(false);
   const status = statuses[id];
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!activeMenu) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !containerRef.current?.contains(event.target)) {
+        setActiveMenu(null);
+        setShowReports(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveMenu(null);
+        setShowReports(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [activeMenu]);
   const toggleMenu = (menu: "reactions" | "status" | "actions") => {
     setActiveMenu((current) => current === menu ? null : menu);
     if (menu !== "actions") setShowReports(false);
   };
-  return <div className="argument-menus">
+  return <div className="argument-menus" ref={containerRef}>
     <button type="button" className="argument-menu-trigger" aria-label="Positive reactions" aria-expanded={activeMenu === "reactions"} onClick={() => toggleMenu("reactions")}>🙂</button>
     <button type="button" className="argument-menu-trigger" aria-label="Argument status" aria-expanded={activeMenu === "status"} onClick={() => toggleMenu("status")}>🤔</button>
     <button type="button" className="argument-menu-trigger" aria-label="Argument actions" aria-expanded={activeMenu === "actions"} onClick={() => toggleMenu("actions")}>🔧</button>
-    {activeMenu === "reactions" && <div className="argument-popover-panel" role="group" aria-label="Reactions"><strong>Reactions</strong>{argumentEvaluations.map(([icon, label]) => <button type="button" key={icon} disabled={locked} aria-pressed={evaluations[id]?.viewerEvaluation === icon} onClick={() => toggleEvaluation(id, icon)}><span>{icon}</span><span>{label}</span><small>{evaluations[id]?.counts[icon] ?? 0}</small></button>)}</div>}
-    {activeMenu === "status" && <div className="argument-popover-panel" role="group" aria-label="Status"><strong>Status</strong>{argumentStatuses.map(([icon, label]) => <button type="button" key={icon} aria-pressed={status?.selected.includes(icon) ?? false} disabled={locked || (icon === "✏️" && !status?.editable)} onClick={async () => { if (icon === "✏️") { if (!status?.selected.includes(icon)) await toggleStatus(id, icon); onEdit?.(); return; } const updated = await toggleStatus(id, icon); if (icon === "🆕" && updated?.forkDebateId) onFork?.(updated.forkDebateId); }}><span>{icon}</span><span>{label}</span><small>{status?.counts[icon] ?? 0}</small></button>)}</div>}
-    {activeMenu === "actions" && <div className="argument-popover-panel argument-actions-panel" role="group" aria-label="Actions"><button type="button" disabled={locked} onClick={onReply}>↩️<span>Reply</span></button><button type="button" disabled={locked} onClick={async () => { try { if (navigator.share) await navigator.share({ title: "Debate argument", text }); else await navigator.clipboard.writeText(`${text}\n${window.location.href}#${id}`); } catch {} }}>🔁<span>Share</span></button><button type="button" disabled={locked} aria-expanded={showReports} onClick={() => setShowReports((open) => !open)}>🚩<span>Report</span></button>{showReports && <div className="argument-report-list">{reportReasons.map(({ icon, label }) => { const reason = `${icon} ${label}`; return <button type="button" key={reason} disabled={locked} aria-pressed={reports[id]?.selected.includes(reason) ?? false} onClick={() => toggle(id, reason)}>{icon}<span>{label}</span><small>{reports[id]?.counts[reason] ?? 0}</small></button>; })}</div>}</div>}
+    {activeMenu === "reactions" && <div className="argument-popover-panel" role="group" aria-label="Reactions"><strong>Reactions</strong>{argumentEvaluations.map(([icon, label]) => <button type="button" key={icon} disabled={locked} aria-pressed={evaluations[id]?.viewerEvaluation === icon} onClick={() => { toggleEvaluation(id, icon); setActiveMenu(null); }}><span>{icon}</span><span>{label}</span><small>{evaluations[id]?.counts[icon] ?? 0}</small></button>)}</div>}
+    {activeMenu === "status" && <div className="argument-popover-panel" role="group" aria-label="Status"><strong>Status</strong>{argumentStatuses.map(([icon, label]) => <button type="button" key={icon} aria-pressed={status?.selected.includes(icon) ?? false} disabled={locked} onClick={async () => { setActiveMenu(null); if (icon === "✏️" && status?.editable) { onEdit?.(); return; } const updated = await toggleStatus(id, icon); if (icon === "🆕" && updated?.forkDebateId) { onFork?.(updated.forkDebateId); return; } if (icon === "✏️" && updated?.editable) onEdit?.(); }}><span>{icon}</span><span>{label}</span><small>{status?.counts[icon] ?? 0}</small></button>)}</div>}
+    {activeMenu === "actions" && <div className="argument-popover-panel argument-actions-panel" role="group" aria-label="Actions"><button type="button" aria-label="Reply" title="Reply" disabled={locked} onClick={() => { onReply?.(); setActiveMenu(null); }}>↩️</button><button type="button" aria-label="Share" title="Share" disabled={locked} onClick={async () => { setActiveMenu(null); try { if (navigator.share) await navigator.share({ title: "Debate argument", text }); else await navigator.clipboard.writeText(`${text}\n${window.location.href}#${id}`); } catch {} }}>🔁</button><button type="button" aria-label="Report" title="Report" disabled={locked} aria-expanded={showReports} onClick={() => setShowReports((open) => !open)}>🚩</button>{showReports && <div className="argument-report-list">{reportReasons.map(({ icon, label }) => { const reason = `${icon} ${label}`; return <button type="button" key={reason} disabled={locked} aria-pressed={reports[id]?.selected.includes(reason) ?? false} onClick={() => { toggle(id, reason); setActiveMenu(null); setShowReports(false); }}>{icon}<span>{label}</span><small>{reports[id]?.counts[reason] ?? 0}</small></button>; })}</div>}</div>}
   </div>;
 }
 
@@ -152,7 +174,7 @@ function CommentCard({ debateId, node, ownedProfileIds, authorProfileId, evaluat
     {node.definitions?.length ? <details className="data-accordion"><summary>Definitions <span>{node.definitions.length}</span></summary><div>{node.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
     {node.facts?.length ? <details className="data-accordion"><summary>Facts and references <span>{node.facts.length}</span></summary><div>{node.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
     <div className="thread-message-title-row">{status?.selected.includes("🆕") && status.forkDebateId ? <a className="thread-message-title thread-title-toggle" href={`/debates/${encodeURIComponent(status.forkDebateId)}?profileId=${encodeURIComponent(authorProfileId)}`}>{node.title}<span className="global-reply-count">↳ {globalReplies.length}</span></a> : <button className="thread-message-title thread-title-toggle" type="button" aria-expanded={globalRepliesOpen} disabled={globalReplies.length === 0 || locked} onClick={() => setGlobalRepliesOpen((open) => !open)}>{node.title}<span className="global-reply-count">↳ {globalReplies.length}</span></button>}{locked ? <InlineArgumentBadges id={node.id} /> : <><InlineArgumentBadges id={node.id} /><ArgumentMenus id={node.id} text={`${node.title}\n${text}`} locked={locked} onReply={() => document.getElementById(`reply-global-${node.id}`)?.click()} onEdit={() => setEditing(true)} onFork={(forkId) => window.location.assign(`/debates/${encodeURIComponent(forkId)}?profileId=${encodeURIComponent(authorProfileId)}`)} /></>}{node.evaluation && <span className="evaluation-badge" title="Reply evaluation">{node.evaluation}</span>}</div>
-    {editing && <EditReplyForm debateId={debateId} node={node} profileId={authorProfileId} onSaved={() => window.location.reload()} />}
+    {editing && <EditReplyForm debateId={debateId} node={node} profileId={authorProfileId} onSaved={() => { setEditing(false); window.location.reload(); }} />}
     {!editing && <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={paragraphReplies} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact titleEvaluation={node.evaluation} forceLocked={locked} />}
     {!editing && paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={text || node.title} replies={paragraphReplies} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact evaluation={node.evaluation} forceLocked={locked} />}
     {!locked && globalRepliesOpen && globalReplies.length > 0 && <div className="global-replies-accordion" aria-label="Global replies">{globalReplies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}</div>}

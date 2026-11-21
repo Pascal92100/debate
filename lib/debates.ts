@@ -338,23 +338,23 @@ export async function editOwnComment(debateId: string, commentId: string, profil
     if (!accountId) return null;
     const owned = await sql`SELECT id, payload FROM debate_comments c JOIN profiles p ON p.id = c.author_profile_id WHERE c.id = ${commentId} AND c.debate_id = ${debateId} AND p.id = ${profileId} AND p.account_id = ${accountId} LIMIT 1`;
     if (!owned.length) return null;
-    const status = await sql`SELECT 1 FROM debate_argument_statuses WHERE debate_id = ${debateId} AND argument_id = ${commentId} AND profile_id = ${profileId} AND status = '✏️' LIMIT 1`;
+    const status = await sql`SELECT 1 FROM debate_argument_statuses WHERE debate_id = ${debateId} AND argument_id = ${commentId} AND status = '✏️' LIMIT 1`;
     if (!status.length) return null;
     const comment = owned[0].payload as Comment;
     const paragraphs = input.text.replace(/\r\n?/g, "\n").split("\n").map((text) => text.trim()).filter(Boolean);
     const updated = { ...comment, title: input.title.trim(), paragraphs: paragraphs.map((text, index) => ({ id: comment.paragraphs[index]?.id ?? `paragraph_${crypto.randomUUID().slice(0, 8)}`, text })) };
     await sql`UPDATE debate_comments SET payload = ${JSON.stringify(updated)}::jsonb WHERE id = ${commentId} AND debate_id = ${debateId}`;
-    await sql`DELETE FROM debate_argument_statuses WHERE debate_id = ${debateId} AND argument_id = ${commentId} AND status = '✏️'`;
+    await sql`DELETE FROM debate_argument_statuses WHERE debate_id = ${debateId} AND argument_id = ${commentId} AND profile_id = ${profileId} AND status = '✏️'`;
     return updated;
   }
   const update = (nodes: Comment[]): Comment | null => {
     for (let index = 0; index < nodes.length; index += 1) {
       const node = nodes[index];
-      if (node.id === commentId && node.authorProfileId === profileId && store.statuses.some((item) => item.debateId === debateId && item.argumentId === commentId && item.profileId === profileId && item.status === "✏️")) {
+      if (node.id === commentId && node.authorProfileId === profileId && store.statuses.some((item) => item.debateId === debateId && item.argumentId === commentId && item.status === "✏️")) {
         const paragraphs = input.text.replace(/\r\n?/g, "\n").split("\n").map((text) => text.trim()).filter(Boolean);
         const updated = { ...node, title: input.title.trim(), paragraphs: paragraphs.map((text, paragraphIndex) => ({ id: node.paragraphs[paragraphIndex]?.id ?? `paragraph_${crypto.randomUUID().slice(0, 8)}`, text })) };
         nodes[index] = updated;
-        store.statuses = store.statuses.filter((item) => !(item.debateId === debateId && item.argumentId === commentId && item.status === "✏️"));
+        store.statuses = store.statuses.filter((item) => !(item.debateId === debateId && item.argumentId === commentId && item.profileId === profileId && item.status === "✏️"));
         return updated;
       }
       const found = update(node.children ?? []);
@@ -470,7 +470,7 @@ export async function listDebateStatuses(debateId: string, profileId?: string): 
       result[comment.id] ??= { counts: {}, selected: [], locked: false, editable: false };
       const commentStatus = result[comment.id];
       commentStatus.locked = [...lockedIds].some((value) => (commentStatus.counts[value] ?? 0) > 0);
-      commentStatus.editable = Boolean(profileId && profileId === comment.authorProfileId);
+      commentStatus.editable = Boolean(profileId && profileId === comment.authorProfileId && (commentStatus.counts["✏️"] ?? 0) > 0);
       for (const paragraph of comment.paragraphs ?? []) {
         result[paragraph.id] ??= { counts: {}, selected: [], locked: false, editable: false };
         const paragraphStatus = result[paragraph.id];
@@ -516,7 +516,6 @@ export async function toggleDebateStatus(debateId: string, argumentId: string, p
     };
     return visit(debate.children ?? []);
   })();
-  if (status === "✏️" && (!comment || comment.authorProfileId !== profileId)) return null;
   const existingStatus = (await listDebateStatuses(debateId, profileId))[argumentId];
   if (existingStatus?.locked && !(status === "✏️" && existingStatus.selected.includes("✏️") && comment?.authorProfileId === profileId)) return null;
   const persistent = await isPersistentStore();

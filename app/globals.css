@@ -681,8 +681,8 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .argument-menus { position: relative; display: inline-flex; flex: none; align-items: center; gap: 2px; }
 .argument-menu-trigger { display: inline-grid; width: 25px; height: 24px; place-items: center; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 14px; }
 .argument-menu-trigger:hover, .argument-menu-trigger[aria-expanded="true"] { border-color: var(--line); background: var(--surface); }
-.argument-popover-panel { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; display: grid; min-width: 190px; max-width: min(250px, calc(100vw - 28px)); max-height: min(60vh, 360px); gap: 2px; overflow: auto; padding: 7px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 5px 16px #202b2a1c; }
-.argument-popover-panel > strong { padding: 3px 5px 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.argument-popover-panel { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 250px; max-width: min(300px, calc(100vw - 28px)); max-height: min(60vh, 360px); gap: 2px; overflow: auto; padding: 7px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 5px 16px #202b2a1c; }
+.argument-popover-panel > strong { grid-column: 1 / -1; padding: 3px 5px 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .argument-popover-panel > button, .argument-report-popover > div > button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 5px; min-height: 27px; padding: 3px 5px; border: 0; background: transparent; text-align: left; cursor: pointer; font-size: 11px; }
 .argument-popover-panel > button:hover, .argument-report-popover > div > button:hover { background: var(--pale-green); }
 .argument-popover-panel > button[aria-pressed="true"], .argument-report-popover > div > button[aria-pressed="true"] { background: var(--pale-green); outline: 1px solid var(--green); }
@@ -690,7 +690,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .argument-popover-panel small, .argument-report-popover small { color: var(--muted); font: 9px/1 "DM Sans", sans-serif; }
 .argument-actions-panel { min-width: 130px; }
 .argument-actions-panel > button { grid-template-columns: 22px 1fr; }
-.argument-report-list { display: grid; gap: 2px; margin-top: 3px; padding-top: 4px; border-top: 1px solid var(--line); }
+.argument-report-list { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; margin-top: 3px; padding-top: 4px; border-top: 1px solid var(--line); }
 .argument-actions-panel > button:disabled { display: none; }
 .argument-report-popover { position: relative; }
 .argument-report-popover > summary { display: flex; min-height: 27px; align-items: center; gap: 7px; padding: 3px 5px; cursor: pointer; font-size: 11px; list-style: none; }
