@@ -678,6 +678,40 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
 .argument-text { flex: 1; padding: 0; border: 0; background: transparent; color: #56625e; text-align: left; cursor: pointer; font-size: 11px; line-height: 1.45; }
 .argument-text { min-width: 90px; }
 .argument-text-compact { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.argument-menus { position: relative; display: inline-flex; flex: none; align-items: center; gap: 2px; }
+.argument-menu-trigger { display: inline-grid; width: 25px; height: 24px; place-items: center; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 14px; }
+.argument-menu-trigger:hover, .argument-menu-trigger[aria-expanded="true"] { border-color: var(--line); background: var(--surface); }
+.argument-popover-panel { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; display: grid; min-width: 190px; max-width: min(250px, calc(100vw - 28px)); max-height: min(60vh, 360px); gap: 2px; overflow: auto; padding: 7px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 5px 16px #202b2a1c; }
+.argument-popover-panel > strong { padding: 3px 5px 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.argument-popover-panel > button, .argument-report-popover > div > button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 5px; min-height: 27px; padding: 3px 5px; border: 0; background: transparent; text-align: left; cursor: pointer; font-size: 11px; }
+.argument-popover-panel > button:hover, .argument-report-popover > div > button:hover { background: var(--pale-green); }
+.argument-popover-panel > button[aria-pressed="true"], .argument-report-popover > div > button[aria-pressed="true"] { background: var(--pale-green); outline: 1px solid var(--green); }
+.argument-popover-panel button:disabled { opacity: .5; cursor: not-allowed; }
+.argument-popover-panel small, .argument-report-popover small { color: var(--muted); font: 9px/1 "DM Sans", sans-serif; }
+.argument-actions-panel { min-width: 130px; }
+.argument-actions-panel > button { grid-template-columns: 22px 1fr; }
+.argument-report-list { display: grid; gap: 2px; margin-top: 3px; padding-top: 4px; border-top: 1px solid var(--line); }
+.argument-actions-panel > button:disabled { display: none; }
+.argument-report-popover { position: relative; }
+.argument-report-popover > summary { display: flex; min-height: 27px; align-items: center; gap: 7px; padding: 3px 5px; cursor: pointer; font-size: 11px; list-style: none; }
+.argument-report-popover > summary::-webkit-details-marker { display: none; }
+.argument-report-popover > div { position: absolute; z-index: 22; top: 0; right: calc(100% + 5px); display: grid; width: 220px; max-height: min(60vh, 330px); gap: 2px; overflow: auto; padding: 5px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 5px 16px #202b2a1c; }
+.argument-inline-badges { display: inline-flex; flex: none; align-items: center; gap: 2px; }
+.argument-risk-badge, .argument-status-badge { display: inline-flex; align-items: center; gap: 1px; color: var(--coral); font-size: 11px; }
+.argument-status-badge { color: var(--green); }
+.argument-risk-badge small, .argument-status-badge small { color: var(--muted); font: 8px/1 "DM Sans", sans-serif; }
+.debate-title-with-actions { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 12px; }
+.debate-title-with-actions h1 { flex: 1; min-width: 0; margin: 0; }
+.debate-title-with-actions > .argument-menus { margin-left: auto; }
+.global-reply-trigger > .reply-action > .reply-trigger { display: none; }
+.global-reply-trigger > .reply-action { display: block; }
+.global-reply-trigger { display: none; }
+.global-reply-trigger:has(.comment-form) { display: block; }
+.global-reply-trigger > .reply-action > .reply-trigger { display: none; }
+.thread-message-title-row > .argument-menus { margin-left: auto; }
+.thread-message-title-row > a.thread-title-toggle { color: var(--ink); text-decoration: none; }
+.thread-message-title-row > a.thread-title-toggle:hover { color: var(--green); }
+.argument-edit-action { color: var(--green) !important; }
 .argument-actions { display: inline-flex; flex: none; align-items: center; gap: 2px; opacity: .7; }
 .argument-touch-toggle, .touch-action-label { display: none; }
 .argument-positive-evaluations { display: inline-flex; flex: none; align-items: center; gap: 1px; }
@@ -841,6 +875,11 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
   .argument-actions { opacity: 1; }
   .argument-line { gap: 3px; padding-right: 0; }
   .argument-action { min-width: 27px; min-height: 27px; }
+  .argument-menu-trigger { width: 23px; height: 24px; }
+  .argument-popover-panel { right: 0; width: min(230px, calc(100vw - 34px)); min-width: 0; }
+  .argument-report-list { width: 100%; }
+  .debate-title-with-actions { align-items: flex-start; gap: 4px; }
+  .debate-title-with-actions h1 { font-size: 30px; }
   .report-palette { right: -2px; width: min(245px, calc(100vw - 90px)); }
   .site-footer { margin-top: 45px; }
   .social-shell { width: calc(100% - 28px); margin-top: 25px; }

@@ -268,6 +268,16 @@ CREATE TABLE IF NOT EXISTS debate_argument_evaluations (
 );
 CREATE INDEX IF NOT EXISTS debate_argument_evaluations_count_idx ON debate_argument_evaluations(debate_id, argument_id, evaluation);
 
+CREATE TABLE IF NOT EXISTS debate_argument_statuses (
+  debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
+  argument_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('🛑', '🆕', '✏️', '⏳', '☑️', '🚧')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (debate_id, argument_id, profile_id, status)
+);
+CREATE INDEX IF NOT EXISTS debate_argument_statuses_count_idx ON debate_argument_statuses(debate_id, argument_id, status);
+
 CREATE TABLE IF NOT EXISTS debate_reports (
   id TEXT PRIMARY KEY,
   debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,

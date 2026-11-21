@@ -7,6 +7,7 @@ import type { MediaAttachment } from "@/lib/media";
 export type Debate = {
   id: string;
   parentId?: string | null;
+  sourceArgumentId?: string | null;
   authorProfileId?: string;
   circleId?: string | null;
   sourcePostId?: string | null;
@@ -46,17 +47,21 @@ export type Comment = {
 
 export const argumentEvaluations = ["👍🏻", "👎🏻", "🔑", "💡", "🎓", "☀️"] as const;
 export type ArgumentEvaluation = typeof argumentEvaluations[number];
+export const argumentStatuses = ["🛑", "🆕", "✏️", "⏳", "☑️", "🚧"] as const;
+export type ArgumentStatus = typeof argumentStatuses[number];
 
-type StoreState = { debates: Debate[]; reports: Array<{ id: string; debateId: string; messageId: string; reason: string; profileId?: string }>; evaluations: Array<{ debateId: string; argumentId: string; profileId: string; evaluation: ArgumentEvaluation }>; ready: boolean; persistent: boolean };
+type StoreState = { debates: Debate[]; reports: Array<{ id: string; debateId: string; messageId: string; reason: string; profileId?: string }>; evaluations: Array<{ debateId: string; argumentId: string; profileId: string; evaluation: ArgumentEvaluation }>; statuses: Array<{ debateId: string; argumentId: string; profileId: string; status: ArgumentStatus }>; ready: boolean; persistent: boolean };
 const globalStore = globalThis as typeof globalThis & { __debateStore?: StoreState };
 const store = globalStore.__debateStore ??= {
   debates: structuredClone(fixture.debates) as Debate[],
   reports: [],
   evaluations: [],
+  statuses: [],
   ready: false,
   persistent: false
 };
 store.evaluations ??= [];
+store.statuses ??= [];
 
 export function database() {
   const url = process.env.DATABASE_URL;
@@ -101,6 +106,15 @@ async function initializeDatabase() {
     PRIMARY KEY (debate_id, argument_id, profile_id)
   )`;
   await sql`CREATE INDEX IF NOT EXISTS debate_argument_evaluations_count_idx ON debate_argument_evaluations(debate_id, argument_id, evaluation)`;
+  await sql`CREATE TABLE IF NOT EXISTS debate_argument_statuses (
+    debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
+    argument_id TEXT NOT NULL,
+    profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('🛑', '🆕', '✏️', '⏳', '☑️', '🚧')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (debate_id, argument_id, profile_id, status)
+  )`;
+  await sql`CREATE INDEX IF NOT EXISTS debate_argument_statuses_count_idx ON debate_argument_statuses(debate_id, argument_id, status)`;
   await sql`CREATE TABLE IF NOT EXISTS debate_reports (
     id TEXT PRIMARY KEY,
     debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
@@ -186,6 +200,8 @@ export async function getDebate(id: string) {
 export async function createDebate(input: Pick<Debate, "title" | "content"> & Partial<Debate>) {
   const debate: Debate = {
     id: `deb_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
+    parentId: input.parentId ?? null,
+    sourceArgumentId: input.sourceArgumentId ?? null,
     authorProfileId: input.authorProfileId,
     circleId: input.circleId ?? null,
     sourcePostId: input.sourcePostId ?? null,
@@ -312,6 +328,48 @@ export async function createComment(debateId: string, input: { replyTo: string; 
   return comment;
 }
 
+export async function editOwnComment(debateId: string, commentId: string, profileId: string, input: { title: string; text: string }) {
+  const debate = await getDebate(debateId);
+  if (!debate) return null;
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (sql) {
+    const accountId = await getSessionAccountId();
+    if (!accountId) return null;
+    const owned = await sql`SELECT id, payload FROM debate_comments c JOIN profiles p ON p.id = c.author_profile_id WHERE c.id = ${commentId} AND c.debate_id = ${debateId} AND p.id = ${profileId} AND p.account_id = ${accountId} LIMIT 1`;
+    if (!owned.length) return null;
+    const status = await sql`SELECT 1 FROM debate_argument_statuses WHERE debate_id = ${debateId} AND argument_id = ${commentId} AND profile_id = ${profileId} AND status = '✏️' LIMIT 1`;
+    if (!status.length) return null;
+    const comment = owned[0].payload as Comment;
+    const paragraphs = input.text.replace(/\r\n?/g, "\n").split("\n").map((text) => text.trim()).filter(Boolean);
+    const updated = { ...comment, title: input.title.trim(), paragraphs: paragraphs.map((text, index) => ({ id: comment.paragraphs[index]?.id ?? `paragraph_${crypto.randomUUID().slice(0, 8)}`, text })) };
+    await sql`UPDATE debate_comments SET payload = ${JSON.stringify(updated)}::jsonb WHERE id = ${commentId} AND debate_id = ${debateId}`;
+    await sql`DELETE FROM debate_argument_statuses WHERE debate_id = ${debateId} AND argument_id = ${commentId} AND status = '✏️'`;
+    return updated;
+  }
+  const update = (nodes: Comment[]): Comment | null => {
+    for (let index = 0; index < nodes.length; index += 1) {
+      const node = nodes[index];
+      if (node.id === commentId && node.authorProfileId === profileId && store.statuses.some((item) => item.debateId === debateId && item.argumentId === commentId && item.profileId === profileId && item.status === "✏️")) {
+        const paragraphs = input.text.replace(/\r\n?/g, "\n").split("\n").map((text) => text.trim()).filter(Boolean);
+        const updated = { ...node, title: input.title.trim(), paragraphs: paragraphs.map((text, paragraphIndex) => ({ id: node.paragraphs[paragraphIndex]?.id ?? `paragraph_${crypto.randomUUID().slice(0, 8)}`, text })) };
+        nodes[index] = updated;
+        store.statuses = store.statuses.filter((item) => !(item.debateId === debateId && item.argumentId === commentId && item.status === "✏️"));
+        return updated;
+      }
+      const found = update(node.children ?? []);
+      if (found) return found;
+    }
+    return null;
+  };
+  const updated = update(debate.children ?? []);
+  if (updated) {
+    const index = store.debates.findIndex((item) => item.id === debateId);
+    if (index >= 0) store.debates[index] = debate;
+  }
+  return updated;
+}
+
 function debateArgumentIds(debate: Debate) {
   const rootId = (debate.children ?? []).some((child) => child.replyTo === "p1" || child.replyTo?.startsWith("p1-")) ? "p1" : debate.id;
   const ids = new Set([debate.id]);
@@ -375,6 +433,191 @@ export async function toggleArgumentEvaluation(debateId: string, argumentId: str
     else store.evaluations.push({ debateId, argumentId, profileId, evaluation: evaluation as ArgumentEvaluation });
   }
   return (await listArgumentEvaluations(debateId, profileId))[argumentId] ?? { counts: {}, viewerEvaluation: null };
+}
+
+export type DebateStatusState = Record<string, { counts: Record<string, number>; selected: string[]; locked: boolean; editable: boolean; forkDebateId?: string }>;
+
+export async function listDebateStatuses(debateId: string, profileId?: string): Promise<DebateStatusState> {
+  const result: DebateStatusState = {};
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (sql) {
+    const [counts, selected] = await Promise.all([
+      sql`SELECT argument_id, status, COUNT(*)::int AS count FROM debate_argument_statuses WHERE debate_id = ${debateId} GROUP BY argument_id, status`,
+      profileId ? sql`SELECT argument_id, status FROM debate_argument_statuses WHERE debate_id = ${debateId} AND profile_id = ${profileId}` : Promise.resolve([])
+    ]);
+    for (const row of counts) {
+      const id = row.argument_id as string;
+      result[id] ??= { counts: {}, selected: [], locked: false, editable: false };
+      result[id].counts[row.status as string] = Number(row.count);
+    }
+    for (const row of selected) {
+      const id = row.argument_id as string;
+      result[id] ??= { counts: {}, selected: [], locked: false, editable: false };
+      result[id].selected.push(row.status as string);
+    }
+  } else {
+    for (const item of store.statuses.filter((status) => status.debateId === debateId)) {
+      result[item.argumentId] ??= { counts: {}, selected: [], locked: false, editable: false };
+      result[item.argumentId].counts[item.status] = (result[item.argumentId].counts[item.status] ?? 0) + 1;
+      if (item.profileId === profileId) result[item.argumentId].selected.push(item.status);
+    }
+  }
+  const debate = await getDebate(debateId);
+  if (debate) {
+    const lockedIds = new Set(["🛑", "☑️", "🚧"]);
+    const visit = (comments: Comment[] = []) => comments.forEach((comment) => {
+      const status = result[comment.id];
+      if (status) {
+        status.locked = [...lockedIds].some((value) => (status.counts[value] ?? 0) > 0);
+        status.editable = Boolean(profileId && profileId === comment.authorProfileId);
+      }
+      visit(comment.children);
+    });
+    visit(debate.children);
+    result[debate.id] ??= { counts: {}, selected: [], locked: false, editable: false };
+    result[debate.id].locked = [...lockedIds].some((value) => (result[debate.id].counts[value] ?? 0) > 0);
+    const rootId = (debate.children ?? []).some((child) => child.replyTo === "p1" || child.replyTo?.startsWith("p1-")) ? "p1" : debate.id;
+    const paragraphCount = debate.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean)).length;
+    for (let index = 0; index < paragraphCount; index += 1) {
+      const id = rootId === "p1" ? `p1-${index + 1}` : `${rootId}-p-${index + 1}`;
+      result[id] ??= { counts: {}, selected: [], locked: false, editable: false };
+      result[id].locked = [...lockedIds].some((value) => (result[id].counts[value] ?? 0) > 0);
+    }
+    const forks = sql
+      ? await sql`SELECT id, payload FROM debates WHERE payload->>'parentId' = ${debateId}`
+      : store.debates.filter((item) => item.parentId === debateId).map((item) => ({ id: item.id, payload: item }));
+    for (const row of forks) {
+      const payload = row.payload as Debate;
+      if (!payload.sourceArgumentId) continue;
+      result[payload.sourceArgumentId] ??= { counts: {}, selected: [], locked: false, editable: false };
+      if (result[payload.sourceArgumentId].selected.includes("🆕")) result[payload.sourceArgumentId].forkDebateId = row.id as string;
+    }
+  }
+  return result;
+}
+
+export async function toggleDebateStatus(debateId: string, argumentId: string, profileId: string, status: string) {
+  if (!argumentStatuses.includes(status as ArgumentStatus)) throw new Error("Unknown debate status");
+  const debate = await getDebate(debateId);
+  if (!debate || !debateArgumentIds(debate).has(argumentId)) return null;
+  const comment = (() => {
+    const visit = (nodes: Comment[]): Comment | undefined => {
+      for (const node of nodes) {
+        if (node.id === argumentId) return node;
+        const found = visit(node.children ?? []);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    return visit(debate.children ?? []);
+  })();
+  if (status === "✏️" && (!comment || comment.authorProfileId !== profileId)) return null;
+  const existingStatus = (await listDebateStatuses(debateId, profileId))[argumentId];
+  if (existingStatus?.locked && !(status === "✏️" && existingStatus.selected.includes("✏️") && comment?.authorProfileId === profileId)) return null;
+  const persistent = await isPersistentStore();
+  const sql = persistent ? database() : null;
+  if (sql) {
+    const rows = await sql`SELECT 1 FROM debate_argument_statuses WHERE debate_id = ${debateId} AND argument_id = ${argumentId} AND profile_id = ${profileId} AND status = ${status} LIMIT 1`;
+    if (rows.length) await sql`DELETE FROM debate_argument_statuses WHERE debate_id = ${debateId} AND argument_id = ${argumentId} AND profile_id = ${profileId} AND status = ${status}`;
+    else await sql`INSERT INTO debate_argument_statuses (debate_id, argument_id, profile_id, status) VALUES (${debateId}, ${argumentId}, ${profileId}, ${status}) ON CONFLICT DO NOTHING`;
+  } else {
+    const index = store.statuses.findIndex((item) => item.debateId === debateId && item.argumentId === argumentId && item.profileId === profileId && item.status === status);
+    if (index >= 0) store.statuses.splice(index, 1);
+    else store.statuses.push({ debateId, argumentId, profileId, status: status as ArgumentStatus });
+  }
+  const updated = (await listDebateStatuses(debateId, profileId))[argumentId] ?? { counts: {}, selected: [], locked: false, editable: false };
+  if (status === "🆕" && updated.selected.includes("🆕")) {
+    const persistent = await isPersistentStore();
+    const sql = persistent ? database() : null;
+    const fork = sql
+      ? (await sql`SELECT id FROM debates WHERE payload->>'parentId' = ${debateId} AND payload->>'sourceArgumentId' = ${argumentId} ORDER BY created_at DESC LIMIT 1`)[0]
+      : store.debates.filter((item) => item.parentId === debateId && item.sourceArgumentId === argumentId).at(-1);
+    if (fork && updated.selected.includes("🆕")) updated.forkDebateId = fork.id as string;
+  }
+  return updated;
+}
+
+export async function forkDebateFromArgument(debateId: string, argumentId: string, profileId: string) {
+  const source = await getDebate(debateId);
+  if (!source) return null;
+  const persistent = await isPersistentStore();
+  const existingSql = persistent ? database() : null;
+  if (existingSql) {
+    const existing = await existingSql`SELECT id FROM debates WHERE payload->>'parentId' = ${debateId} AND payload->>'sourceArgumentId' = ${argumentId} ORDER BY created_at DESC LIMIT 1`;
+    if (existing[0]?.id) return getDebate(existing[0].id as string);
+  } else {
+    const existing = store.debates.findLast((item) => item.parentId === debateId && item.sourceArgumentId === argumentId);
+    if (existing) return structuredClone(existing);
+  }
+  const paragraphs = source.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean));
+  const rootId = (source.children ?? []).some((child) => child.replyTo === "p1" || child.replyTo?.startsWith("p1-")) ? "p1" : source.id;
+  const rootParagraphIds = paragraphs.map((_, index) => rootId === "p1" ? `p1-${index + 1}` : `${rootId}-p-${index + 1}`);
+  const allComments: Comment[] = [];
+  const visit = (nodes: Comment[]) => nodes.forEach((node) => { allComments.push(node); visit(node.children ?? []); });
+  visit(source.children ?? []);
+  const owner = allComments.find((comment) => comment.id === argumentId || comment.paragraphs.some((paragraph) => paragraph.id === argumentId));
+  const isWholeDebate = argumentId === source.id;
+  const targetText = isWholeDebate ? paragraphs.join("\n") : owner?.id === argumentId ? owner.paragraphs.map((paragraph) => paragraph.text).join("\n") || owner.title : owner?.paragraphs.find((paragraph) => paragraph.id === argumentId)?.text ?? paragraphs[rootParagraphIds.indexOf(argumentId)];
+  if (!targetText) return null;
+  const title = isWholeDebate ? source.title : owner?.id === argumentId ? owner.title : targetText.slice(0, 100);
+  const sourceTargetIds = isWholeDebate ? [source.id, ...rootParagraphIds] : owner?.id === argumentId ? [owner.id, ...(owner.paragraphs ?? []).map((paragraph) => paragraph.id)] : [argumentId];
+  const fork = await createDebate({
+    title,
+    content: isWholeDebate ? source.content : [targetText],
+    authorProfileId: profileId,
+    parentId: debateId,
+    sourceArgumentId: argumentId,
+    start: "new-topic",
+    intention: source.intention,
+    theme: source.theme,
+    confidence: source.confidence,
+    safetyTags: source.safetyTags,
+    targetTags: source.targetTags,
+    definitions: owner?.definitions ?? (isWholeDebate ? source.definitions : []),
+    facts: owner?.facts ?? (isWholeDebate ? source.facts : []),
+    media: owner?.media ?? (isWholeDebate ? source.media : [])
+  });
+  const directReplies = allComments.filter((comment) => sourceTargetIds.includes(comment.replyTo));
+  const idMap = new Map<string, string>();
+  const allocate = (node: Comment) => {
+    idMap.set(node.id, `post_${crypto.randomUUID()}`);
+    (node.paragraphs ?? []).forEach((paragraph) => idMap.set(paragraph.id, `paragraph_${crypto.randomUUID()}`));
+    (node.children ?? []).forEach(allocate);
+  };
+  directReplies.forEach(allocate);
+  const forkParagraphIds = fork.content.flatMap((content) => content.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean)).map((_, index) => `${fork.id}-p-${index + 1}`);
+  const targetMap = new Map<string, string>();
+  if (isWholeDebate) {
+    targetMap.set(source.id, fork.id);
+    rootParagraphIds.forEach((oldId, index) => targetMap.set(oldId, forkParagraphIds[index] ?? fork.id));
+  } else if (owner?.id === argumentId) {
+    targetMap.set(owner.id, fork.id);
+    (owner.paragraphs ?? []).forEach((paragraph, index) => targetMap.set(paragraph.id, forkParagraphIds[index] ?? fork.id));
+  } else targetMap.set(argumentId, forkParagraphIds[0] ?? fork.id);
+  const clone = (node: Comment): Comment => ({
+    ...node,
+    id: idMap.get(node.id)!,
+    paragraphs: node.paragraphs.map((paragraph) => ({ ...paragraph, id: idMap.get(paragraph.id)! })),
+    replyTo: targetMap.get(node.replyTo) ?? idMap.get(node.replyTo) ?? fork.id,
+    children: (node.children ?? []).map(clone)
+  });
+  const copiedReplies = directReplies.map(clone);
+  const sql = persistent ? database() : null;
+  if (sql) {
+    const flattened: Comment[] = [];
+    const flatten = (nodes: Comment[]) => nodes.forEach((node) => { flattened.push(node); flatten(node.children ?? []); });
+    flatten(copiedReplies);
+    await sql.transaction(flattened.map((node) => {
+      const payload = { ...node, children: [] };
+      return sql`INSERT INTO debate_comments (id, debate_id, reply_to, author_profile_id, payload) VALUES (${node.id}, ${fork.id}, ${node.replyTo}, ${node.authorProfileId ?? null}, ${JSON.stringify(payload)}::jsonb)`;
+    }));
+  } else {
+    for (const reply of copiedReplies) attachComment(fork, reply);
+    const index = store.debates.findIndex((item) => item.id === fork.id);
+    if (index >= 0) store.debates[index] = fork;
+  }
+  return fork;
 }
 
 export async function deleteOwnComment(debateId: string, commentId: string) {
