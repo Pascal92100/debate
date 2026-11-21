@@ -467,10 +467,14 @@ export async function listDebateStatuses(debateId: string, profileId?: string): 
   if (debate) {
     const lockedIds = new Set(["🛑", "☑️", "🚧"]);
     const visit = (comments: Comment[] = []) => comments.forEach((comment) => {
-      const status = result[comment.id];
-      if (status) {
-        status.locked = [...lockedIds].some((value) => (status.counts[value] ?? 0) > 0);
-        status.editable = Boolean(profileId && profileId === comment.authorProfileId);
+      result[comment.id] ??= { counts: {}, selected: [], locked: false, editable: false };
+      const commentStatus = result[comment.id];
+      commentStatus.locked = [...lockedIds].some((value) => (commentStatus.counts[value] ?? 0) > 0);
+      commentStatus.editable = Boolean(profileId && profileId === comment.authorProfileId);
+      for (const paragraph of comment.paragraphs ?? []) {
+        result[paragraph.id] ??= { counts: {}, selected: [], locked: false, editable: false };
+        const paragraphStatus = result[paragraph.id];
+        paragraphStatus.locked = [...lockedIds].some((value) => (paragraphStatus.counts[value] ?? 0) > 0);
       }
       visit(comment.children);
     });

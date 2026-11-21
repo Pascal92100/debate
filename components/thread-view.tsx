@@ -22,7 +22,7 @@ const reportReasons = [
 ];
 
 const argumentEvaluations = [["👍🏻", "Agree"], ["👎🏻", "Disagree"], ["🔑", "Useful"], ["💡", "Inspiring"], ["🎓", "Interesting"], ["☀️", "Feel-good"]] as const;
-const argumentStatuses = [["🛑", "Stop"], ["🆕", "New topic"], ["✏️", "Rewrite"], ["⏳", "On hold"], ["☑️", "End agreed"], ["🚧", "End disagreement"]] as const;
+const argumentStatuses = [["🛑", "Stop"], ["🆕", "New topic"], ["✏️", "Rewrite"], ["⏳", "On hold"], ["☑️", "End agreed"], ["🚧", "End disagree"]] as const;
 const unsafeReportReasons = new Set(["🚫 Prohibited", "🔞 Sexual", "⚠️ Disturbing", "❌ Aggressive"]);
 type EvaluationState = Record<string, { counts: Record<string, number>; viewerEvaluation: string | null }>;
 type StatusState = Record<string, { counts: Record<string, number>; selected: string[]; locked: boolean; editable: boolean; forkDebateId?: string }>;
@@ -76,7 +76,7 @@ function EditReplyForm({ debateId, node, profileId, onSaved }: { debateId: strin
 }
 
 function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0, compact = false, evaluation, forceLocked = false }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number; compact?: boolean; evaluation?: string; forceLocked?: boolean }) {
-  const { reports, statuses, filtering } = useContext(ReportContext);
+  const { statuses, filtering } = useContext(ReportContext);
   const [contextOpen, setContextOpen] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(filtering);
   const [feedback, setFeedback] = useState("");
@@ -116,12 +116,8 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProf
       <span className="argument-reply-count" title={`${replies.length} ${replies.length === 1 ? "reply" : "replies"}`} aria-label={`${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}>↳ {replies.length}</span>
       {statuses[id]?.selected.includes("🆕") && statuses[id]?.forkDebateId ? <a className={`argument-text${compact ? " argument-text-compact" : ""}`} href={`/debates/${encodeURIComponent(statuses[id].forkDebateId!)}?profileId=${encodeURIComponent(authorProfileId)}`}>{text}</a> : <button className={`argument-text${compact ? " argument-text-compact" : ""}`} type="button" aria-expanded={replies.length > 0 ? repliesOpen : undefined} onClick={() => { if (longPressTriggered.current) { longPressTriggered.current = false; return; } if (replies.length > 0 && !locked) setRepliesOpen(!repliesOpen); }} title={replies.length > 0 ? "Show or hide replies to this argument" : "No replies to this argument"}>{text}</button>}
       {evaluation && <span className="evaluation-badge argument-evaluation-badge" title="Reply evaluation">{evaluation}</span>}
-      <div className="argument-inline-badges" aria-label="Selected status and risk reports">{reportReasons.filter(({ icon, label }) => unsafeReportReasons.has(`${icon} ${label}`)).map(({ icon, label }) => {
-        const reason = `${icon} ${label}`;
-        const count = reports[id]?.counts[reason] ?? 0;
-        return count > 0 ? <span className="argument-risk-badge" key={reason} title={`${label}: ${count}`}>{icon}<small>{count}</small></span> : null;
-      })}{argumentStatuses.filter(([icon]) => (statuses[id]?.counts[icon] ?? 0) > 0).map(([icon, label]) => <span className="argument-status-badge" key={icon} title={`${label}: ${statuses[id].counts[icon]}`}>{icon}<small>{statuses[id].counts[icon]}</small></span>)}</div>
-      {locked ? <InlineArgumentBadges id={id} /> : <ArgumentMenus id={id} text={text} locked={locked} onReply={() => document.getElementById(`reply-${id}`)?.click()} onFork={(forkId) => window.location.assign(`/debates/${encodeURIComponent(forkId)}?profileId=${encodeURIComponent(authorProfileId)}`)} />}
+      <InlineArgumentBadges id={id} />
+      {!locked && <ArgumentMenus id={id} text={text} locked={locked} onReply={() => document.getElementById(`reply-${id}`)?.click()} onFork={(forkId) => window.location.assign(`/debates/${encodeURIComponent(forkId)}?profileId=${encodeURIComponent(authorProfileId)}`)} />}
     </div>
     {contextOpen && <div className="argument-context-menu" role="menu">
       <button type="button" role="menuitem" disabled={locked} onClick={() => { setContextOpen(false); document.getElementById(`reply-${id}`)?.click(); }}>↩️ Reply</button>

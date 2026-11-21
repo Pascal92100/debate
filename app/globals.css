@@ -876,7 +876,7 @@ h1, .serif { font-family: "Newsreader", Georgia, serif; font-weight: 500; }
   .argument-line { gap: 3px; padding-right: 0; }
   .argument-action { min-width: 27px; min-height: 27px; }
   .argument-menu-trigger { width: 23px; height: 24px; }
-  .argument-popover-panel { right: 0; width: min(230px, calc(100vw - 34px)); min-width: 0; }
+  .argument-popover-panel { position: fixed; top: auto; right: 12px; bottom: 12px; left: 12px; width: auto; min-width: 0; max-width: none; max-height: min(62vh, 500px); }
   .argument-report-list { width: 100%; }
   .debate-title-with-actions { align-items: flex-start; gap: 4px; }
   .debate-title-with-actions h1 { font-size: 30px; }
