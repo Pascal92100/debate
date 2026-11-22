@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Comment, Debate } from "@/lib/debates";
-import { filterDebateComments, type DebateFilter, type DebateReportState } from "@/lib/debate-filters";
+import { filterDebateComments, isStatusFilter, type DebateFilter, type DebateReportState } from "@/lib/debate-filters";
 import { CommentForm } from "@/components/comment-form";
 import { DebateControls } from "@/components/debate-controls";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
@@ -65,7 +65,7 @@ function ArgumentMenus({ id, text, locked = false, onReply, onEdit, onFork }: { 
     <button type="button" className="argument-menu-trigger" aria-label="Argument actions" aria-expanded={activeMenu === "actions"} onClick={() => toggleMenu("actions")}>🔧</button>
     {activeMenu === "reactions" && <div className="argument-popover-panel" role="group" aria-label="Reactions"><strong>Reactions</strong>{argumentEvaluations.map(([icon, label]) => <button type="button" key={icon} disabled={locked} aria-pressed={evaluations[id]?.viewerEvaluation === icon} onClick={() => { toggleEvaluation(id, icon); setActiveMenu(null); }}><span>{icon}</span><span>{label}</span><small>{evaluations[id]?.counts[icon] ?? 0}</small></button>)}</div>}
     {activeMenu === "status" && <div className="argument-popover-panel" role="group" aria-label="Status"><strong>Status</strong>{argumentStatuses.map(([icon, label]) => <button type="button" key={icon} aria-pressed={status?.selected.includes(icon) ?? false} disabled={locked} onClick={async () => { setActiveMenu(null); if (icon === "✏️" && status?.editable) { onEdit?.(); return; } const updated = await toggleStatus(id, icon); if (icon === "🆕" && updated?.forkDebateId) { onFork?.(updated.forkDebateId); return; } if (icon === "✏️" && updated?.editable) onEdit?.(); }}><span>{icon}</span><span>{label}</span><small>{status?.counts[icon] ?? 0}</small></button>)}</div>}
-    {activeMenu === "actions" && <div className="argument-popover-panel argument-actions-panel" role="group" aria-label="Actions"><button type="button" aria-label="Reply" title="Reply" disabled={locked} onClick={() => { onReply?.(); setActiveMenu(null); }}>↩️</button><button type="button" aria-label="Share" title="Share" disabled={locked} onClick={async () => { setActiveMenu(null); try { if (navigator.share) await navigator.share({ title: "Debate argument", text }); else await navigator.clipboard.writeText(`${text}\n${window.location.href}#${id}`); } catch {} }}>🔁</button><button type="button" aria-label="Report" title="Report" disabled={locked} aria-expanded={showReports} onClick={() => setShowReports((open) => !open)}>🚩</button>{showReports && <div className="argument-report-list">{reportReasons.map(({ icon, label }) => { const reason = `${icon} ${label}`; return <button type="button" key={reason} disabled={locked} aria-pressed={reports[id]?.selected.includes(reason) ?? false} onClick={() => { toggle(id, reason); setActiveMenu(null); setShowReports(false); }}>{icon}<span>{label}</span><small>{reports[id]?.counts[reason] ?? 0}</small></button>; })}</div>}</div>}
+    {activeMenu === "actions" && <div className="argument-popover-panel argument-actions-panel" role="group" aria-label="Actions"><button type="button" aria-label="Reply" title="Reply" disabled={locked} onClick={() => { onReply?.(); setActiveMenu(null); }}>↩️<span>Reply</span></button><button type="button" aria-label="Share" title="Share" disabled={locked} onClick={async () => { setActiveMenu(null); try { if (navigator.share) await navigator.share({ title: "Debate argument", text }); else await navigator.clipboard.writeText(`${text}\n${window.location.href}#${id}`); } catch {} }}>🔁<span>Share</span></button><button type="button" aria-label="Report" title="Report" disabled={locked} aria-expanded={showReports} onClick={() => setShowReports((open) => !open)}>🚩<span>Report</span></button>{showReports && <div className="argument-report-list">{reportReasons.map(({ icon, label }) => { const reason = `${icon} ${label}`; return <button type="button" key={reason} disabled={locked} aria-pressed={reports[id]?.selected.includes(reason) ?? false} onClick={() => { toggle(id, reason); setActiveMenu(null); setShowReports(false); }}>{icon}<span>{label}</span><small>{reports[id]?.counts[reason] ?? 0}</small></button>; })}</div>}</div>}
   </div>;
 }
 
@@ -209,9 +209,10 @@ export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorPr
 
   const wholeDebateReported = safe && Object.entries(reports[debate.id]?.counts ?? {}).some(([reason, count]) => unsafeReportReasons.has(reason) && count > 0);
   const safeRootIds = safe ? new Set(paragraphs.filter((paragraph) => wholeDebateReported || Object.entries(reports[paragraph.id]?.counts ?? {}).some(([reason, count]) => unsafeReportReasons.has(reason) && count > 0)).map((paragraph) => paragraph.id)) : new Set<string>();
-  const visibleParagraphs = paragraphs.filter((paragraph) => !safeRootIds.has(paragraph.id));
   const rootLocked = statuses[debate.id]?.locked ?? false;
-  const rootComments = rootLocked || wholeDebateReported ? [] : filterDebateComments(comments, evaluatorProfileId, safe, mode, reports, evaluationState, paragraphs.map((paragraph) => paragraph.id));
+  const rootMatched = isStatusFilter(mode) && (statuses[debate.id]?.counts[mode] ?? 0) > 0;
+  const rootComments = rootLocked || wholeDebateReported ? [] : filterDebateComments(comments, evaluatorProfileId, safe, mode, reports, evaluationState, paragraphs.map((paragraph) => paragraph.id), statuses, rootMatched);
+  const visibleParagraphs = paragraphs.filter((paragraph) => !safeRootIds.has(paragraph.id) && (!isStatusFilter(mode) || rootMatched || (statuses[paragraph.id]?.counts[mode] ?? 0) > 0 || rootComments.some((comment) => comment.replyTo === paragraph.id)));
 
   async function toggleReport(messageId: string, reason: string) {
     setEvaluationError("");

@@ -8,6 +8,7 @@ export function DebateControls({ safe, onSafeChange, mode, onModeChange }: { saf
     <nav className="debate-tool-list" aria-label="Debate tools">
       <button type="button" className={`debate-tool${safe ? " selected" : ""}`} aria-pressed={safe} onClick={() => onSafeChange(!safe)}>Safe tagging filter</button>
       {([["my-posts", "My posts"], ["my-branches", "My posts + replies"], ["unanswered", "Unanswered"]] as const).map(([value, label]) => <button key={value} type="button" className={`debate-tool${mode === value ? " selected" : ""}`} aria-pressed={mode === value} onClick={() => onModeChange(mode === value ? null : value)}>{label}</button>)}
+      {([["⏳", "On hold"], ["☑️", "End agreed"], ["🚧", "End disagree"]] as const).map(([value, label]) => <button key={value} type="button" className={`debate-tool${mode === value ? " selected" : ""}`} aria-label={`Filter: ${label}`} title={label} aria-pressed={mode === value} onClick={() => onModeChange(mode === value ? null : value)}>{value}</button>)}
       <button type="button" className="debate-tool" disabled>AI summary</button>
       <button type="button" className="debate-tool" disabled>Sub-debates</button>
       <button type="button" className="debate-tool" disabled>Participants 👥</button>

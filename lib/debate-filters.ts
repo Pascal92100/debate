@@ -1,10 +1,16 @@
 import type { Comment } from "./debates";
 
-export type DebateFilter = "my-posts" | "my-branches" | "unanswered" | null;
+export type StatusFilter = "⏳" | "☑️" | "🚧";
+export type DebateFilter = "my-posts" | "my-branches" | "unanswered" | StatusFilter | null;
 export type DebateReportState = Record<string, { counts: Record<string, number>; selected: string[] }>;
 export type DebateEvaluationState = Record<string, { counts: Record<string, number>; viewerEvaluation: string | null }>;
+export type DebateStatusCounts = Record<string, { counts: Record<string, number> }>;
 
-export function filterDebateComments(comments: Comment[], profileId: string | undefined, safe: boolean, mode: DebateFilter, reports: DebateReportState, evaluations: DebateEvaluationState, rootParagraphIds: string[] = []): Comment[] {
+export function isStatusFilter(mode: DebateFilter): mode is StatusFilter {
+  return mode === "⏳" || mode === "☑️" || mode === "🚧";
+}
+
+export function filterDebateComments(comments: Comment[], profileId: string | undefined, safe: boolean, mode: DebateFilter, reports: DebateReportState, evaluations: DebateEvaluationState, rootParagraphIds: string[] = [], statuses: DebateStatusCounts = {}, rootMatched = false): Comment[] {
   const unsafeReasons = new Set(["🚫 Prohibited", "🔞 Sexual", "⚠️ Disturbing", "❌ Aggressive"]);
   const ids = (comment: Comment) => [comment.id, ...(comment.paragraphs ?? []).map((paragraph) => paragraph.id)];
   const unsafe = (comment: Comment) => ids(comment).some((id) => Object.entries(reports[id]?.counts ?? {}).some(([reason, count]) => unsafeReasons.has(reason) && count > 0));
@@ -14,6 +20,19 @@ export function filterDebateComments(comments: Comment[], profileId: string | un
   const safeRootIds = new Set(safe ? rootParagraphIds.filter((id) => Object.entries(reports[id]?.counts ?? {}).some(([reason, count]) => unsafeReasons.has(reason) && count > 0)) : []);
   const rootFiltered = safeComments.filter((node) => !safeRootIds.has(node.replyTo));
   if (!mode) return rootFiltered;
+
+  if (isStatusFilter(mode)) {
+    const matches = (id: string) => (statuses[id]?.counts[mode] ?? 0) > 0;
+    const filterStatuses = (nodes: Comment[], inherited: boolean): Comment[] => nodes.flatMap((node) => {
+      const wholeBranch = inherited || matches(node.id) || matches(node.replyTo);
+      if (wholeBranch) return [node];
+      const children = filterStatuses(node.children ?? [], false);
+      const paragraphs = (node.paragraphs ?? []).filter((paragraph) => matches(paragraph.id) || children.some((child) => child.replyTo === paragraph.id));
+      if (!paragraphs.length && !children.length) return [];
+      return [{ ...node, paragraphs, children }];
+    });
+    return filterStatuses(rootFiltered, rootMatched);
+  }
 
   const filter = (nodes: Comment[], inOwnBranch: boolean): Comment[] => nodes.flatMap((node) => {
     const own = Boolean(profileId && node.authorProfileId === profileId);
