@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Comment, Debate } from "@/lib/debates";
 import { filterDebateComments, isStatusFilter, type DebateFilter, type DebateReportState } from "@/lib/debate-filters";
-import { CommentForm } from "@/components/comment-form";
+import { getDebateFocus } from "@/lib/debate-focus";
+import { CommentForm, ReplyDraftProvider } from "@/components/comment-form";
 import { DebateControls } from "@/components/debate-controls";
 import { DeleteEntityButton } from "@/components/delete-entity-button";
 import { MediaGallery } from "@/components/media-gallery";
@@ -27,6 +28,7 @@ const unsafeReportReasons = new Set(["🚫 Prohibited", "🔞 Sexual", "⚠️ D
 type EvaluationState = Record<string, { counts: Record<string, number>; viewerEvaluation: string | null }>;
 type StatusState = Record<string, { counts: Record<string, number>; selected: string[]; locked: boolean; editable: boolean; forkDebateId?: string }>;
 const ReportContext = createContext<{ reports: DebateReportState; toggle: (messageId: string, reason: string) => void; statuses: StatusState; toggleStatus: (argumentId: string, status: string) => Promise<StatusState[string] | null>; evaluations: EvaluationState; toggleEvaluation: (argumentId: string, value: string) => void; filtering: boolean; profileId?: string }>({ reports: {}, toggle: () => {}, statuses: {}, toggleStatus: async () => null, evaluations: {}, toggleEvaluation: () => {}, filtering: false });
+const FocusContext = createContext<{ focusId: string | null; ancestors: Set<string>; commentVisible: (node: Comment) => boolean; paragraphVisible: (id: string, parentId: string, parentReplyTo?: string) => boolean; toggle: (id: string) => void }>({ focusId: null, ancestors: new Set(), commentVisible: () => true, paragraphVisible: () => true, toggle: () => {} });
 
 function ArgumentMenus({ id, text, locked = false, onReply, onEdit, onFork }: { id: string; text: string; locked?: boolean; onReply?: () => void; onEdit?: () => void; onFork?: (debateId: string) => void }) {
   const { reports, toggle, statuses, toggleStatus, evaluations, toggleEvaluation } = useContext(ReportContext);
@@ -98,8 +100,9 @@ function EditReplyForm({ debateId, node, profileId, onSaved }: { debateId: strin
 
 function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0, compact = false, evaluation, forceLocked = false }: { debateId: string; id: string; text: string; replies: Comment[]; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number; compact?: boolean; evaluation?: string; forceLocked?: boolean }) {
   const { statuses, filtering } = useContext(ReportContext);
+  const focus = useContext(FocusContext);
   const [contextOpen, setContextOpen] = useState(false);
-  const [repliesOpen, setRepliesOpen] = useState(filtering);
+  const [repliesOpen] = useState(filtering);
   const [feedback, setFeedback] = useState("");
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -135,7 +138,7 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProf
     {contextOpen && <button className="report-dismiss" type="button" aria-label="Close menu" onClick={() => setContextOpen(false)} />}
     <div className="argument-line" data-argument-id={id} onContextMenu={(event) => { event.preventDefault(); setContextOpen(true); }} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerCancel={clearLongPress}>
       <span className="argument-reply-count" title={`${replies.length} ${replies.length === 1 ? "reply" : "replies"}`} aria-label={`${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}>↳ {replies.length}</span>
-      {statuses[id]?.selected.includes("🆕") && statuses[id]?.forkDebateId ? <a className={`argument-text${compact ? " argument-text-compact" : ""}`} href={`/debates/${encodeURIComponent(statuses[id].forkDebateId!)}?profileId=${encodeURIComponent(authorProfileId)}`}>{text}</a> : <button className={`argument-text${compact ? " argument-text-compact" : ""}`} type="button" aria-expanded={replies.length > 0 ? repliesOpen : undefined} onClick={() => { if (longPressTriggered.current) { longPressTriggered.current = false; return; } if (replies.length > 0 && !locked) setRepliesOpen(!repliesOpen); }} title={replies.length > 0 ? "Show or hide replies to this argument" : "No replies to this argument"}>{text}</button>}
+      {statuses[id]?.selected.includes("🆕") && statuses[id]?.forkDebateId ? <a className={`argument-text${compact ? " argument-text-compact" : ""}`} href={`/debates/${encodeURIComponent(statuses[id].forkDebateId!)}?profileId=${encodeURIComponent(authorProfileId)}`}>{text}</a> : <button className={`argument-text${compact ? " argument-text-compact" : ""}`} type="button" aria-expanded={replies.length > 0 ? (focus.focusId ? focus.ancestors.has(id) : repliesOpen) : undefined} onClick={() => { if (longPressTriggered.current) { longPressTriggered.current = false; return; } if (replies.length > 0 && !locked) focus.toggle(id); }} title={replies.length > 0 ? "Show or hide replies to this argument" : "No replies to this argument"}>{text}</button>}
       {evaluation && <span className="evaluation-badge argument-evaluation-badge" title="Reply evaluation">{evaluation}</span>}
       <InlineArgumentBadges id={id} />
       {!locked && <ArgumentMenus id={id} text={text} locked={locked} onReply={() => document.getElementById(`reply-${id}`)?.click()} onFork={(forkId) => window.location.assign(`/debates/${encodeURIComponent(forkId)}?profileId=${encodeURIComponent(authorProfileId)}`)} />}
@@ -147,19 +150,21 @@ function ArgumentLine({ debateId, id, text, replies, ownedProfileIds, authorProf
     </div>}
     {!locked && <CommentForm key={id} debateId={debateId} replyTo={id} controlId={`reply-${id}`} profileId={authorProfileId} compactTrigger />}
     {feedback && <span className="action-feedback argument-feedback" role="status">{feedback}</span>}
-    {repliesOpen && !locked && <div className="argument-replies">{replies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}</div>}
+    {(focus.focusId ? focus.ancestors.has(id) : repliesOpen) && !locked && <div className="argument-replies">{replies.filter(focus.commentVisible).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}</div>}
   </div>;
 }
 
-function ArgumentLines({ debateId, parentId, paragraphs, children, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0, compact = false, rootAliases = [], titleEvaluation, forceLocked = false }: { debateId: string; parentId: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number; compact?: boolean; rootAliases?: string[]; titleEvaluation?: string; forceLocked?: boolean }) {
-  return <div className="argument-list">{paragraphs.map((paragraph, index) => <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact={compact} evaluation={index === 0 ? titleEvaluation : undefined} forceLocked={forceLocked} />)}
-    {!forceLocked && children.filter((child) => child.replyTo === parentId || rootAliases.includes(child.replyTo)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}
+function ArgumentLines({ debateId, parentId, parentReplyTo, paragraphs, children, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0, compact = false, rootAliases = [], titleEvaluation, forceLocked = false }: { debateId: string; parentId: string; parentReplyTo?: string; paragraphs: Array<{ id: string; text: string }>; children: Comment[]; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number; compact?: boolean; rootAliases?: string[]; titleEvaluation?: string; forceLocked?: boolean }) {
+  const focus = useContext(FocusContext);
+  return <div className="argument-list">{paragraphs.map((paragraph, index) => focus.paragraphVisible(paragraph.id, parentId, parentReplyTo) && <ArgumentLine key={paragraph.id} debateId={debateId} id={paragraph.id} text={paragraph.text} replies={children.filter((child) => child.replyTo === paragraph.id)} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact={compact} evaluation={index === 0 ? titleEvaluation : undefined} forceLocked={forceLocked} />)}
+    {!forceLocked && children.filter((child) => (child.replyTo === parentId || rootAliases.includes(child.replyTo)) && focus.commentVisible(child)).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}
   </div>;
 }
 
 function CommentCard({ debateId, node, ownedProfileIds, authorProfileId, evaluationState, onEvaluate, depth = 0 }: { debateId: string; node: Comment; ownedProfileIds: string[]; authorProfileId: string; evaluationState: EvaluationState; onEvaluate: (argumentId: string, value: string) => void; depth?: number }) {
   const { filtering, statuses } = useContext(ReportContext);
-  const [globalRepliesOpen, setGlobalRepliesOpen] = useState(filtering);
+  const focus = useContext(FocusContext);
+  const [globalRepliesOpen] = useState(filtering);
   const [editing, setEditing] = useState(false);
   const paragraphs = node.paragraphs ?? [];
   const text = paragraphs.map((paragraph) => paragraph.text).join(" ");
@@ -172,11 +177,11 @@ function CommentCard({ debateId, node, ownedProfileIds, authorProfileId, evaluat
     <header className="thread-message-header"><span><strong>{node.author}</strong></span><span className="thread-message-tools"><span className="message-confidence" title="Confidence">💪 {node.confidence}%</span>{!locked && node.authorProfileId && ownedProfileIds.includes(node.authorProfileId) && <DeleteEntityButton endpoint={`/api/debates/${encodeURIComponent(debateId)}/comments/${encodeURIComponent(node.id)}`} label="Delete my reply" confirmation="Delete this reply and all replies below it? This cannot be undone." iconOnly />}</span></header>
     {node.definitions?.length ? <details className="data-accordion"><summary>Definitions <span>{node.definitions.length}</span></summary><div>{node.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
     {node.facts?.length ? <details className="data-accordion"><summary>Facts and references <span>{node.facts.length}</span></summary><div>{node.facts.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
-    <div className="thread-message-title-row">{status?.selected.includes("🆕") && status.forkDebateId ? <a className="thread-message-title thread-title-toggle" href={`/debates/${encodeURIComponent(status.forkDebateId)}?profileId=${encodeURIComponent(authorProfileId)}`}>{node.title}<span className="global-reply-count">↳ {globalReplies.length}</span></a> : <button className="thread-message-title thread-title-toggle" type="button" aria-expanded={globalRepliesOpen} disabled={globalReplies.length === 0 || locked} onClick={() => setGlobalRepliesOpen((open) => !open)}>{node.title}<span className="global-reply-count">↳ {globalReplies.length}</span></button>}{locked ? <InlineArgumentBadges id={node.id} /> : <><InlineArgumentBadges id={node.id} /><ArgumentMenus id={node.id} text={`${node.title}\n${text}`} locked={locked} onReply={() => document.getElementById(`reply-global-${node.id}`)?.click()} onEdit={() => setEditing(true)} onFork={(forkId) => window.location.assign(`/debates/${encodeURIComponent(forkId)}?profileId=${encodeURIComponent(authorProfileId)}`)} /></>}{node.evaluation && <span className="evaluation-badge" title="Reply evaluation">{node.evaluation}</span>}</div>
+    <div className="thread-message-title-row">{status?.selected.includes("🆕") && status.forkDebateId ? <a className="thread-message-title thread-title-toggle" href={`/debates/${encodeURIComponent(status.forkDebateId)}?profileId=${encodeURIComponent(authorProfileId)}`}>{node.title}<span className="global-reply-count">↳ {globalReplies.length}</span></a> : <button className="thread-message-title thread-title-toggle" type="button" aria-expanded={focus.focusId ? focus.ancestors.has(node.id) : globalRepliesOpen} disabled={globalReplies.length === 0 || locked} onClick={() => focus.toggle(node.id)}>{node.title}<span className="global-reply-count">↳ {globalReplies.length}</span></button>}{locked ? <InlineArgumentBadges id={node.id} /> : <><InlineArgumentBadges id={node.id} /><ArgumentMenus id={node.id} text={`${node.title}\n${text}`} locked={locked} onReply={() => document.getElementById(`reply-global-${node.id}`)?.click()} onEdit={() => setEditing(true)} onFork={(forkId) => window.location.assign(`/debates/${encodeURIComponent(forkId)}?profileId=${encodeURIComponent(authorProfileId)}`)} /></>}{node.evaluation && <span className="evaluation-badge" title="Reply evaluation">{node.evaluation}</span>}</div>
     {editing && <EditReplyForm debateId={debateId} node={node} profileId={authorProfileId} onSaved={() => { setEditing(false); window.location.reload(); }} />}
-    {!editing && <ArgumentLines debateId={debateId} parentId={node.id} paragraphs={paragraphs} children={paragraphReplies} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact titleEvaluation={node.evaluation} forceLocked={locked} />}
+    {!editing && <ArgumentLines debateId={debateId} parentId={node.id} parentReplyTo={node.replyTo} paragraphs={paragraphs} children={paragraphReplies} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact titleEvaluation={node.evaluation} forceLocked={locked} />}
     {!editing && paragraphs.length === 0 && <ArgumentLine debateId={debateId} id={node.id} text={text || node.title} replies={paragraphReplies} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth} compact evaluation={node.evaluation} forceLocked={locked} />}
-    {!locked && globalRepliesOpen && globalReplies.length > 0 && <div className="global-replies-accordion" aria-label="Global replies">{globalReplies.map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}</div>}
+    {!locked && (focus.focusId ? focus.ancestors.has(node.id) : globalRepliesOpen) && globalReplies.length > 0 && <div className="global-replies-accordion" aria-label="Global replies">{globalReplies.filter(focus.commentVisible).map((reply) => <CommentCard key={reply.id} debateId={debateId} node={reply} ownedProfileIds={ownedProfileIds} authorProfileId={authorProfileId} evaluationState={evaluationState} onEvaluate={onEvaluate} depth={depth + 1} />)}</div>}
     <MediaGallery media={node.media} compact />
     {!locked && <div className="global-reply-trigger"><CommentForm debateId={debateId} replyTo={node.id} controlId={`reply-global-${node.id}`} profileId={authorProfileId} compactTrigger /></div>}
   </article>;
@@ -200,6 +205,8 @@ export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorPr
   const [statuses, setStatuses] = useState(initialStatuses);
   const [safe, setSafe] = useState(false);
   const [mode, setMode] = useState<DebateFilter>(null);
+  const [focusHistory, setFocusHistory] = useState<string[]>([]);
+  const focusId = focusHistory.at(-1) ?? null;
   const rootId = rootPostId(debate);
   const paragraphs = debate.content.flatMap((text) => text.replace(/\r\n?/g, "\n").split("\n").map((paragraph) => paragraph.trim()).filter(Boolean)).map((text, index) => ({
     id: rootId === "p1" ? `p1-${index + 1}` : `${rootId}-p-${index + 1}`,
@@ -212,6 +219,13 @@ export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorPr
   const rootMatched = isStatusFilter(mode) && (statuses[debate.id]?.counts[mode] ?? 0) > 0;
   const rootComments = rootLocked || wholeDebateReported ? [] : filterDebateComments(comments, evaluatorProfileId, safe, mode, reports, evaluationState, paragraphs.map((paragraph) => paragraph.id), statuses, rootMatched);
   const visibleParagraphs = paragraphs.filter((paragraph) => !safeRootIds.has(paragraph.id) && (!isStatusFilter(mode) || rootMatched || (statuses[paragraph.id]?.counts[mode] ?? 0) > 0 || rootComments.some((comment) => comment.replyTo === paragraph.id)));
+  const focus = getDebateFocus(rootComments, focusId);
+  function toggleFocus(id: string) {
+    setFocusHistory((history) => {
+      const index = history.indexOf(id);
+      return index >= 0 ? history.slice(0, index) : [...history, id];
+    });
+  }
 
   async function toggleReport(messageId: string, reason: string) {
     setEvaluationError("");
@@ -245,14 +259,15 @@ export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorPr
     return result as StatusState[string];
   }
 
-  return <ReportContext.Provider value={{ reports, toggle: toggleReport, statuses, toggleStatus, evaluations: evaluationState, toggleEvaluation: evaluateArgument, filtering: safe || mode !== null, profileId: evaluatorProfileId }}><section className="thread-view" aria-label="Debate thread">
+  return <ReplyDraftProvider><ReportContext.Provider value={{ reports, toggle: toggleReport, statuses, toggleStatus, evaluations: evaluationState, toggleEvaluation: evaluateArgument, filtering: safe || mode !== null, profileId: evaluatorProfileId }}><FocusContext.Provider value={{ ...focus, focusId, toggle: toggleFocus }}><section className={`thread-view${focusId ? " thread-focused" : ""}`} aria-label="Debate thread">
     <header className="debate-heading debate-heading-thread">
       <p className="eyebrow">Open debate</p>
       <div className="debate-title-with-actions">{statuses[debate.id]?.selected.includes("🆕") && statuses[debate.id]?.forkDebateId ? <h1 className="serif"><a href={`/debates/${encodeURIComponent(statuses[debate.id].forkDebateId!)}?profileId=${encodeURIComponent(authorProfileId)}`}>{debate.title}</a></h1> : <h1 className="serif">{debate.title}</h1>}{statuses[debate.id]?.locked ? <InlineArgumentBadges id={debate.id} /> : <><InlineArgumentBadges id={debate.id} /><ArgumentMenus id={debate.id} text={`${debate.title}\n${debate.content.join("\n")}`} onReply={() => document.getElementById(`reply-debate-${debate.id}`)?.click()} onFork={(forkId) => window.location.assign(`/debates/${encodeURIComponent(forkId)}?profileId=${encodeURIComponent(authorProfileId)}`)} /></>}</div>
       <div className="debate-meta"><span>Opened by <strong>{debate.from || "Participant"}</strong></span><span>Starting point: <strong>{debate.start || "discussion"}</strong></span><span>Theme: <strong>{debate.theme === "economy-tech" ? "Economy / work / tech" : debate.theme || "—"}</strong></span><span>Mode: <strong>{debate.antiReaction ? "🐢 Slow mode" : "⚡ Normal"}</strong></span><span>Confidence: <strong>{debate.confidence ?? 0}%</strong> 💪</span><span>Icon: <strong>{debate.icon || "—"}</strong></span></div>
       {debate.sourcePostId && <a className="source-post-link" href={`/social#${encodeURIComponent(debate.sourcePostId)}`}>View original post in Circles →</a>}
     </header>
-    <DebateControls safe={safe} onSafeChange={setSafe} mode={mode} onModeChange={setMode} />
+    <DebateControls safe={safe} onSafeChange={(value) => { setSafe(value); setFocusHistory([]); }} mode={mode} onModeChange={(value) => { setMode(value); setFocusHistory([]); }} />
+    {focusId && <button className="text-action debate-reset-focus" type="button" onClick={() => setFocusHistory([])}>← Full debate</button>}
     {evaluationError && <p className="form-error" role="alert">{evaluationError}</p>}
     <article className="thread-message thread-root" key={`${safe}-${mode ?? "all"}`}>
       {debate.definitions?.length ? <details className="data-accordion" open><summary>Definitions <span>{debate.definitions.length}</span></summary><div>{debate.definitions.map((item, index) => <p key={index}>{typeof item === "string" ? item : item.text}</p>)}</div></details> : null}
@@ -261,5 +276,5 @@ export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorPr
       <MediaGallery media={debate.media} />
       {!statuses[debate.id]?.locked && <div className="global-reply-trigger"><CommentForm debateId={debate.id} replyTo={debate.id} controlId={`reply-debate-${debate.id}`} profileId={authorProfileId} compactTrigger /></div>}
     </article>
-  </section></ReportContext.Provider>;
+  </section></FocusContext.Provider></ReportContext.Provider></ReplyDraftProvider>;
 }

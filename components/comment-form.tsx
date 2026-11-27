@@ -1,9 +1,18 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { createContext, FormEvent, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MediaPicker } from "@/components/media-picker";
 import type { MediaAttachment } from "@/lib/media";
+
+type ReplyDraft = { title: string; text: string; evaluation: string; media: MediaAttachment[] };
+const emptyDraft = (): ReplyDraft => ({ title: "", text: "", evaluation: "", media: [] });
+const ReplyDraftContext = createContext<Map<string, ReplyDraft> | null>(null);
+
+export function ReplyDraftProvider({ children }: { children: React.ReactNode }) {
+  const drafts = useRef(new Map<string, ReplyDraft>());
+  return <ReplyDraftContext.Provider value={drafts.current}>{children}</ReplyDraftContext.Provider>;
+}
 
 const evaluations = [
   { icon: "👍", label: "Agree", hint: "I support this point." },
@@ -13,7 +22,7 @@ const evaluations = [
   { icon: "⚠️", label: "Reframe", hint: "I suggest looking at this from another angle." }
 ];
 
-function EvaluationOption({ icon, label, hint, showHint, setHint }: { icon: string; label: string; hint: string; showHint: boolean; setHint: (label: string | null) => void }) {
+function EvaluationOption({ icon, label, hint, showHint, setHint, evaluation, setEvaluation }: { icon: string; label: string; hint: string; showHint: boolean; setHint: (label: string | null) => void; evaluation: string; setEvaluation: (value: string) => void }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPress = useRef(false);
 
@@ -32,7 +41,7 @@ function EvaluationOption({ icon, label, hint, showHint, setHint }: { icon: stri
 
   return <div className="evaluation-option-wrap">
     <label className="evaluation-choice" title={hint}>
-      <input type="radio" name="evaluation" value={icon} />
+      <input type="radio" name="evaluation" value={icon} checked={evaluation === icon} onChange={() => setEvaluation(icon)} />
       <span aria-hidden="true">{icon}</span>
       <span className="evaluation-label">{label}</span>
     </label>
@@ -48,12 +57,20 @@ function EvaluationOption({ icon, label, hint, showHint, setHint }: { icon: stri
 
 export function CommentForm({ debateId, replyTo, controlId, compactTrigger = false, profileId = "profile-john" }: { debateId: string; replyTo: string; controlId?: string; compactTrigger?: boolean; profileId?: string }) {
   const router = useRouter();
+  const drafts = useContext(ReplyDraftContext);
+  const draftKey = JSON.stringify([debateId, profileId, replyTo]);
+  const [draft, setDraft] = useState<ReplyDraft>(() => drafts?.get(draftKey) ?? emptyDraft());
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [media, setMedia] = useState<MediaAttachment[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const evaluationRef = useRef<HTMLFieldSetElement>(null);
+
+  function updateDraft(changes: Partial<ReplyDraft>) {
+    const updated = { ...(drafts?.get(draftKey) ?? draft), ...changes };
+    drafts?.set(draftKey, updated);
+    setDraft(updated);
+  }
 
   useEffect(() => {
     if (!hint) return;
@@ -81,7 +98,7 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
     const response = await fetch(`/api/debates/${encodeURIComponent(debateId)}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ replyTo, title: form.get("title"), text, evaluation: form.get("evaluation"), media, profileId })
+      body: JSON.stringify({ replyTo, title: form.get("title"), text, evaluation: form.get("evaluation"), media: draft.media, profileId })
     }).catch(() => null);
     const result = await response?.json().catch(() => null);
     if (!response?.ok) {
@@ -90,7 +107,8 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
       return;
     }
     formElement.reset();
-    setMedia([]);
+    drafts?.delete(draftKey);
+    setDraft(emptyDraft());
     setSaving(false);
     setIsOpen(false);
     router.refresh();
@@ -103,12 +121,12 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
       </button>
       {isOpen && <form className="comment-form" onSubmit={submit}>
         <div className="comment-form-heading"><h3>Your reply</h3><button className="text-action" type="button" onClick={() => setIsOpen(false)}>Close</button></div>
-        <label className="reply-title-field">Reply title<input name="title" required minLength={2} maxLength={140} placeholder="Summarize your reply" /></label>
-        <textarea name="text" maxLength={3000} aria-label="Your reply" placeholder="Write your reply…" />
-        <MediaPicker profileId={profileId} media={media} onChange={setMedia} compact />
+        <label className="reply-title-field">Reply title<input name="title" required minLength={2} maxLength={140} placeholder="Summarize your reply" value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} /></label>
+        <textarea name="text" maxLength={3000} aria-label="Your reply" placeholder="Write your reply…" value={draft.text} onChange={(event) => updateDraft({ text: event.target.value })} />
+        <MediaPicker profileId={profileId} media={draft.media} onChange={(media) => updateDraft({ media })} compact />
         <fieldset className="evaluation-picker" ref={evaluationRef}>
           <legend>Rate your reply (optional)</legend>
-          {evaluations.map((option) => <EvaluationOption key={option.label} {...option} showHint={hint === option.label} setHint={setHint} />)}
+          {evaluations.map((option) => <EvaluationOption key={option.label} {...option} showHint={hint === option.label} setHint={setHint} evaluation={draft.evaluation} setEvaluation={(evaluation) => updateDraft({ evaluation })} />)}
           {hint && <span className="evaluation-hint" role="tooltip">{evaluations.find((option) => option.label === hint)?.hint}</span>}
         </fieldset>
         <div className="comment-actions">
