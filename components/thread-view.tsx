@@ -30,7 +30,7 @@ const ReportContext = createContext<{ reports: DebateReportState; toggle: (messa
 
 function ArgumentMenus({ id, text, locked = false, onReply, onEdit, onFork }: { id: string; text: string; locked?: boolean; onReply?: () => void; onEdit?: () => void; onFork?: (debateId: string) => void }) {
   const { reports, toggle, statuses, toggleStatus, evaluations, toggleEvaluation } = useContext(ReportContext);
-  const [activeMenu, setActiveMenu] = useState<"reactions" | "status" | "actions" | null>(null);
+  const [activeMenu, setActiveMenu] = useState<"chooser" | "reactions" | "status" | "actions" | null>(null);
   const [showReports, setShowReports] = useState(false);
   const status = statuses[id];
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,9 +60,8 @@ function ArgumentMenus({ id, text, locked = false, onReply, onEdit, onFork }: { 
     if (menu !== "actions") setShowReports(false);
   };
   return <div className="argument-menus" ref={containerRef}>
-    <button type="button" className="argument-menu-trigger" aria-label="Positive reactions" aria-expanded={activeMenu === "reactions"} onClick={() => toggleMenu("reactions")}>🙂</button>
-    <button type="button" className="argument-menu-trigger" aria-label="Argument status" aria-expanded={activeMenu === "status"} onClick={() => toggleMenu("status")}>🤔</button>
-    <button type="button" className="argument-menu-trigger" aria-label="Argument actions" aria-expanded={activeMenu === "actions"} onClick={() => toggleMenu("actions")}>🔧</button>
+    <button type="button" className="argument-actions-trigger" aria-expanded={activeMenu !== null} onClick={() => { setActiveMenu((current) => current ? null : "chooser"); setShowReports(false); }}>Actions</button>
+    {activeMenu === "chooser" && <div className="argument-popover-panel argument-menu-chooser" role="group" aria-label="Choose an action"><button type="button" className="argument-menu-trigger" aria-label="Positive reactions" title="Positive reactions" onClick={() => toggleMenu("reactions")}>🙂</button><button type="button" className="argument-menu-trigger" aria-label="Argument status" title="Argument status" onClick={() => toggleMenu("status")}>🤔</button><button type="button" className="argument-menu-trigger" aria-label="Argument actions" title="Argument actions" onClick={() => toggleMenu("actions")}>🔧</button></div>}
     {activeMenu === "reactions" && <div className="argument-popover-panel" role="group" aria-label="Reactions"><strong>Reactions</strong>{argumentEvaluations.map(([icon, label]) => <button type="button" key={icon} disabled={locked} aria-pressed={evaluations[id]?.viewerEvaluation === icon} onClick={() => { toggleEvaluation(id, icon); setActiveMenu(null); }}><span>{icon}</span><span>{label}</span><small>{evaluations[id]?.counts[icon] ?? 0}</small></button>)}</div>}
     {activeMenu === "status" && <div className="argument-popover-panel" role="group" aria-label="Status"><strong>Status</strong>{argumentStatuses.map(([icon, label]) => <button type="button" key={icon} aria-pressed={status?.selected.includes(icon) ?? false} disabled={locked} onClick={async () => { setActiveMenu(null); if (icon === "✏️" && status?.editable) { onEdit?.(); return; } const updated = await toggleStatus(id, icon); if (icon === "🆕" && updated?.forkDebateId) { onFork?.(updated.forkDebateId); return; } if (icon === "✏️" && updated?.editable) onEdit?.(); }}><span>{icon}</span><span>{label}</span><small>{status?.counts[icon] ?? 0}</small></button>)}</div>}
     {activeMenu === "actions" && <div className="argument-popover-panel argument-actions-panel" role="group" aria-label="Actions"><button type="button" aria-label="Reply" title="Reply" disabled={locked} onClick={() => { onReply?.(); setActiveMenu(null); }}>↩️<span>Reply</span></button><button type="button" aria-label="Share" title="Share" disabled={locked} onClick={async () => { setActiveMenu(null); try { if (navigator.share) await navigator.share({ title: "Debate argument", text }); else await navigator.clipboard.writeText(`${text}\n${window.location.href}#${id}`); } catch {} }}>🔁<span>Share</span></button><button type="button" aria-label="Report" title="Report" disabled={locked} aria-expanded={showReports} onClick={() => setShowReports((open) => !open)}>🚩<span>Report</span></button>{showReports && <div className="argument-report-list">{reportReasons.map(({ icon, label }) => { const reason = `${icon} ${label}`; return <button type="button" key={reason} disabled={locked} aria-pressed={reports[id]?.selected.includes(reason) ?? false} onClick={() => { toggle(id, reason); setActiveMenu(null); setShowReports(false); }}>{icon}<span>{label}</span><small>{reports[id]?.counts[reason] ?? 0}</small></button>; })}</div>}</div>}
@@ -241,7 +240,7 @@ export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorPr
     setEvaluationError("");
     const response = await fetch(`/api/debates/${encodeURIComponent(debate.id)}/statuses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ argumentId, status, profileId: evaluatorProfileId }) }).catch(() => null);
     const result = await response?.json().catch(() => null);
-    if (!response?.ok) { setEvaluationError(result?.error || "The status could not be saved."); return null; }
+    if (!response?.ok) { setEvaluationError(result?.error || (response ? `The status could not be saved (HTTP ${response.status}).` : "The status could not be saved: the server could not be reached.")); return null; }
     setStatuses((current) => ({ ...current, [argumentId]: result }));
     return result as StatusState[string];
   }
