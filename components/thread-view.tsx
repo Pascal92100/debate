@@ -240,7 +240,7 @@ export function ThreadView({ debate, comments, ownedProfileIds = [], evaluatorPr
     setEvaluationError("");
     const response = await fetch(`/api/debates/${encodeURIComponent(debate.id)}/statuses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ argumentId, status, profileId: evaluatorProfileId }) }).catch(() => null);
     const result = await response?.json().catch(() => null);
-    if (!response?.ok) { setEvaluationError(result?.error || (response ? `The status could not be saved (HTTP ${response.status}).` : "The status could not be saved: the server could not be reached.")); return null; }
+    if (!response?.ok) { setEvaluationError(result?.error || (response?.status === 404 ? "The status endpoint was not found (HTTP 404). Check that the latest version is deployed." : response ? `The status could not be saved (HTTP ${response.status}).` : "The status could not be saved: the server could not be reached.")); return null; }
     setStatuses((current) => ({ ...current, [argumentId]: result }));
     return result as StatusState[string];
   }

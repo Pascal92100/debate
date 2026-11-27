@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MediaPicker } from "@/components/media-picker";
 import type { MediaAttachment } from "@/lib/media";
@@ -13,8 +13,7 @@ const evaluations = [
   { icon: "⚠️", label: "Reframe", hint: "I suggest looking at this from another angle." }
 ];
 
-function EvaluationOption({ icon, label, hint }: { icon: string; label: string; hint: string }) {
-  const [showHint, setShowHint] = useState(false);
+function EvaluationOption({ icon, label, hint, showHint, setHint }: { icon: string; label: string; hint: string; showHint: boolean; setHint: (label: string | null) => void }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPress = useRef(false);
 
@@ -22,7 +21,7 @@ function EvaluationOption({ icon, label, hint }: { icon: string; label: string; 
     longPress.current = false;
     timer.current = setTimeout(() => {
       longPress.current = true;
-      setShowHint(true);
+      setHint(label);
     }, 550);
   }
 
@@ -37,14 +36,13 @@ function EvaluationOption({ icon, label, hint }: { icon: string; label: string; 
       <span aria-hidden="true">{icon}</span>
       <span className="evaluation-label">{label}</span>
     </label>
-    <button className="evaluation-info" type="button" aria-label={`Information: ${label}`} aria-expanded={showHint} onPointerDown={startPress} onPointerUp={endPress} onPointerCancel={endPress} onPointerLeave={endPress} onContextMenu={(event) => { event.preventDefault(); longPress.current = true; setShowHint(true); }} onClick={() => {
+    <button className="evaluation-info" type="button" aria-label={`Information: ${label}`} aria-expanded={showHint} onPointerDown={startPress} onPointerUp={endPress} onPointerCancel={endPress} onPointerLeave={endPress} onContextMenu={(event) => { event.preventDefault(); longPress.current = true; setHint(label); }} onClick={() => {
       if (longPress.current) {
         longPress.current = false;
         return;
       }
-      setShowHint((current) => !current);
+      setHint(showHint ? null : label);
     }}>i</button>
-    {showHint && <span className="evaluation-hint" role="tooltip">{hint}</span>}
   </div>;
 }
 
@@ -54,6 +52,24 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
   const [saving, setSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [media, setMedia] = useState<MediaAttachment[]>([]);
+  const [hint, setHint] = useState<string | null>(null);
+  const evaluationRef = useRef<HTMLFieldSetElement>(null);
+
+  useEffect(() => {
+    if (!hint) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Element && (!evaluationRef.current?.contains(event.target) || !event.target.closest(".evaluation-info, .evaluation-hint"))) setHint(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHint(null);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [hint]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,9 +106,10 @@ export function CommentForm({ debateId, replyTo, controlId, compactTrigger = fal
         <label className="reply-title-field">Reply title<input name="title" required minLength={2} maxLength={140} placeholder="Summarize your reply" /></label>
         <textarea name="text" maxLength={3000} aria-label="Your reply" placeholder="Write your reply…" />
         <MediaPicker profileId={profileId} media={media} onChange={setMedia} compact />
-        <fieldset className="evaluation-picker">
+        <fieldset className="evaluation-picker" ref={evaluationRef}>
           <legend>Rate your reply (optional)</legend>
-          {evaluations.map(({ icon, label, hint }) => <EvaluationOption key={label} icon={icon} label={label} hint={hint} />)}
+          {evaluations.map((option) => <EvaluationOption key={option.label} {...option} showHint={hint === option.label} setHint={setHint} />)}
+          {hint && <span className="evaluation-hint" role="tooltip">{evaluations.find((option) => option.label === hint)?.hint}</span>}
         </fieldset>
         <div className="comment-actions">
           <button className="button-primary" type="submit" disabled={saving}>{saving ? "Sending…" : "Post reply"}</button>
